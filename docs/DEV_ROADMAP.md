@@ -34,6 +34,7 @@ branch. Status is tracked in `docs/DEV_PROGRESS.json`.
 | M26 | Automated Git completion | M25 | verified work can commit/push agent branch and prepare PR; no automatic main merge | AUTO_GIT_PR_VALIDATION | COMPLETE |
 | M27 | Zero-Touch Control Loop | M20–M26 | one goal/start → complete or genuine escalation, with no routine relay/PowerShell | ZERO_TOUCH_EXTERNAL_VALIDATION | COMPLETE |
 | M28 | Japanese Dashboard / UX simplification + runtime readiness | M27 | localize Dashboard, remove redundant controls, and make approved local runtime dependencies such as Ollama preflight/startup part of normal Zero-Touch readiness while preserving English API/state/audit identifiers | JAPANESE_UI_AND_RUNTIME_READINESS_VALIDATION | COMPLETE |
+| M29 | Week 1 Day 4-7 autonomous execution | M28 | drive the remaining LocalLLM-Lab Week 1 runbook through trusted next-action/Zero-Touch orchestration without repeated Goal entry or authority expansion | WEEK1_DAY4_7_AUTONOMOUS_VALIDATION | IN_PROGRESS |
 
 M10 is deliberately non-blocking: a real semantic task must not be invented.
 
@@ -269,3 +270,12 @@ latest readiness result. The control loop behavior and successful post-stop flow
 validate the runtime-readiness path.
 
 This closes M28 and completes the current M0-M28 development roadmap.
+
+
+M29 opens the next operational phase after the M0-M28 platform roadmap.
+The authoritative scope is defined in `docs/WEEK1_DAY4_7_AUTONOMOUS.md` and
+LocalLLM-Lab `docs/week1-runbook.md`.
+
+Day 4-7 execution must reuse existing approved LocalLLM-Lab capabilities and
+must stop rather than downloading models, installing benchmark tools, or
+changing context conditions without explicit approval.
