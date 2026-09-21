@@ -42,11 +42,15 @@ def test_dashboard_v2_uses_only_configured_day_plan_api_contracts(client):
     assert 'id="run-experiment"' in html
     assert 'id="validate-transient"' in html
     assert 'id="validate-runtime"' in html
+    assert 'id="validation-evidence"' in html
+    assert 'id="experiment-evidence"' in html
     assert "/api/day/start/" in script
     assert "/api/day/resume?mode=continuous" in script
     assert "continuous_mode_supported" in script
     assert "/api/experiments" in script
     assert "/api/validation/escalation/" in script
+    assert "normal_day_unchanged" in script
+    assert "builder_invoked" in script
     assert "/api/run/mock" not in script
     assert "innerHTML" not in script
 

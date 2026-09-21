@@ -135,6 +135,12 @@ The same dashboard exposes isolated **Validate Architect retry** and **Validate
 missing runtime** controls for the batched M21 gate. These use no live Codex,
 no LocalLLM execution, and no production configuration changes.
 
+Dashboard evidence panels show only bounded result fields: isolated validation
+state/retry/review/escalation evidence and the latest experiment outcome,
+engine/model, counts, configured artifact reference, Builder flag, and
+classification. They never render prompts, response bodies, secrets, or
+artifact contents.
+
 ## Completion gate
 
 The first external gate should prove:

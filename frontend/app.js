@@ -79,6 +79,26 @@ function render(status) {
     keyValue("Architect output", compactNumber(tokens.architect?.output_tokens)),
     keyValue("Day total", compactNumber(day.token_totals?.day_total)),
   );
+  const validation = status.escalation_validations?.at(-1);
+  const validationDay = validation?.result;
+  byId("validation-evidence").replaceChildren(...(validation ? [
+    keyValue("Scenario", validation.scenario),
+    keyValue("Final state", validationDay?.state ?? "–"),
+    keyValue("Automatic retries", compactNumber(validationDay?.auto_provider_retries)),
+    keyValue("Human Review / attention", compactNumber(validationDay?.human_review_queue?.length)),
+    keyValue("Escalation", validationDay?.escalation_events?.at(-1)?.category ?? validationDay?.human_review_queue?.at(-1)?.escalation_category ?? "–"),
+    keyValue("Action", validationDay?.escalation_events?.at(-1)?.action ?? "No retry"),
+    keyValue("Normal Day unchanged", validation.normal_day_unchanged ? "yes" : "no"),
+  ] : [keyValue("Status", "Awaiting validation") ]));
+  const experiment = status.experiment_runs?.at(-1);
+  byId("experiment-evidence").replaceChildren(...(experiment ? [
+    keyValue("Outcome", experiment.outcome),
+    keyValue("Engine / model", `${experiment.engine ?? "–"} / ${experiment.model ?? "–"}`),
+    keyValue("Responses", `${compactNumber(experiment.response_count)} / ${compactNumber(experiment.success_count)} success / ${compactNumber(experiment.failed_count)} failed`),
+    keyValue("Artifact", experiment.artifact_path ?? "unavailable"),
+    keyValue("Builder invoked", experiment.builder_invoked ? "true" : "false"),
+    keyValue("Classification", experiment.classification_reason),
+  ] : [keyValue("Status", "Awaiting experiment") ]));
   byId("task-queue").replaceChildren(...(day.queue?.length ? day.queue : [{ task_id: "No tasks", state: "–", final_result: "" }]).map((item) => {
     const row = document.createElement("li");
     row.append(node("strong", item.task_id), node("span", item.state), node("small", item.final_result ?? ""));
