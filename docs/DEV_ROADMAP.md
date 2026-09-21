@@ -33,7 +33,7 @@ branch. Status is tracked in `docs/DEV_PROGRESS.json`.
 | M25 | Self-repair, bounded replan, and autonomous next action | M21, M24 | recover/replan failures within limits and continue the obvious trusted success path without another typed Goal | AUTONOMOUS_RECOVERY_AND_CONTINUE_VALIDATION | COMPLETE |
 | M26 | Automated Git completion | M25 | verified work can commit/push agent branch and prepare PR; no automatic main merge | AUTO_GIT_PR_VALIDATION | COMPLETE |
 | M27 | Zero-Touch Control Loop | M20–M26 | one goal/start → complete or genuine escalation, with no routine relay/PowerShell | ZERO_TOUCH_EXTERNAL_VALIDATION | COMPLETE |
-| M28 | Japanese Dashboard / UX simplification + runtime readiness | M27 | localize Dashboard, remove redundant controls, and make approved local runtime dependencies such as Ollama preflight/startup part of normal Zero-Touch readiness while preserving English API/state/audit identifiers | JAPANESE_UI_AND_RUNTIME_READINESS_VALIDATION | IN_PROGRESS |
+| M28 | Japanese Dashboard / UX simplification + runtime readiness | M27 | localize Dashboard, remove redundant controls, and make approved local runtime dependencies such as Ollama preflight/startup part of normal Zero-Touch readiness while preserving English API/state/audit identifiers | JAPANESE_UI_AND_RUNTIME_READINESS_VALIDATION | COMPLETE |
 
 M10 is deliberately non-blocking: a real semantic task must not be invented.
 
@@ -251,3 +251,21 @@ M28 implementation is ready for external validation:
 - readiness is shown as bounded Japanese Dashboard evidence; failure produces
   `EXTERNAL_ACTION_REQUIRED` without installation, model download, cloud
   fallback, browser-supplied command/path, experiment retry, or Builder work.
+
+
+External M28 validation passed on 2026-09-22:
+- the Dashboard is Japanese and Zero-Touch-first;
+- manual/validation controls are demoted under diagnostics;
+- the trusted LocalLLM Zero-Touch flow completed successfully;
+- latest LocalLLM outcome: RESULT_RECORDED;
+- engine/model: ollama / qwen3-8b-q4:latest;
+- responses: 4/4 success, 0 failed;
+- Builder invoked: false;
+- approved local Ollama readiness was active and the trusted flow completed without manual runtime/model installation or cloud fallback.
+
+The displayed runtime card may show READY after a later preflight even when an
+earlier bounded preflight started Ollama, because runtime_readiness stores the
+latest readiness result. The control loop behavior and successful post-stop flow
+validate the runtime-readiness path.
+
+This closes M28 and completes the current M0-M28 development roadmap.
