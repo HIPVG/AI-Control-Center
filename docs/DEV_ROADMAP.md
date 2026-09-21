@@ -28,8 +28,8 @@ branch. Status is tracked in `docs/DEV_PROGRESS.json`.
 | M20 | Real continuous Codex-Core Day | M18 | trusted multi-task Day completes end-to-end without per-task human action | REAL_CODEX_CORE_CONTINUOUS_VALIDATION | COMPLETE |
 | M21 | Exception-driven escalation | M20 | auto-resolve/retry/replan routine failure classes; human only for true authority/external boundaries | BATCH_WITH_M22_EXTERNAL_VALIDATION | COMPLETE |
 | M22 | Real LocalLLM experiment integration | M21 implementation | run an existing trusted LocalLLM-Lab experiment through Control Center, preserve experiment-vs-code semantics, capture artifacts/telemetry | ESCALATION_AND_REAL_LOCAL_LLM_VALIDATION | COMPLETE |
-| M23 | PowerShell-free daily operation | M18, M22 | auto-start/service behavior and dashboard start/resume/stop/health controls | ZERO_COMMAND_DAILY_OPERATION_VALIDATION | HUMAN_GATE |
-| M24 | Goal-to-Plan | M21, M22 | bounded goal intake → Codex plan → deterministic policy validation → execution | GOAL_TO_PLAN_EXTERNAL_VALIDATION | ROADMAP |
+| M23 | PowerShell-free daily operation | M18, M22 | auto-start/service behavior and dashboard start/resume/stop/health controls | ZERO_COMMAND_DAILY_OPERATION_VALIDATION | COMPLETE |
+| M24 | Goal-to-Plan | M21, M22 | bounded goal intake → Codex plan → deterministic policy validation → execution | GOAL_TO_PLAN_EXTERNAL_VALIDATION | IN_PROGRESS |
 | M25 | Self-repair and bounded replan | M21, M24 | classify failure → retry/repair/review/replan automatically within limits | AUTONOMOUS_RECOVERY_VALIDATION | ROADMAP |
 | M26 | Automated Git completion | M25 | verified work can commit/push agent branch and prepare PR; no automatic main merge | AUTO_GIT_PR_VALIDATION | ROADMAP |
 | M27 | Zero-Touch Control Loop | M20–M26 | one goal/start → complete or genuine escalation, with no routine relay/PowerShell | ZERO_TOUCH_EXTERNAL_VALIDATION | ROADMAP |
@@ -108,3 +108,14 @@ candidates being returned as an array at the launch boundary. The next retry
 resolves the root from the launcher path, deterministically selects one verified
 Python 3.12 executable, and records bounded startup codes/reason/type fields
 for browser/log inspection.
+
+
+External M23 validation is accepted as PASSED for daily operation:
+- after one-time Windows Task Scheduler bootstrap, the Control Center starts at user sign-in;
+- http://127.0.0.1:8000 is available without manually launching PowerShell;
+- normal Day start/resume/stop and health remain Dashboard-driven.
+
+Known residual defect / non-blocking backlog:
+- the Dashboard "Enable automatic startup" registration path did not reliably create the Windows task on this machine;
+- one-time manual Task Scheduler registration was used to bootstrap autostart;
+- this does not block zero-command daily use, but the Dashboard registration path should be repaired later without delaying M24 Goal-to-Plan.
