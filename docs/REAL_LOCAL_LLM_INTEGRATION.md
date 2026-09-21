@@ -4,7 +4,7 @@
 
 Connect AI Control Center to the already-existing LocalLLM-Lab real experiment runners so the Control Center can execute and govern real local-model validation, not only dry-run code checks.
 
-This milestone should begin immediately after M21 Exception-driven escalation is externally validated.
+This milestone begins immediately after M21 Exception-driven escalation is implemented. M21 external validation is intentionally batched with this milestone's external validation so development does not pause for an avoidable intermediate human relay.
 
 ## Principle
 
@@ -140,7 +140,9 @@ The first external gate should prove:
 
 Human gate name:
 
-`REAL_LOCAL_LLM_EXPERIMENT_VALIDATION`
+`ESCALATION_AND_REAL_LOCAL_LLM_VALIDATION`
+
+The combined gate must validate both the M21 controlled escalation scenarios and the M22 real LocalLLM experiment path.
 
 ## Strategic role
 
