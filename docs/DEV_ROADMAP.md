@@ -27,15 +27,17 @@ branch. Status is tracked in `docs/DEV_PROGRESS.json`.
 | M19 | Architect context efficiency | M17 validation telemetry | isolated non-repository role workspace, compact context, character telemetry | no | COMPLETE |
 | M20 | Real continuous Codex-Core Day | M18 | trusted multi-task Day completes end-to-end without per-task human action | REAL_CODEX_CORE_CONTINUOUS_VALIDATION | COMPLETE |
 | M21 | Exception-driven escalation | M20 | auto-resolve/retry/replan routine failure classes; human only for true authority/external boundaries | ESCALATION_POLICY_EXTERNAL_VALIDATION | HUMAN_GATE |
-| M22 | PowerShell-free daily operation | M18 | auto-start/service behavior and dashboard start/resume/stop/health controls | ZERO_COMMAND_DAILY_OPERATION_VALIDATION | ROADMAP |
-| M23 | Goal-to-Plan | M21 | bounded goal intake → Codex plan → deterministic policy validation → execution | GOAL_TO_PLAN_EXTERNAL_VALIDATION | ROADMAP |
-| M24 | Self-repair and bounded replan | M21, M23 | classify failure → retry/repair/review/replan automatically within limits | AUTONOMOUS_RECOVERY_VALIDATION | ROADMAP |
-| M25 | Automated Git completion | M24 | verified work can commit/push agent branch and prepare PR; no automatic main merge | AUTO_GIT_PR_VALIDATION | ROADMAP |
-| M26 | Zero-Touch Control Loop | M20–M25 | one goal/start → complete or genuine escalation, with no routine relay/PowerShell | ZERO_TOUCH_EXTERNAL_VALIDATION | ROADMAP |
+| M22 | Real LocalLLM experiment integration | M21 | run an existing trusted LocalLLM-Lab experiment through Control Center, preserve experiment-vs-code semantics, capture artifacts/telemetry | REAL_LOCAL_LLM_EXPERIMENT_VALIDATION | ROADMAP |
+| M23 | PowerShell-free daily operation | M18, M22 | auto-start/service behavior and dashboard start/resume/stop/health controls | ZERO_COMMAND_DAILY_OPERATION_VALIDATION | ROADMAP |
+| M24 | Goal-to-Plan | M21, M22 | bounded goal intake → Codex plan → deterministic policy validation → execution | GOAL_TO_PLAN_EXTERNAL_VALIDATION | ROADMAP |
+| M25 | Self-repair and bounded replan | M21, M24 | classify failure → retry/repair/review/replan automatically within limits | AUTONOMOUS_RECOVERY_VALIDATION | ROADMAP |
+| M26 | Automated Git completion | M25 | verified work can commit/push agent branch and prepare PR; no automatic main merge | AUTO_GIT_PR_VALIDATION | ROADMAP |
+| M27 | Zero-Touch Control Loop | M20–M26 | one goal/start → complete or genuine escalation, with no routine relay/PowerShell | ZERO_TOUCH_EXTERNAL_VALIDATION | ROADMAP |
 
 M10 is deliberately non-blocking: a real semantic task must not be invented.
 
 The strategic target is defined in `docs/ZERO_TOUCH_CONTROL_LOOP.md`.
+Real LocalLLM experiment integration is defined in `docs/REAL_LOCAL_LLM_INTEGRATION.md` and is intentionally prioritized immediately after M21 so autonomy is exercised against real experiment behavior early.
 Autonomous development reasoning selection is governed by `docs/DEVELOPMENT_REASONING_POLICY.md`; Terra / Medium is the normal default, with bounded self-selected escalation/de-escalation.
 Development priority is now autonomy, reliability, recovery, and observability.
 Token optimization remains measured but is secondary unless it becomes an actual
