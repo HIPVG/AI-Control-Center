@@ -13,6 +13,7 @@ from backend.agents.architect import MockArchitect
 from backend.agents.day_providers import (
     CodexArchitectProvider, CodexReviewerProvider, MockCodexArchitectProvider,
     MockDayArchitect, MockSemanticEvaluator, OpenAIDayArchitect, OpenAISemanticEvaluator,
+    ProviderRequestError,
 )
 from backend.agents.evaluator import MockEvaluator
 from backend.agents.triage import MockTriage, TriageDecision
@@ -29,7 +30,7 @@ from backend.control.tasks import ConfiguredTask, TaskCommand, TaskRegistry, loa
 from backend.control.scope_guard import ScopeGuard
 from backend.control.token_budget import BudgetDecision, TokenBudgetManager, load_budget_config
 from backend.models.audit import AuditEvent, AuditEventType
-from backend.models.day import DayExecutionMode
+from backend.models.day import ArchitectDecision, DayExecutionMode, DayPlan, DayPlanRegistry
 from backend.models.orchestration import ProviderBudget
 from backend.models.result import TokenUsage
 from backend.models.runtime import CodexAttemptResult, CodexMode, CommandRunResult, FaultRepairResult, ProjectSmokeResult, RuntimeConfig, SmokeRunResult, TaskRunResult, load_runtime_config
@@ -153,6 +154,7 @@ class ControlCenterEngine:
             "task_discoveries": [],
             "fault_repair_runs": [],
             "experiment_runs": [],
+            "escalation_validations": [],
             "task_start_completed": {"PC-014": 18},
             "task_progress": calculate_progress(task_completed, task_total),
             "current_task": {"task_id": "PC-014", "title": "Evidence Grounding", "completed": task_completed, "total": task_total, "retry": 0, "max_retry": 2},
@@ -350,6 +352,31 @@ class ControlCenterEngine:
         outcome = ExperimentOutcome.RESULT_RECORDED if status == "completed" else ExperimentOutcome.MODEL_NOT_FOUND if error == "model_not_found" else ExperimentOutcome.ENGINE_UNAVAILABLE if error == "engine_unavailable" else ExperimentOutcome.CONFIGURATION_BLOCKED if status == "blocked" else ExperimentOutcome.MODEL_QUALITY_FINDING if status == "completed_with_errors" else ExperimentOutcome.HARNESS_FAILURE
         result = ExperimentRun(experiment_id=experiment_id, project_id=definition.project_id, started_at=started, completed_at=datetime.now(timezone.utc), outcome=outcome, runner_exit_code=completed.returncode, artifact_path=payload.get("output_directory"), model=definition.model, engine="ollama", response_count=int(payload.get("response_count", 0)), success_count=int(payload.get("success_count", 0)), failed_count=int(payload.get("failed_count", 0)), classification_reason=error or status or "RUNNER_UNKNOWN")
         return self._finish_experiment(result)
+
+    def run_escalation_validation(self, scenario: str) -> dict[str, Any]:
+        """Isolated, no-provider M21 contract check; never touches normal Day state."""
+        if scenario not in {"transient-architect", "missing-runtime"}:
+            return {"error_code": "ESCALATION_VALIDATION_NOT_CONFIGURED"}
+        task = ConfiguredTask(task_id="VALIDATION-ONLY", project_id="validation", title="Validation-only deterministic task", task_type=TaskType.CODE_FIX, precheck=TaskCommand(argv=["python", "-c", "pass"]), postcheck=TaskCommand(argv=["python", "-c", "pass"]), allowed_files=["validation-only"], context_files=["validation-only"], requires_codex=False)
+        plan = DayPlan(plan_id="validation-only", title="Validation-only", task_ids=[task.task_id], architect_provider="validation", continuous_mode_supported=True)
+
+        class ValidationArchitect:
+            calls = 0
+            def choose(self, request, execution):
+                self.calls += 1
+                if scenario == "transient-architect" and self.calls == 1:
+                    raise ProviderRequestError("CODEX_TIMEOUT", "validation-only transient timeout")
+                if scenario == "missing-runtime":
+                    raise ProviderRequestError("CODEX_NOT_FOUND", "validation-only missing runtime")
+                return ArchitectDecision(task_id="VALIDATION-ONLY", reason="validation-only trusted task")
+
+        runner = DayRunner(DayPlanRegistry(plans={plan.plan_id: plan}), TaskRegistry(tasks={task.task_id: task}), lambda *_args, **_kwargs: {"task_id": task.task_id, "final_result": "COMPLETE_NO_CHANGE", "codex_attempts": [], "codex_invoked": False}, architects={"validation": ValidationArchitect()})
+        result = runner.start(plan.plan_id, mode=DayExecutionMode.CONTINUOUS)
+        payload = {"scenario": scenario, "isolated": True, "normal_day_unchanged": True, "result": result}
+        self.data["escalation_validations"].append(payload)
+        self._event("VALIDATION", AuditEventType.DAY_ESCALATION, f"Validation-only escalation: {scenario}", details=payload)
+        self._save()
+        return payload
 
     def _finish_experiment(self, result: ExperimentRun) -> dict[str, Any]:
         payload = result.model_dump(mode="json")

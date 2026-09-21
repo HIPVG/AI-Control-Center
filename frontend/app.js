@@ -160,4 +160,18 @@ byId("run-experiment").addEventListener("click", async () => {
   }
 });
 
+for (const [id, scenario] of [["validate-transient", "transient-architect"], ["validate-runtime", "missing-runtime"]]) {
+  byId(id).addEventListener("click", async () => {
+    const button = byId(id); button.disabled = true;
+    try {
+      const response = await fetch(`/api/validation/escalation/${scenario}`, { method: "POST" });
+      const result = await response.json();
+      if (!response.ok || result.error_code) throw new Error(result.error_code ?? "Validation request was rejected.");
+      byId("operation-status").textContent = `${scenario}: ${result.result.state}`;
+      await refresh();
+    } catch (error) { byId("operation-status").textContent = error.message; }
+    finally { button.disabled = false; }
+  });
+}
+
 refresh().catch((error) => { byId("operation-status").textContent = error.message; });

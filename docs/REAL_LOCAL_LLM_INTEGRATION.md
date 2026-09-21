@@ -131,6 +131,10 @@ LocalLLM experiment**. The browser sends only the configured experiment ID;
 the server resolves the LocalLLM-Lab runner, loopback engine, model, cases,
 timeout, and artifact root from `config/experiments.yaml`.
 
+The same dashboard exposes isolated **Validate Architect retry** and **Validate
+missing runtime** controls for the batched M21 gate. These use no live Codex,
+no LocalLLM execution, and no production configuration changes.
+
 ## Completion gate
 
 The first external gate should prove:

@@ -77,6 +77,11 @@ replan using the same configured queue. Missing runtime prerequisites become
 `HUMAN_DECISION_REQUIRED`. Automatic recovery never changes task scope, plans,
 budgets, or retry ceilings.
 
+Dashboard validation-only controls run isolated synthetic Architect scenarios.
+They never invoke Codex, alter normal Day state, runtime configuration, or
+LocalLLM-Lab. They prove exactly one `CODEX_TIMEOUT` retry and the typed
+`EXTERNAL_ACTION_REQUIRED` result for a missing runtime prerequisite.
+
 Hard limits are trusted plan/config values: tasks per run, failed tasks,
 Architect/Evaluator/Codex calls, repair loops, and role-specific token budgets.
 Pre-call provider budget gates stop safely; a usage value reported after a

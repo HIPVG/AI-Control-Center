@@ -70,6 +70,11 @@ def run_experiment(experiment_id: str) -> dict:
     return engine.run_experiment(experiment_id)
 
 
+@app.post("/api/validation/escalation/{scenario}")
+def run_escalation_validation(scenario: str) -> dict:
+    return engine.run_escalation_validation(scenario)
+
+
 @app.post("/api/day/start/{plan_id}")
 def start_day(plan_id: str, mode: DayExecutionMode = Query(DayExecutionMode.SINGLE_STEP)) -> dict:
     return engine.start_day(plan_id, mode=mode)
