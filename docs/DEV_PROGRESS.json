@@ -254,5 +254,27 @@
     "reuse_existing_runner": true,
     "cross_family_models_status": "DESIGN_ONLY_UNREVIEWED_RUNTIME_NAME_MISSING",
     "expected_boundary_after_adapter": "APPROVED_CROSS_FAMILY_RUNTIME_MISSING_OR_EQUIVALENT"
-  }
+  },
+  "m29_execution_policy": "BATCH_BLOCKER_SWEEP_THEN_AUTOREPAIR",
+  "m29_pre_authorized_repairs": [
+    "HARNESS_CODE_DEFECT",
+    "RUNNER_ADAPTER",
+    "TERMINAL_JSON_CONTRACT",
+    "PARENT_CHILD_TIMEOUT_BUDGET",
+    "ARTIFACT_FINALIZATION",
+    "EXISTING_RUNNER_WIRING",
+    "ALREADY_APPROVED_BOUNDED_PROFILE",
+    "STATE_PERSISTENCE_RESUME",
+    "DASHBOARD_EVIDENCE"
+  ],
+  "m29_current_failure": {
+    "classification": "HARNESS_FAILURE",
+    "artifact": "C:\\LocalLLM-Lab\\results\\experiments\\EXP-20260921T220217-5542f4aa55",
+    "manifest_status": "preparing",
+    "response_count": 0,
+    "terminal_json": false,
+    "repair_authorized": true,
+    "controlled_rerun_authorized_after_fix": true
+  },
+  "m29_human_gate_policy": "BATCH_ONLY_GENUINE_AUTHORITY_OR_EXTERNAL_BLOCKERS_AFTER_SWEEP"
 }
