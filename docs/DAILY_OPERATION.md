@@ -67,3 +67,17 @@ With the normal server already running, the human needs only the browser:
 
 The sign-in observation is the only external operational fact; no live Codex
 or LocalLLM call is required for this milestone.
+
+
+## External validation result
+
+Status: PASSED for zero-command daily operation on 2026-09-22.
+
+The machine now starts AI Control Center automatically at Windows user sign-in
+and the Dashboard is available at the normal loopback address without a routine
+PowerShell launch.
+
+A one-time manual Task Scheduler bootstrap was used because the current
+Dashboard registration action did not reliably create the task on this machine.
+That registration defect is retained as non-blocking backlog; normal daily
+operation is PowerShell-free and M24 may proceed.
