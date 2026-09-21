@@ -4,6 +4,7 @@ const percentage = (value) => `${Number(value ?? 0).toFixed(2).replace(/\.00$/, 
 let configuredPlans = [];
 let latestStatus = null;
 let configuredExperiments = [];
+let goalPlans = [];
 
 function renderHealth(health) {
   const autostart = health.autostart ?? {};
@@ -19,6 +20,14 @@ function renderHealth(health) {
   const button = byId("enable-autostart");
   button.disabled = !autostart.supported || Boolean(autostart.enabled);
   button.textContent = autostart.enabled ? "Automatic startup enabled" : "Enable automatic startup";
+}
+
+function renderGoalPlans(plans) {
+  goalPlans = plans;
+  const latest = plans.at(-1); const status = byId("goal-plan-status"); const execute = byId("execute-goal");
+  if (!latest) { status.textContent = "Awaiting a bounded goal."; execute.disabled = true; return; }
+  status.textContent = `${latest.status}: ${latest.summary} Policy: ${latest.policy_reason}.`;
+  execute.disabled = latest.status !== "PROPOSED";
 }
 
 function node(tag, text, className) {
@@ -129,17 +138,39 @@ function render(status) {
 }
 
 async function refresh() {
-  const [statusResponse, plansResponse, experimentsResponse, healthResponse] = await Promise.all([fetch("/api/status"), fetch("/api/day/plans"), fetch("/api/experiments"), fetch("/api/operation/health")]);
-  if (!statusResponse.ok || !plansResponse.ok || !experimentsResponse.ok || !healthResponse.ok) throw new Error("Unable to load Control Center state.");
+  const [statusResponse, plansResponse, experimentsResponse, healthResponse, goalsResponse] = await Promise.all([fetch("/api/status"), fetch("/api/day/plans"), fetch("/api/experiments"), fetch("/api/operation/health"), fetch("/api/goals")]);
+  if (!statusResponse.ok || !plansResponse.ok || !experimentsResponse.ok || !healthResponse.ok || !goalsResponse.ok) throw new Error("Unable to load Control Center state.");
   renderPlans(await plansResponse.json());
   configuredExperiments = await experimentsResponse.json();
   byId("run-experiment").disabled = configuredExperiments.length === 0;
   render(await statusResponse.json());
   renderHealth(await healthResponse.json());
+  renderGoalPlans(await goalsResponse.json());
 }
 
 byId("refresh").addEventListener("click", () => refresh().catch((error) => { byId("operation-status").textContent = error.message; }));
 byId("plan-selector").addEventListener("change", updateContinuousControl);
+byId("propose-goal").addEventListener("click", async () => {
+  const goal = byId("goal-input").value.trim(); const button = byId("propose-goal");
+  if (!goal) { byId("goal-plan-status").textContent = "Enter a bounded goal."; return; }
+  button.disabled = true;
+  try {
+    const response = await fetch("/api/goals", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ goal }) });
+    if (!response.ok) throw new Error("Goal was rejected before planning.");
+    await refresh();
+  } catch (error) { byId("goal-plan-status").textContent = error.message; }
+  finally { button.disabled = false; }
+});
+byId("execute-goal").addEventListener("click", async () => {
+  const latest = goalPlans.at(-1); const button = byId("execute-goal");
+  if (!latest || latest.status !== "PROPOSED") return;
+  button.disabled = true;
+  try {
+    const response = await fetch(`/api/goals/${encodeURIComponent(latest.goal_id)}/execute`, { method: "POST" }); const result = await response.json();
+    if (!response.ok || result.error_code) throw new Error(result.error_code ?? "Goal plan execution was rejected.");
+    await refresh(); byId("operation-status").textContent = `Goal plan completed: ${result.result.outcome}.`;
+  } catch (error) { byId("goal-plan-status").textContent = error.message; }
+});
 byId("run-day").addEventListener("click", async () => {
   const button = byId("run-day");
   button.disabled = true;

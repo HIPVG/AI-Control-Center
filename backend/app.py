@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from backend.orchestrator.engine import ControlCenterEngine, JsonStateStore
 from backend.models.day import DayExecutionMode
 from backend.control.daily_operation import DailyOperationService
+from backend.models.goal import GoalSubmission
 
 ROOT = Path(__file__).resolve().parent.parent
 engine = ControlCenterEngine(JsonStateStore(ROOT / "state" / "control-center.json"), ROOT / "config" / "budget.yaml")
@@ -85,6 +86,21 @@ def day_status() -> dict:
 @app.get("/api/experiments")
 def experiments() -> list[dict]:
     return engine.configured_experiments()
+
+
+@app.get("/api/goals")
+def goals() -> list[dict]:
+    return engine.goal_plans()
+
+
+@app.post("/api/goals")
+def propose_goal(submission: GoalSubmission) -> dict:
+    return engine.propose_goal(submission.goal)
+
+
+@app.post("/api/goals/{goal_id}/execute")
+def execute_goal(goal_id: str) -> dict:
+    return engine.execute_goal(goal_id)
 
 
 @app.post("/api/experiments/{experiment_id}/run")

@@ -17,6 +17,7 @@ startup requirement.
 - Model / reasoning routing: [docs/MODEL_ROUTING.md](docs/MODEL_ROUTING.md)
 - Autonomous Day operation: [docs/AUTONOMOUS_DAY.md](docs/AUTONOMOUS_DAY.md)
 - Daily Dashboard operation: [docs/DAILY_OPERATION.md](docs/DAILY_OPERATION.md)
+- Bounded Goal-to-Plan: [docs/GOAL_TO_PLAN.md](docs/GOAL_TO_PLAN.md)
 - Initial Codex implementation prompt: [prompts/CODEX_BOOTSTRAP.md](prompts/CODEX_BOOTSTRAP.md)
 
 ## Core operating principle

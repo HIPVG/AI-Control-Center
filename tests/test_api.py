@@ -22,7 +22,7 @@ def client(monkeypatch):
 
 
 def test_required_endpoints_are_available(client):
-    for path in ("/api/status", "/api/plan", "/api/tasks", "/api/timeline", "/api/token-usage", "/api/runtime", "/api/operation/health", "/api/day/plans", "/api/day/status", "/api/experiments"):
+    for path in ("/api/status", "/api/plan", "/api/tasks", "/api/timeline", "/api/token-usage", "/api/runtime", "/api/operation/health", "/api/day/plans", "/api/day/status", "/api/experiments", "/api/goals"):
         assert client.get(path).status_code == 200
     assert client.post("/api/run/mock").status_code == 200
     assert client.post("/api/run/codex-smoke").json()["error_code"] == "REAL_MODE_REQUIRED"
@@ -47,6 +47,9 @@ def test_dashboard_v2_uses_only_configured_day_plan_api_contracts(client):
     html = (control_app.ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     script = (control_app.ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
     assert 'id="run-day"' in html
+    assert 'id="goal-input"' in html
+    assert 'id="propose-goal"' in html
+    assert 'id="execute-goal"' in html
     assert 'id="run-continuous"' in html
     assert 'id="stop-day"' in html
     assert 'id="server-health"' in html
@@ -57,6 +60,8 @@ def test_dashboard_v2_uses_only_configured_day_plan_api_contracts(client):
     assert 'id="validation-evidence"' in html
     assert 'id="experiment-evidence"' in html
     assert "/api/day/start/" in script
+    assert 'fetch("/api/goals"' in script
+    assert "/execute" in script
     assert "/api/day/resume?mode=continuous" in script
     assert 'fetch("/api/day/stop"' in script
     assert "/api/operation/health" in script
@@ -70,6 +75,14 @@ def test_dashboard_v2_uses_only_configured_day_plan_api_contracts(client):
     assert "builder_invoked" in script
     assert "/api/run/mock" not in script
     assert "innerHTML" not in script
+
+
+def test_goal_endpoint_accepts_only_the_bounded_goal_field(client):
+    rejected = client.post("/api/goals", json={"goal": "Run the trusted LocalLLM experiment", "command": "unsafe"})
+    assert rejected.status_code == 422
+    result = client.post("/api/goals", json={"goal": "Run the trusted LocalLLM process consistency experiment"})
+    assert result.json()["status"] == "PROPOSED"
+    assert "command" not in result.json()
 
 
 def test_model_router_single_step_day_is_auditable_without_external_execution(monkeypatch):

@@ -27,6 +27,12 @@
         </div>
       </header>
       <p id="operation-status" class="operation-status" aria-live="polite"></p>
+      <section class="goal-control" aria-label="Goal to Plan">
+        <div><p class="eyebrow">GOAL TO PLAN</p><h2>Start from a bounded goal</h2><p class="muted compact">The trusted policy can propose only configured capabilities.</p></div>
+        <label for="goal-input">Goal</label><input id="goal-input" maxlength="280" placeholder="Run the trusted LocalLLM process consistency experiment" autocomplete="off">
+        <button id="propose-goal" type="button">Propose trusted plan</button><button id="execute-goal" class="secondary" type="button" disabled>Execute proposed plan</button>
+        <p id="goal-plan-status" class="muted compact" aria-live="polite">Awaiting a bounded goal.</p>
+      </section>
       <section class="progress-grid" aria-label="Autonomous Day progress">
         <article><p class="eyebrow">OVERALL PROGRESS</p><strong id="overall-progress">–%</strong><div class="meter"><i id="overall-meter"></i></div><small>Configured plan completion</small></article>
         <article><p class="eyebrow">DAY PROGRESS</p><strong id="day-progress">–%</strong><div class="meter accent"><i id="day-meter"></i></div><small id="day-state-note">Awaiting a Day run</small></article>

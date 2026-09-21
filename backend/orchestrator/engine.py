@@ -22,6 +22,8 @@ from backend.control.model_router import ModelRouter, load_model_profile_registr
 from backend.control.orchestration import load_orchestration_config
 from backend.control.faults import FaultProfile, FaultRegistry, load_fault_registry, locate_qa_shipment_gt_operator
 from backend.control.experiments import load_experiments
+from backend.control.goal_policy import propose_goal
+from backend.models.goal import GoalPlan, GoalPlanStatus
 from backend.models.experiment import ExperimentOutcome, ExperimentRun
 from backend.control.projects import ProjectRegistry, load_project_registry
 from backend.control.plans import load_plan_registry
@@ -154,6 +156,7 @@ class ControlCenterEngine:
             "task_discoveries": [],
             "fault_repair_runs": [],
             "experiment_runs": [],
+            "goal_plans": [],
             "escalation_validations": [],
             "task_start_completed": {"PC-014": 18},
             "task_progress": calculate_progress(task_completed, task_total),
@@ -334,6 +337,32 @@ class ControlCenterEngine:
 
     def configured_experiments(self) -> list[dict[str, object]]:
         return [{"experiment_id": item.experiment_id, "project_id": item.project_id, "model": item.model, "cases": item.cases} for item in self.experiments.values()]
+
+    def goal_plans(self) -> list[dict[str, Any]]:
+        return list(self.data["goal_plans"])
+
+    def propose_goal(self, goal: str) -> dict[str, Any]:
+        proposal = propose_goal(goal, set(self.experiments))
+        payload = proposal.model_dump(mode="json")
+        self.data["goal_plans"].append(payload)
+        event_type = AuditEventType.GOAL_PLAN_PROPOSED if proposal.status == GoalPlanStatus.PROPOSED else AuditEventType.GOAL_PLAN_REJECTED
+        self._event("GOAL", event_type, f"Goal plan {proposal.status.value.lower()}: {proposal.policy_reason}", details={"goal_id": proposal.goal_id, "status": proposal.status.value, "target_type": proposal.target_type, "target_id": proposal.target_id, "policy_reason": proposal.policy_reason})
+        self._save()
+        return payload
+
+    def execute_goal(self, goal_id: str) -> dict[str, Any]:
+        stored = next((item for item in self.data["goal_plans"] if item["goal_id"] == goal_id), None)
+        if stored is None:
+            return {"error_code": "GOAL_PLAN_NOT_FOUND"}
+        proposal = GoalPlan.model_validate(stored)
+        if proposal.status != GoalPlanStatus.PROPOSED or proposal.target_type != "TRUSTED_EXPERIMENT" or not proposal.target_id:
+            return {"error_code": "GOAL_PLAN_NOT_EXECUTABLE"}
+        result = self.run_experiment(proposal.target_id)
+        proposal.status, proposal.executed_at, proposal.execution_result = GoalPlanStatus.EXECUTED, datetime.now(timezone.utc), result["outcome"]
+        stored.update(proposal.model_dump(mode="json"))
+        self._event("GOAL", AuditEventType.GOAL_PLAN_EXECUTED, f"Goal plan executed: {proposal.target_id}", details={"goal_id": proposal.goal_id, "target_type": proposal.target_type, "target_id": proposal.target_id, "outcome": proposal.execution_result})
+        self._save()
+        return {"goal_plan": stored, "result": result}
 
     def run_experiment(self, experiment_id: str) -> dict[str, Any]:
         started = datetime.now(timezone.utc)
