@@ -1,6 +1,6 @@
 {
   "roadmap_version": 4,
-  "current_milestone": "M29_LOCALLLM_DAY1_14_AUTONOMOUS_EXECUTION",
+  "current_milestone": "M29_LOCALLLM_RESEARCH_DIRECTED_DAY1_14",
   "completed_milestones": [
     "M0",
     "M1",
@@ -32,7 +32,7 @@
     "M28"
   ],
   "blocked_milestones": [],
-  "human_gate": "DAY1_14_BATCH_AUTHORITY_REVIEW",
+  "human_gate": "DAY14_FINAL_DECISION_REVIEW",
   "latest_test_result": "183 passed, 3 warnings",
   "latest_commit": "6e690463b28bd586e9151653b237844d217cc4bc",
   "remote_push_state": "pushed",
@@ -44,7 +44,7 @@
     "uncached_input_tokens": 18454,
     "output_tokens": 82
   },
-  "updated_at": "2026-09-22T08:15:00+09:00",
+  "updated_at": "2026-09-22T09:00:00+09:00",
   "real_codex_core_continuous_validation": "PASSED",
   "continuous_runtime_evidence": {
     "start_progress_percent": 33.33,
@@ -255,7 +255,7 @@
     "cross_family_models_status": "DESIGN_ONLY_UNREVIEWED_RUNTIME_NAME_MISSING",
     "expected_boundary_after_adapter": "APPROVED_CROSS_FAMILY_RUNTIME_MISSING_OR_EQUIVALENT"
   },
-  "m29_execution_policy": "DETERMINE_FIRST_INCOMPLETE_DAY_THEN_SWEEP_ALL_REMAINING_DAYS",
+  "m29_execution_policy": "RESEARCH_DIRECTED_INFORMATION_GAIN_OVER_STRICT_DAY_CONSUMPTION",
   "m29_pre_authorized_repairs": [
     "HARNESS_CODE_DEFECT",
     "RUNNER_ADAPTER",
@@ -273,11 +273,43 @@
     "status": "PRESERVE_AND_REPAIR_ONLY_IF_RELEVANT_TO_CURRENT_RUNBOOK",
     "repair_authorized": true
   },
-  "m29_human_gate_policy": "ONE_BATCH_AFTER_AUTO_RESOLVABLE_BLOCKERS",
+  "m29_human_gate_policy": "CONTINUE_INDEPENDENT_WORK_BATCH_TRUE_EXTERNAL_DECISIONS_AT_DAY14",
   "m29_source_of_truth": {
     "execution_sequence": "LocalLLM-Lab/docs/runbooks/work-plan-day1-14.md",
     "architecture": "LocalLLM-Lab/docs/architecture/decision-reasoning-architecture.md",
     "handoff": "LocalLLM-Lab/docs/handoff/handoff-2026-09-18.md"
   },
-  "m29_previous_week1_day4_7_sequence": "SUPERSEDED_FOR_CURRENT_SEQUENCING"
+  "m29_previous_week1_day4_7_sequence": "SUPERSEDED_FOR_CURRENT_SEQUENCING",
+  "m29_research_director_policy": "docs/RESEARCH_DIRECTOR_POLICY.md",
+  "m29_objective": "MAXIMIZE_DECISION_RELEVANT_LOCALLLM_EVIDENCE",
+  "m29_authority_review": "RESOLVED",
+  "m29_platform_feature_freeze": true,
+  "m29_time_budget": {
+    "experiment_and_evidence_percent_min": 80,
+    "blocking_repair_percent_max_normal": 15,
+    "orchestration_polish_percent_max": 5
+  },
+  "m29_baseline_reconciliation_policy": "PRESERVE_LOCAL_GENERATED_ARTIFACTS_CHECKPOINT_TESTED_SOURCE_ON_AGENT_BRANCH",
+  "m29_approved_internal_model_roles": {
+    "phi4:14b": [
+      "SEMANTIC_ABSTRACTOR",
+      "COMPACT_PLAN_REASONER",
+      "BOUNDED_EXPLANATION_WHEN_CONFIGURED"
+    ],
+    "qwen3-14b-q4:latest": [
+      "HIGH_RECALL",
+      "NOVELTY_SCOUT_WHEN_CONFIGURED",
+      "COMPARISON"
+    ],
+    "gemma3:12b": [
+      "CRITIC_WHEN_CONFIGURED"
+    ],
+    "qwen3-8b-q4:latest": [
+      "BASELINE",
+      "SMOKE"
+    ]
+  },
+  "m29_teacher_policy": "REUSE_FROZEN_LOCAL_IF_SCHEMA_COMPATIBLE_ELSE_CONTINUE_WITHOUT_NEW_CLOUD",
+  "m29_day11_policy": "ADVISORY_TIER_MATRIX_NO_FINAL_COMMERCIAL_SELECTION",
+  "m29_final_gate": "DAY14_FINAL_DECISION_REVIEW"
 }
