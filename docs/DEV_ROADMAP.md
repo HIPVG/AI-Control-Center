@@ -23,21 +23,27 @@ branch. Status is tracked in `docs/DEV_PROGRESS.json`.
 | M15 | UI-readiness API data | M4 | Day state exposes task, routing, tokens, review queue | no | COMPLETE |
 | M16 | Real provider structured-output compatibility | M2, M6 | strict DTO schema, request shape, output mapping, sanitized error tests | no | COMPLETE |
 | M17 | Codex Core architecture | M0, M1, M4 | read-only structured Codex Architect/Reviewer roles, API-independent default plan, role telemetry tests | CODEX_ARCHITECT_SINGLE_STEP_VALIDATION | COMPLETE |
-| M18 | Dashboard v2 | M17 external validation | consume Day queue, role calls, routing, tokens, review, timeline | DASHBOARD_V2_EXTERNAL_VALIDATION | HUMAN_GATE |
+| M18 | Dashboard v2 | M17 external validation | real Day state, routing, tokens, queue visible and executable from UI | DASHBOARD_V2_EXTERNAL_VALIDATION | COMPLETE |
 | M19 | Architect context efficiency | M17 validation telemetry | isolated non-repository role workspace, compact context, character telemetry | no | COMPLETE |
+| M20 | Real continuous Codex-Core Day | M18 | trusted multi-task Day completes end-to-end without per-task human action | REAL_CODEX_CORE_CONTINUOUS_VALIDATION | IN_PROGRESS |
+| M21 | Exception-driven escalation | M20 | auto-resolve/retry/replan routine failure classes; human only for true authority/external boundaries | ESCALATION_POLICY_EXTERNAL_VALIDATION | ROADMAP |
+| M22 | PowerShell-free daily operation | M18 | auto-start/service behavior and dashboard start/resume/stop/health controls | ZERO_COMMAND_DAILY_OPERATION_VALIDATION | ROADMAP |
+| M23 | Goal-to-Plan | M21 | bounded goal intake → Codex plan → deterministic policy validation → execution | GOAL_TO_PLAN_EXTERNAL_VALIDATION | ROADMAP |
+| M24 | Self-repair and bounded replan | M21, M23 | classify failure → retry/repair/review/replan automatically within limits | AUTONOMOUS_RECOVERY_VALIDATION | ROADMAP |
+| M25 | Automated Git completion | M24 | verified work can commit/push agent branch and prepare PR; no automatic main merge | AUTO_GIT_PR_VALIDATION | ROADMAP |
+| M26 | Zero-Touch Control Loop | M20–M25 | one goal/start → complete or genuine escalation, with no routine relay/PowerShell | ZERO_TOUCH_EXTERNAL_VALIDATION | ROADMAP |
 
 M10 is deliberately non-blocking: a real semantic task must not be invented.
 
-Codex Core is the normal execution architecture. OpenAI Architect and Evaluator
-adapters are retained as explicit optional independent providers. Session reuse
-is deliberately deferred: current one-call-per-role/task execution preserves
-reproducibility and audit boundaries until measured cache savings justify a
-bounded, resettable session policy.
+The strategic target is defined in `docs/ZERO_TOUCH_CONTROL_LOOP.md`.
+Development priority is now autonomy, reliability, recovery, and observability.
+Token optimization remains measured but is secondary unless it becomes an actual
+operational constraint.
 
-The real Codex Architect gate passed with one `standard` / `medium` call,
-19,132 uncached input tokens, 88 output tokens, and a 9.6-second duration. M19
-uses this recorded baseline: it removes inherited repository context and
-unneeded routing fields before changing any profile, authority, or safety rule.
-Dashboard v2 is ready for its external validation gate; it consumes only
-trusted Day APIs and never accepts browser-supplied commands, prompts, paths,
-or plan definitions.
+Codex Core remains the normal execution architecture. OpenAI Architect and
+Evaluator adapters remain optional independent providers. Human attention is an
+exception boundary, not a routine workflow stage.
+
+External Dashboard v2 validation passed: the UI successfully executed the real
+Codex-Core plan, displayed PAUSED progress at 33.33%, task state, ModelRouter
+selection, token telemetry, and no Human Review item.
