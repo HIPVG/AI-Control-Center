@@ -5,6 +5,25 @@ let configuredPlans = [];
 let latestStatus = null;
 let configuredExperiments = [];
 let goalPlans = [];
+let gitCandidates = [];
+
+function renderGitCompletion(candidates, completions) {
+  gitCandidates = candidates;
+  const candidate = candidates[0]; const latest = completions.at(-1);
+  const complete = byId("complete-verified-work");
+  byId("git-completion-title").textContent = candidate ? `Verified work ready: ${candidate.task_id}` : "No verified work is ready";
+  byId("git-completion-detail").textContent = candidate ? `Agent branch ${candidate.task_branch}; changed files: ${candidate.changed_files.join(", ")}.` : "Git completion remains disabled until trusted deterministic verification records a scoped TaskRun.";
+  byId("git-completion-status").textContent = latest ? `${latest.status}${latest.error_code ? `: ${latest.error_code}` : ""}.` : "No Git completion recorded.";
+  complete.disabled = !candidate;
+  byId("git-completion-evidence").replaceChildren(...(latest ? [
+    keyValue("Status", latest.status),
+    keyValue("Commit", latest.commit_sha ?? "unavailable"),
+    keyValue("Remote branch", latest.remote_branch ?? "not pushed"),
+    keyValue("Base branch unchanged", latest.base_branch_unchanged ? "yes" : "no"),
+    keyValue("PR compare", latest.pull_request?.compare_ref ?? "not prepared"),
+    keyValue("Validation only", latest.validation_only ? "yes" : "no"),
+  ] : [keyValue("Status", "Awaiting Git completion")]));
+}
 
 function renderHealth(health) {
   const autostart = health.autostart ?? {};
@@ -139,7 +158,7 @@ function render(status) {
     return row;
   }));
   const taskIds = new Set((day.queue ?? []).map((item) => item.task_id));
-  const events = (status.timeline ?? []).filter((event) => event.event_type?.startsWith("DAY_") || event.event_type?.startsWith("NEXT_ACTION_") || event.event_type === "DAILY_OPERATION_AUTOSTART" || taskIds.has(event.task_id)).slice(-24);
+  const events = (status.timeline ?? []).filter((event) => event.event_type?.startsWith("DAY_") || event.event_type?.startsWith("NEXT_ACTION_") || event.event_type?.startsWith("GIT_") || event.event_type === "DAILY_OPERATION_AUTOSTART" || taskIds.has(event.task_id)).slice(-24);
   byId("timeline").replaceChildren(...(events.length ? events : [{ message: "Awaiting autonomous workflow event." }]).map((event) => {
     const timestamp = event.timestamp ? `${new Date(event.timestamp).toLocaleTimeString()}  ` : "";
     return node("li", `${timestamp}${event.message}`);
@@ -147,8 +166,8 @@ function render(status) {
 }
 
 async function refresh() {
-  const [statusResponse, plansResponse, experimentsResponse, healthResponse, goalsResponse, nextActionResponse] = await Promise.all([fetch("/api/status"), fetch("/api/day/plans"), fetch("/api/experiments"), fetch("/api/operation/health"), fetch("/api/goals"), fetch("/api/next-action")]);
-  if (!statusResponse.ok || !plansResponse.ok || !experimentsResponse.ok || !healthResponse.ok || !goalsResponse.ok || !nextActionResponse.ok) throw new Error("Unable to load Control Center state.");
+  const [statusResponse, plansResponse, experimentsResponse, healthResponse, goalsResponse, nextActionResponse, candidatesResponse, completionsResponse] = await Promise.all([fetch("/api/status"), fetch("/api/day/plans"), fetch("/api/experiments"), fetch("/api/operation/health"), fetch("/api/goals"), fetch("/api/next-action"), fetch("/api/git/candidates"), fetch("/api/git/completions")]);
+  if (!statusResponse.ok || !plansResponse.ok || !experimentsResponse.ok || !healthResponse.ok || !goalsResponse.ok || !nextActionResponse.ok || !candidatesResponse.ok || !completionsResponse.ok) throw new Error("Unable to load Control Center state.");
   renderPlans(await plansResponse.json());
   configuredExperiments = await experimentsResponse.json();
   byId("run-experiment").disabled = configuredExperiments.length === 0;
@@ -156,17 +175,37 @@ async function refresh() {
   renderHealth(await healthResponse.json());
   renderGoalPlans(await goalsResponse.json());
   renderNextAction(await nextActionResponse.json());
+  renderGitCompletion(await candidatesResponse.json(), await completionsResponse.json());
 }
 
 byId("refresh").addEventListener("click", () => refresh().catch((error) => { byId("operation-status").textContent = error.message; }));
 byId("plan-selector").addEventListener("change", updateContinuousControl);
+byId("complete-verified-work").addEventListener("click", async () => {
+  const candidate = gitCandidates[0]; const button = byId("complete-verified-work");
+  if (!candidate) return;
+  button.disabled = true;
+  try {
+    const response = await fetch(`/api/git/complete/${encodeURIComponent(candidate.run_id)}`, { method: "POST" }); const result = await response.json();
+    if (!response.ok || result.error_code) throw new Error(result.error_code ?? "Git completion was blocked.");
+    byId("operation-status").textContent = `Git completion: ${result.status}.`; await refresh();
+  } catch (error) { byId("operation-status").textContent = error.message; }
+});
+byId("validate-git-completion").addEventListener("click", async () => {
+  const button = byId("validate-git-completion"); button.disabled = true;
+  try {
+    const response = await fetch("/api/validation/git-completion", { method: "POST" }); const result = await response.json();
+    if (!response.ok || result.error_code) throw new Error(result.error_code ?? "Git validation was blocked.");
+    byId("operation-status").textContent = `Git validation: ${result.status}.`; await refresh();
+  } catch (error) { byId("operation-status").textContent = error.message; }
+  finally { button.disabled = false; }
+});
 byId("continue-autonomously").addEventListener("click", async () => {
   const button = byId("continue-autonomously"); button.disabled = true;
   byId("operation-status").textContent = "Continuing with the trusted recommended action…";
   try {
     const response = await fetch("/api/next-action/continue", { method: "POST" }); const result = await response.json();
     if (!response.ok || result.error_code) throw new Error(result.error_code ?? "Autonomous continuation was not available.");
-    await refresh(); byId("operation-status").textContent = `Continuation completed: ${result.result.outcome}.`;
+    await refresh(); byId("operation-status").textContent = `Continuation completed: ${result.result.outcome ?? result.result.status}.`;
   } catch (error) { byId("operation-status").textContent = error.message; }
   finally { await refresh().catch(() => {}); }
 });

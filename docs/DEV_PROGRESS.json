@@ -30,7 +30,7 @@
   ],
   "blocked_milestones": [],
   "human_gate": "AUTO_GIT_PR_VALIDATION",
-  "latest_test_result": "167 passed, 3 warnings",
+  "latest_test_result": "172 passed, 3 warnings",
   "latest_commit": "d35a230fe3f995739b4799d72ac9e0774ed8a075",
   "remote_push_state": "pushed",
   "safe_semantic_task_found": false,
@@ -159,5 +159,8 @@
     "JAPANESE_DASHBOARD_LABELS",
     "JAPANESE_USER_FACING_MESSAGES",
     "PRESERVE_ENGLISH_API_ENUM_AUDIT_IDENTIFIERS"
-  ]
+  ],
+  "m26_implementation": "READY_FOR_EXTERNAL_VALIDATION",
+  "m26_policy_doc": "docs/AUTOMATED_GIT_COMPLETION.md",
+  "m26_validation": "ISOLATED_LOCAL_BARE_REMOTE_ONLY"
 }

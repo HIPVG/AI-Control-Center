@@ -39,6 +39,12 @@
         <button id="propose-goal" type="button">Propose trusted plan</button><button id="execute-goal" class="secondary" type="button" disabled>Execute proposed plan</button>
         <p id="goal-plan-status" class="muted compact" aria-live="polite">No direction change requested.</p>
       </section>
+      <section class="goal-control" aria-label="Automated Git completion">
+        <div><p class="eyebrow">AUTOMATED GIT COMPLETION</p><h2 id="git-completion-title">Checking verified work…</h2><p id="git-completion-detail" class="muted compact">Only a verified worktree on an agent branch can be committed and pushed.</p></div>
+        <button id="complete-verified-work" type="button" disabled>Commit and push verified work</button>
+        <button id="validate-git-completion" class="secondary" type="button">Validate Git completion</button>
+        <p id="git-completion-status" class="muted compact" aria-live="polite">No verified work is ready.</p>
+      </section>
       <section class="progress-grid" aria-label="Autonomous Day progress">
         <article><p class="eyebrow">OVERALL PROGRESS</p><strong id="overall-progress">–%</strong><div class="meter"><i id="overall-meter"></i></div><small>Configured plan completion</small></article>
         <article><p class="eyebrow">DAY PROGRESS</p><strong id="day-progress">–%</strong><div class="meter accent"><i id="day-meter"></i></div><small id="day-state-note">Awaiting a Day run</small></article>
@@ -56,6 +62,9 @@
       <section class="two-col">
         <article><div class="section-heading"><div><p class="eyebrow">TASK QUEUE</p><h2>Trusted configured tasks</h2></div></div><ol id="task-queue" class="queue"><li>Awaiting a Day plan.</li></ol></article>
         <article><div class="section-heading"><div><p class="eyebrow">AUDIT TIMELINE</p><h2>Latest autonomous events</h2></div></div><ol id="timeline" class="timeline"><li>Awaiting workflow event.</li></ol></article>
+      </section>
+      <section class="two-col">
+        <article><div class="section-heading"><div><p class="eyebrow">GIT COMPLETION EVIDENCE</p><h2>Commit, push, PR preparation</h2></div></div><ul id="git-completion-evidence" class="key-values"><li>Awaiting Git completion.</li></ul></article>
       </section>
       <section class="two-col">
         <article><div class="section-heading"><div><p class="eyebrow">VALIDATION EVIDENCE</p><h2>Isolated escalation checks</h2></div></div><ul id="validation-evidence" class="key-values"><li>Awaiting validation.</li></ul></article>

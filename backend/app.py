@@ -103,6 +103,26 @@ def continue_autonomously() -> dict:
     return engine.continue_autonomously()
 
 
+@app.get("/api/git/candidates")
+def git_completion_candidates() -> list[dict]:
+    return engine.git_completion_candidates()
+
+
+@app.get("/api/git/completions")
+def git_completions() -> list[dict]:
+    return engine.git_completions()
+
+
+@app.post("/api/git/complete/{run_id}")
+def complete_verified_work(run_id: str) -> dict:
+    return engine.complete_verified_work(run_id)
+
+
+@app.post("/api/validation/git-completion")
+def run_git_completion_validation() -> dict:
+    return engine.run_git_completion_validation()
+
+
 @app.post("/api/goals")
 def propose_goal(submission: GoalSubmission) -> dict:
     return engine.propose_goal(submission.goal)

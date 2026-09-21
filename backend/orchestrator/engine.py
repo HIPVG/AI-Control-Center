@@ -24,9 +24,11 @@ from backend.control.faults import FaultProfile, FaultRegistry, load_fault_regis
 from backend.control.experiments import load_experiments
 from backend.control.goal_policy import propose_goal
 from backend.control.next_action import recommend_next_action
+from backend.control.git_completion import GitCompletionService
 from backend.models.goal import GoalPlan, GoalPlanStatus
 from backend.models.experiment import ExperimentOutcome, ExperimentRun
 from backend.models.next_action import NextActionType
+from backend.models.git_completion import GitCompletionCandidate, GitCompletionResult, GitCompletionStatus
 from backend.control.projects import ProjectRegistry, load_project_registry
 from backend.control.plans import load_plan_registry
 from backend.control.task_discovery import DeterministicTaskDiscovery, DiscoveryRegistry, FailingTaskDiscoveryResult, load_discovery_registry
@@ -160,6 +162,7 @@ class ControlCenterEngine:
             "experiment_runs": [],
             "goal_plans": [],
             "escalation_validations": [],
+            "git_completions": [],
             "task_start_completed": {"PC-014": 18},
             "task_progress": calculate_progress(task_completed, task_total),
             "current_task": {"task_id": "PC-014", "title": "Evidence Grounding", "completed": task_completed, "total": task_total, "retry": 0, "max_retry": 2},
@@ -318,6 +321,7 @@ class ControlCenterEngine:
             "timeline": [event.model_dump(mode="json") for event in self.timeline],
             "day": self.day_runner.view(),
             "next_action": self.next_action(),
+            "git_completion_candidates": self.git_completion_candidates(),
         }
 
     def runtime_view(self) -> dict[str, Any]:
@@ -345,21 +349,99 @@ class ControlCenterEngine:
         return list(self.data["goal_plans"])
 
     def next_action(self) -> dict[str, Any]:
-        return recommend_next_action(self.data["experiment_runs"], set(self.experiments)).model_dump(mode="json")
+        return recommend_next_action(self.data["experiment_runs"], set(self.experiments), self.git_completion_candidates()).model_dump(mode="json")
 
     def continue_autonomously(self) -> dict[str, Any]:
         """Execute only the current policy-approved, configured continuation."""
         action = self.next_action()
-        if action["action_type"] != NextActionType.RUN_TRUSTED_EXPERIMENT.value or not action.get("target_id"):
+        if not action.get("target_id"):
             return {"error_code": "NEXT_ACTION_REQUIRES_ATTENTION", "next_action": action}
-        result = self.run_experiment(action["target_id"])
+        if action["action_type"] == NextActionType.COMPLETE_VERIFIED_WORK.value:
+            result = self.complete_verified_work(action["target_id"])
+        elif action["action_type"] == NextActionType.RUN_TRUSTED_EXPERIMENT.value:
+            result = self.run_experiment(action["target_id"])
+        else:
+            return {"error_code": "NEXT_ACTION_REQUIRES_ATTENTION", "next_action": action}
+        if result.get("error_code"):
+            return {"error_code": result["error_code"], "next_action": action, "result": result}
         self._event(
             "AUTONOMY", AuditEventType.NEXT_ACTION_CONTINUED,
             f"Autonomous continuation executed: {action['target_id']}",
-            details={"action": action, "outcome": result["outcome"]},
+            details={"action": action, "result": result.get("outcome") or result.get("status")},
         )
         self._save()
         return {"next_action": action, "result": result}
+
+    def git_completion_candidates(self) -> list[dict[str, Any]]:
+        service = GitCompletionService()
+        completed_ids = {item["run_id"] for item in self.data["git_completions"] if item.get("status") == GitCompletionStatus.PR_READY.value}
+        candidates = [service.candidate_from_task_run(item) for item in self.data["task_runs"]]
+        return [self._git_candidate_view(item) for item in candidates if item is not None and item.run_id not in completed_ids]
+
+    def git_completions(self) -> list[dict[str, Any]]:
+        return [self._git_completion_view(GitCompletionResult.model_validate(item)) for item in self.data["git_completions"]]
+
+    def complete_verified_work(self, run_id: str) -> dict[str, Any]:
+        existing = next((item for item in self.data["git_completions"] if item["run_id"] == run_id), None)
+        if existing is not None:
+            return self._git_completion_view(GitCompletionResult.model_validate(existing))
+        service = GitCompletionService()
+        candidate = next((service.candidate_from_task_run(item) for item in self.data["task_runs"] if item.get("run_id") == run_id), None)
+        if candidate is None:
+            return {"error_code": "GIT_COMPLETION_NOT_READY"}
+        project = self.projects.get(candidate.project_id)
+        if project is None:
+            return {"error_code": "PROJECT_NOT_CONFIGURED"}
+        result = service.complete(candidate, base_branch=project.default_branch)
+        return self._record_git_completion(result)
+
+    def run_git_completion_validation(self) -> dict[str, Any]:
+        """Run an isolated local Git/bare-remote workflow; never touches configured projects."""
+        run_id = f"git-validation-{uuid4().hex}"
+        root = self.project_root / "state" / "git-validation" / run_id
+        worktree, remote = root / "worktree", root / "remote.git"
+        task_id, branch = "GIT-VALIDATION-ONLY", f"agent/m26-validation-{run_id[-8:]}"
+        try:
+            root.mkdir(parents=True, exist_ok=False)
+            commands = [
+                (["git", "init", "--bare", str(remote)], None),
+                (["git", "init", "-b", "main", str(worktree)], None),
+                (["git", "-C", str(worktree), "config", "user.name", "AI Control Center Validation"], None),
+                (["git", "-C", str(worktree), "config", "user.email", "validation@example.invalid"], None),
+            ]
+            for argv, cwd in commands:
+                if subprocess.run(argv, cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30, check=False, shell=False).returncode != 0:
+                    raise OSError("git fixture setup failed")
+            (worktree / "baseline.txt").write_text("baseline\n", encoding="utf-8")
+            for arguments in (["add", "--", "baseline.txt"], ["commit", "-m", "chore: validation baseline"], ["remote", "add", "origin", str(remote)], ["push", "-u", "origin", "main"], ["checkout", "-b", branch]):
+                if GitCompletionService._run(worktree, arguments)[0] != 0:
+                    raise OSError("git fixture setup failed")
+            (worktree / "verified.txt").write_text("verified work\n", encoding="utf-8")
+        except (OSError, subprocess.TimeoutExpired):
+            result = GitCompletionResult(run_id=run_id, task_id=task_id, project_id="validation", status=GitCompletionStatus.BLOCKED, error_code="GIT_VALIDATION_SETUP_FAILED", validation_only=True)
+            return self._record_git_completion(result)
+        candidate = GitCompletionCandidate(run_id=run_id, task_id=task_id, project_id="validation", worktree_path=str(worktree), task_branch=branch, allowed_files=["verified.txt"], changed_files=["verified.txt"])
+        return self._record_git_completion(GitCompletionService().complete(candidate, base_branch="main", validation_only=True))
+
+    def _record_git_completion(self, result: GitCompletionResult) -> dict[str, Any]:
+        payload = result.model_dump(mode="json")
+        self.data["git_completions"].append(payload)
+        if result.status == GitCompletionStatus.PR_READY:
+            self._event(result.task_id, AuditEventType.GIT_COMPLETION_COMMITTED, f"Verified work committed: {result.commit_sha}", details=payload)
+            self._event(result.task_id, AuditEventType.GIT_COMPLETION_PUSHED, f"Agent branch pushed: {result.remote_branch}", details=payload)
+            self._event(result.task_id, AuditEventType.GIT_PR_PREPARED, f"Pull request prepared: {result.pull_request.compare_ref if result.pull_request else 'unavailable'}", details=payload)
+        else:
+            self._event(result.task_id, AuditEventType.GIT_COMPLETION_BLOCKED, f"Git completion blocked: {result.error_code}", details=payload)
+        self._save()
+        return self._git_completion_view(result)
+
+    @staticmethod
+    def _git_candidate_view(candidate: GitCompletionCandidate) -> dict[str, Any]:
+        return {"run_id": candidate.run_id, "task_id": candidate.task_id, "project_id": candidate.project_id, "task_branch": candidate.task_branch, "changed_files": candidate.changed_files}
+
+    @staticmethod
+    def _git_completion_view(result: GitCompletionResult) -> dict[str, Any]:
+        return result.model_dump(mode="json", exclude={"detail"})
 
     def propose_goal(self, goal: str) -> dict[str, Any]:
         proposal = propose_goal(goal, set(self.experiments))

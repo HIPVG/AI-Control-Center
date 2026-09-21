@@ -40,3 +40,17 @@ def test_runtime_blocked_experiment_requires_external_action_and_cannot_continue
     assert action["action_type"] == "EXTERNAL_ACTION_REQUIRED"
     assert action["human_attention_required"] is True
     assert engine.continue_autonomously()["error_code"] == "NEXT_ACTION_REQUIRES_ATTENTION"
+
+
+def test_verified_task_run_is_prioritized_as_the_next_automatic_git_action(tmp_path):
+    engine = next_action_engine(tmp_path)
+    engine.data["task_runs"].append({
+        "run_id": "verified-run", "task_id": "TASK-1", "project_id": "local_llm_lab",
+        "worktree_path": str(tmp_path), "task_branch": "agent/task-1", "allowed_files": ["src/a.py"],
+        "changed_files": ["src/a.py"], "state": "COMPLETE", "final_result": "COMPLETE",
+        "postcheck_result": "PASS", "scope_guard_result": "PASS",
+    })
+    action = engine.next_action()
+    assert action["action_type"] == "COMPLETE_VERIFIED_WORK"
+    assert action["target_id"] == "verified-run"
+    assert action["policy_result"] == "VERIFIED_AGENT_BRANCH_ONLY"

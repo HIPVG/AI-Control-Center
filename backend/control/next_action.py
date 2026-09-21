@@ -16,12 +16,21 @@ EXTERNAL_OUTCOMES = {
 }
 
 
-def recommend_next_action(experiment_runs: list[dict[str, Any]], configured_experiment_ids: set[str]) -> NextAction:
+def recommend_next_action(experiment_runs: list[dict[str, Any]], configured_experiment_ids: set[str], git_candidates: list[dict[str, Any]] | None = None) -> NextAction:
     """Return only a configured experiment action, or explicit attention.
 
     Browser input is deliberately absent from this decision.  A successful
     continuation remains inside the fixed LocalLLM experiment authority.
     """
+    if git_candidates:
+        candidate = git_candidates[0]
+        return NextAction(
+            action_type=NextActionType.COMPLETE_VERIFIED_WORK,
+            target_id=str(candidate["run_id"]),
+            summary="Commit and push the verified agent-branch work, then prepare its pull request.",
+            reason=f"{candidate['task_id']} passed deterministic verification and scope validation.",
+            policy_result="VERIFIED_AGENT_BRANCH_ONLY",
+        )
     latest = experiment_runs[-1] if experiment_runs else None
     if latest and latest.get("outcome") in EXTERNAL_OUTCOMES:
         return NextAction(

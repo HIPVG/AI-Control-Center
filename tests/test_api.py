@@ -22,7 +22,7 @@ def client(monkeypatch):
 
 
 def test_required_endpoints_are_available(client):
-    for path in ("/api/status", "/api/plan", "/api/tasks", "/api/timeline", "/api/token-usage", "/api/runtime", "/api/operation/health", "/api/day/plans", "/api/day/status", "/api/experiments", "/api/goals", "/api/next-action"):
+    for path in ("/api/status", "/api/plan", "/api/tasks", "/api/timeline", "/api/token-usage", "/api/runtime", "/api/operation/health", "/api/day/plans", "/api/day/status", "/api/experiments", "/api/goals", "/api/next-action", "/api/git/candidates", "/api/git/completions"):
         assert client.get(path).status_code == 200
     assert client.post("/api/run/mock").status_code == 200
     assert client.post("/api/run/codex-smoke").json()["error_code"] == "REAL_MODE_REQUIRED"
@@ -59,12 +59,18 @@ def test_dashboard_v2_uses_only_configured_day_plan_api_contracts(client):
     assert 'id="validate-replan"' in html
     assert 'id="validate-runtime"' in html
     assert 'id="continue-autonomously"' in html
+    assert 'id="complete-verified-work"' in html
+    assert 'id="validate-git-completion"' in html
+    assert 'id="git-completion-evidence"' in html
     assert 'id="validation-evidence"' in html
     assert 'id="experiment-evidence"' in html
     assert "/api/day/start/" in script
     assert 'fetch("/api/goals"' in script
     assert 'fetch("/api/next-action")' in script
     assert 'fetch("/api/next-action/continue"' in script
+    assert "/api/git/candidates" in script
+    assert "/api/git/complete/" in script
+    assert "/api/validation/git-completion" in script
     assert "/execute" in script
     assert "/api/day/resume?mode=continuous" in script
     assert 'fetch("/api/day/stop"' in script
@@ -78,6 +84,7 @@ def test_dashboard_v2_uses_only_configured_day_plan_api_contracts(client):
     assert "normal_day_unchanged" in script
     assert "auto_replans" in script
     assert "builder_invoked" in script
+    assert "GIT_" in script
     assert "/api/run/mock" not in script
     assert "innerHTML" not in script
 
@@ -96,6 +103,11 @@ def test_continue_endpoint_uses_only_current_trusted_policy(client, monkeypatch)
     monkeypatch.setattr(control_app.engine, "run_experiment", lambda experiment_id: {"experiment_id": experiment_id, "outcome": "RESULT_RECORDED"})
     result = client.post("/api/next-action/continue", json={"command": "unsafe", "target_id": "unsafe"}).json()
     assert result["result"]["experiment_id"] == "local_llm_process_consistency_smoke"
+
+
+def test_git_completion_endpoint_rejects_unknown_run_id_without_browser_supplied_git_data(client):
+    response = client.post("/api/git/complete/not-a-verified-run", json={"branch": "main", "command": "unsafe", "path": "unsafe"})
+    assert response.json()["error_code"] == "GIT_COMPLETION_NOT_READY"
 
 
 def test_model_router_single_step_day_is_auditable_without_external_execution(monkeypatch):

@@ -165,3 +165,15 @@ M28 is a presentation-only milestone after Zero-Touch validation. Dashboard labe
 help text, buttons, and user-facing status messages may be localized to Japanese,
 while API contracts, enum/state values, audit event identifiers, and internal
 logic remain English and unchanged.
+
+M26 implementation is ready for external validation:
+- only a completed, deterministic-postcheck, scope-validated managed worktree
+  on an `agent/` branch becomes a Git completion candidate;
+- Python revalidates branch, configured base branch, origin, exact changed-file
+  scope, diff whitespace, and commit identity before staging;
+- it commits and pushes only the candidate agent branch, then prepares a local
+  structured PR comparison; it never creates a PR or merges/pushes `main`;
+- the normal **Continue autonomously** recommendation prioritizes this verified
+  completion, so routine commit/push relay is not a separate human step;
+- the Dashboard exposes bounded candidate/result evidence and an isolated local
+  bare-remote validation flow with no configured-project or network mutation.
