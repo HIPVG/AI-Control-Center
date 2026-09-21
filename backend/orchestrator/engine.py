@@ -3,7 +3,7 @@ import hashlib
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Callable, Protocol
 from uuid import uuid4
 
 from backend.agents.architect import MockArchitect
@@ -304,12 +304,12 @@ class ControlCenterEngine:
     def day_status(self) -> dict[str, Any]:
         return self.day_runner.view()
 
-    def _run_day_task(self, task_id: str, max_codex_attempts: int | None = None, repair_instruction: str | None = None, routing_decision: dict[str, Any] | None = None) -> dict[str, Any]:
+    def _run_day_task(self, task_id: str, max_codex_attempts: int | None = None, repair_instruction: str | None = None, codex_routing_selector: Callable[[int, int], object | None] | None = None) -> dict[str, Any]:
         # The current configured real task set is deterministic. Semantic task
         # adapters may consume this bounded instruction in a later integration.
-        # Codex CLI capability mapping is intentionally not guessed: profile
-        # selection is audited by DayRunner and does not invent CLI arguments.
-        return self.run_task(task_id, max_codex_attempts=max_codex_attempts)
+        # Codex CLI capability mapping is intentionally not guessed. The
+        # DayRunner selector is invoked only after deterministic CODE_FIX triage.
+        return self.run_task(task_id, max_codex_attempts=max_codex_attempts, codex_routing_selector=codex_routing_selector)
 
     def _save_day_state(self, snapshot: dict[str, Any]) -> None:
         self.data["day_orchestration"] = snapshot
@@ -1019,7 +1019,7 @@ class ControlCenterEngine:
             snapshot[path] = f"{line[:2]}:{digest}"
         return snapshot
 
-    def run_task(self, task_id: str, *, max_codex_attempts: int | None = None) -> dict[str, Any]:
+    def run_task(self, task_id: str, *, max_codex_attempts: int | None = None, codex_routing_selector: Callable[[int, int], object | None] | None = None) -> dict[str, Any]:
         """Execute one trusted configured task in a detached target-project worktree."""
         started = datetime.now(timezone.utc)
         run_id = uuid4().hex
@@ -1114,7 +1114,7 @@ class ControlCenterEngine:
                 **common, state=WorkflowState.HUMAN_REVIEW.value, end_time=datetime.now(timezone.utc), precheck_result="FAIL", precheck=precheck,
                 triage_result="INFRASTRUCTURE_FAILURE", final_result="HUMAN_REVIEW", human_review_reason="worktree status unavailable", error_code="WORKTREE_GIT_UNAVAILABLE",
             ))
-        return self._run_task_codex_attempts(task, common, working_directory, worktree, worktree_baseline, precheck, max_codex_attempts=max_codex_attempts)
+        return self._run_task_codex_attempts(task, common, working_directory, worktree, worktree_baseline, precheck, max_codex_attempts=max_codex_attempts, codex_routing_selector=codex_routing_selector)
 
     def _run_task_codex_attempts(
         self,
@@ -1126,6 +1126,7 @@ class ControlCenterEngine:
         precheck: CommandRunResult,
         *,
         max_codex_attempts: int | None = None,
+        codex_routing_selector: Callable[[int, int], object | None] | None = None,
     ) -> dict[str, Any]:
         attempts: list[CodexAttemptResult] = []
         aggregate = TokenUsage()
@@ -1175,6 +1176,13 @@ class ControlCenterEngine:
                 context_files=context_files,
             )
             prompt = self._task_prompt(context)
+            if codex_routing_selector and codex_routing_selector(len(prompt), retry_number) is None:
+                self._transition(task.task_id, WorkflowState.HUMAN_REVIEW, "ModelRouter blocked Codex before execution")
+                return self._task_finish(TaskRunResult(
+                    **common, state=WorkflowState.HUMAN_REVIEW.value, end_time=datetime.now(timezone.utc), precheck_result="FAIL", precheck=precheck,
+                    triage_result="CODE_FIX", codex_attempts=attempts, allowed_files=task.allowed_files, changed_files=changed_files,
+                    final_result="HUMAN_REVIEW", human_review_reason="MODEL_ROUTER_BLOCKED", error_code="MODEL_ROUTER_BLOCKED",
+                ))
             self._transition(task.task_id, WorkflowState.TRIAGE, "deterministic triage classified CODE_FIX") if self.state_manager.current.state == WorkflowState.RUNNING_TEST else None
             self._transition(task.task_id, WorkflowState.CODEX_FIX, f"Codex attempt {retry_number + 1} authorized")
             self._event(task.task_id, AuditEventType.CONTEXT_CREATED, f"{task.task_id} minimal context package built", details={"context_character_count": len(prompt), "context_byte_count": len(prompt.encode("utf-8")), "context_files": list(context_files)})

@@ -11,7 +11,7 @@ from backend.models.result import TokenUsage
 
 
 class DayTaskExecutor(Protocol):
-    def __call__(self, task_id: str, max_codex_attempts: int | None = None, repair_instruction: str | None = None, routing_decision: dict[str, Any] | None = None) -> dict[str, Any]: ...
+    def __call__(self, task_id: str, max_codex_attempts: int | None = None, repair_instruction: str | None = None, codex_routing_selector: Callable[[int, int], RoutingDecision | None] | None = None) -> dict[str, Any]: ...
 
 
 class DayRunner:
@@ -25,9 +25,7 @@ class DayRunner:
         self.model_router = model_router
         self.persist, self.audit = persist, audit
         self.snapshot = DayRunSnapshot.model_validate(saved or {})
-        if self.model_router:
-            for profile_id in self.model_router.profiles.model_profiles:
-                self.snapshot.profile_token_usage.setdefault(profile_id, self._empty_profile_usage())
+        self._ensure_profile_usage()
         if self.snapshot.state == DayRunState.RUNNING:
             self.snapshot.state, self.snapshot.stop_reason = DayRunState.PAUSED, "INTERRUPTED_REQUIRES_RESUME"
             self._save()
@@ -56,6 +54,7 @@ class DayRunner:
         if missing:
             return {"error_code": "PLAN_TASK_NOT_CONFIGURED", "missing_task_ids": missing, **self.view()}
         self.snapshot = DayRunSnapshot(plan_id=plan_id, state=DayRunState.RUNNING, mode=mode, queue=[QueuedTask(task_id=task_id) for task_id in plan.task_ids])
+        self._ensure_profile_usage()
         self._audit("SYSTEM", "DAY_PLAN_STARTED", {"plan_id": plan_id, "mode": mode.value, "task_ids": plan.task_ids})
         self._save()
         return self._advance(plan)
@@ -152,24 +151,38 @@ class DayRunner:
         if task.requires_codex and remaining_codex <= 0:
             self._stop("MAX_CODEX_CALLS_REACHED")
             return
-        routing = self._select_profile(
-            plan, RoutingRole.CODEX, task_type=task.task_type.value, complexity=task_complexity,
-            previous_attempt_count=item.attempts, previous_failure_type=previous_failure_type,
-            context_size=task.context_max_characters,
-        )
-        if routing is None:
-            return
+        codex_routes: list[RoutingDecision] = []
+
+        def select_codex_profile(context_size: int, retry_number: int) -> RoutingDecision | None:
+            routing = self._select_profile(
+                plan, RoutingRole.CODEX, task_type=task.task_type.value, complexity=task_complexity,
+                previous_attempt_count=max(item.attempts - 1, 0) + retry_number,
+                previous_failure_type=previous_failure_type, context_size=context_size,
+            )
+            if routing is not None:
+                codex_routes.append(routing)
+            return routing
+
         item.state, item.attempts, item.updated_at = QueueTaskState.RUNNING, item.attempts + 1, datetime.now(timezone.utc)
         self._save()
-        result = self.execute_task(item.task_id, max_codex_attempts=remaining_codex, repair_instruction=repair_instruction, routing_decision=routing.model_dump(mode="json"))
+        result = self.execute_task(
+            item.task_id, max_codex_attempts=remaining_codex, repair_instruction=repair_instruction,
+            codex_routing_selector=select_codex_profile,
+        )
         self.snapshot.codex_calls += len(result.get("codex_attempts", []))
         usage = TokenUsage(input_tokens=int(result.get("gross_input_tokens", 0)), cached_input_tokens=int(result.get("cached_input_tokens", 0)), output_tokens=int(result.get("output_tokens", 0)), available=bool(result.get("codex_invoked")))
         self._add_usage("codex", usage)
         if result.get("codex_invoked"):
-            self._add_profile_usage(routing, usage, result.get("diagnostics", {}))
+            if not codex_routes:
+                self._human_review(item.task_id, "CODEX_ROUTING_DECISION_MISSING", result=result)
+                return
+            self._add_profile_usage(codex_routes[-1], usage, result.get("diagnostics", {}))
         else:
             self._record_deterministic_zero_usage(item.task_id)
-        self._audit(item.task_id, "DAY_TASK_RESULT", {"final_result": result.get("final_result"), "codex_invoked": result.get("codex_invoked", False), "error_code": result.get("error_code"), "result_reference": result.get("run_id"), "routing": routing.model_dump(mode="json")})
+        task_audit: dict[str, Any] = {"final_result": result.get("final_result"), "codex_invoked": result.get("codex_invoked", False), "error_code": result.get("error_code"), "result_reference": result.get("run_id")}
+        if codex_routes:
+            task_audit["routing"] = codex_routes[-1].model_dump(mode="json")
+        self._audit(item.task_id, "DAY_TASK_RESULT", task_audit)
         final = result.get("final_result")
         if final == "COMPLETE_NO_CHANGE":
             item.state, item.final_result = QueueTaskState.COMPLETE_NO_CHANGE, final
@@ -310,6 +323,11 @@ class DayRunner:
     def _empty_profile_usage():
         from backend.models.model_routing import ProfileTokenUsage
         return ProfileTokenUsage()
+
+    def _ensure_profile_usage(self) -> None:
+        if self.model_router:
+            for profile_id in self.model_router.profiles.model_profiles:
+                self.snapshot.profile_token_usage.setdefault(profile_id, self._empty_profile_usage())
 
     def _add_profile_usage(self, routing: RoutingDecision, usage: TokenUsage, diagnostics: dict[str, Any] | None) -> None:
         if not routing.profile_id:

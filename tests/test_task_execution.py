@@ -117,10 +117,12 @@ def test_precheck_pass_completes_without_codex_and_source_remains_unchanged(tmp_
     runner = TaskWriter()
     engine, source = engine_for(tmp_path, runner)
     command_results(engine, [{"exit_code": 0, "passed": True, "stdout": "ok"}])
-    result = engine.run_task("PC-001-A")
+    selections = []
+    result = engine.run_task("PC-001-A", codex_routing_selector=lambda context_size, retry: selections.append((context_size, retry)) or object())
     assert result["final_result"] == "COMPLETE_NO_CHANGE"
     assert result["codex_invoked"] is False
     assert runner.called == 0
+    assert selections == []
     assert (source / "scripts" / "check.py").read_text(encoding="utf-8") == "VALUE = 'before'\n"
     assert Path(result["worktree_path"]).is_dir()
     assert result["task_branch"].startswith("agent/pc-001-a-")
@@ -156,7 +158,8 @@ def test_code_fix_runs_in_isolated_worktree_with_bounded_context_and_records_tok
         {"exit_code": 1, "passed": False, "stderr": "assertion failed"},
         {"exit_code": 0, "passed": True, "stdout": "fixed"},
     ])
-    result = engine.run_task("PC-001-A")
+    selections = []
+    result = engine.run_task("PC-001-A", codex_routing_selector=lambda context_size, retry: selections.append((context_size, retry)) or object())
     assert result["state"] == "COMPLETE"
     assert result["precheck_result"] == "FAIL"
     assert result["triage_result"] == "CODE_FIX"
@@ -169,6 +172,9 @@ def test_code_fix_runs_in_isolated_worktree_with_bounded_context_and_records_tok
     assert result["output_tokens"] == 4
     assert "assertion failed" in runner.commands[0]
     assert "scripts/check.py" in runner.commands[0]
+    assert len(selections) == 1
+    assert selections[0][0] > 0
+    assert selections[0][1] == 0
     assert (source / "scripts" / "check.py").read_text(encoding="utf-8") == "VALUE = 'before'\n"
 
 

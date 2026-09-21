@@ -93,7 +93,8 @@ def test_day_runner_persists_router_selection_and_profile_token_accounting():
             return ArchitectDecision(task_id="A", reason="trusted queue", task_complexity="complex", token_usage=TokenUsage(input_tokens=20, cached_input_tokens=5, output_tokens=3, available=True))
 
     def execute(task_id, **kwargs):
-        assert kwargs["routing_decision"]["profile_id"] == "deep"
+        selected = kwargs["codex_routing_selector"](64, 0)
+        assert selected and selected.profile_id == "deep"
         return {
             "task_id": task_id, "run_id": "r", "final_result": "COMPLETE", "codex_invoked": True,
             "codex_attempts": [object()], "gross_input_tokens": 10, "cached_input_tokens": 2,
@@ -129,3 +130,7 @@ def test_deterministic_completion_records_explicit_zero_ai_usage():
     result = day.start("p")
     assert result["deterministic_zero_usage_task_ids"] == ["A"]
     assert result["token_usage"]["codex"]["gross_input_tokens"] == 0
+    assert [decision["role"] for decision in result["model_routing_decisions"]] == ["architect"]
+    assert result["profile_token_usage"]["standard"]["call_count"] == 1
+    assert result["profile_token_usage"]["economical"]["call_count"] == 0
+    assert result["profile_token_usage"]["deep"]["call_count"] == 0
