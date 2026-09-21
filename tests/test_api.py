@@ -31,6 +31,27 @@ def test_day_mode_is_a_typed_query_not_a_browser_supplied_configuration_object(c
     assert client.post("/api/day/start/not-configured?mode=unsafe").status_code == 422
 
 
+def test_model_router_single_step_day_is_auditable_without_external_execution(monkeypatch):
+    engine = ControlCenterEngine(runtime_config=RuntimeConfig())
+    engine.day_runner.execute_task = lambda task_id, **kwargs: {
+        "run_id": "mock-day-run", "task_id": task_id, "final_result": "COMPLETE_NO_CHANGE",
+        "codex_attempts": [], "codex_invoked": False, "precheck_result": "PASS",
+    }
+    monkeypatch.setattr(control_app, "engine", engine)
+    response = TestClient(control_app.app).post("/api/day/start/week1-day3-local-llm-v2?mode=single-step")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["state"] == "PAUSED"
+    assert body["queue"][0]["task_id"] == "PC-001-A"
+    assert body["queue"][0]["final_result"] == "COMPLETE_NO_CHANGE"
+    assert body["architect_calls"] == 1
+    assert body["codex_calls"] == 0
+    assert body["evaluator_calls"] == 0
+    assert body["model_routing_decisions"]
+    assert any(event.event_type.value == "DAY_MODEL_ROUTING" for event in engine.timeline)
+    assert any(event.event_type.value == "DAY_DETERMINISTIC_NO_AI" for event in engine.timeline)
+
+
 def test_status_includes_timeline_for_dashboard_rendering(client):
     response = client.get("/api/status")
     assert "timeline" in response.json()
