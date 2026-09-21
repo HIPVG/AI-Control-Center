@@ -31,8 +31,8 @@ branch. Status is tracked in `docs/DEV_PROGRESS.json`.
 | M23 | PowerShell-free daily operation | M18, M22 | auto-start/service behavior and dashboard start/resume/stop/health controls | ZERO_COMMAND_DAILY_OPERATION_VALIDATION | COMPLETE |
 | M24 | Goal-to-Plan | M21, M22 | bounded goal intake → Codex plan → deterministic policy validation → execution | GOAL_TO_PLAN_EXTERNAL_VALIDATION | COMPLETE |
 | M25 | Self-repair, bounded replan, and autonomous next action | M21, M24 | recover/replan failures within limits and continue the obvious trusted success path without another typed Goal | AUTONOMOUS_RECOVERY_AND_CONTINUE_VALIDATION | COMPLETE |
-| M26 | Automated Git completion | M25 | verified work can commit/push agent branch and prepare PR; no automatic main merge | AUTO_GIT_PR_VALIDATION | IN_PROGRESS |
-| M27 | Zero-Touch Control Loop | M20–M26 | one goal/start → complete or genuine escalation, with no routine relay/PowerShell | ZERO_TOUCH_EXTERNAL_VALIDATION | ROADMAP |
+| M26 | Automated Git completion | M25 | verified work can commit/push agent branch and prepare PR; no automatic main merge | AUTO_GIT_PR_VALIDATION | COMPLETE |
+| M27 | Zero-Touch Control Loop | M20–M26 | one goal/start → complete or genuine escalation, with no routine relay/PowerShell | ZERO_TOUCH_EXTERNAL_VALIDATION | IN_PROGRESS |
 | M28 | Japanese Dashboard / UX polish | M27 | localize Dashboard labels/messages while preserving English API/state/audit identifiers | JAPANESE_UI_EXTERNAL_VALIDATION | ROADMAP |
 
 M10 is deliberately non-blocking: a real semantic task must not be invented.
@@ -177,3 +177,15 @@ M26 implementation is ready for external validation:
   completion, so routine commit/push relay is not a separate human step;
 - the Dashboard exposes bounded candidate/result evidence and an isolated local
   bare-remote validation flow with no configured-project or network mutation.
+
+
+External M26 validation passed on 2026-09-22:
+- Git completion evidence reported PR_READY;
+- a commit SHA was produced;
+- the validation branch was pushed under agent/m26-validation-*;
+- the base branch remained unchanged;
+- PR comparison was prepared as main...agent/m26-validation-*;
+- validation-only mode remained true;
+- no PR was created and main was neither merged nor pushed.
+
+This closes M26 and advances development to M27 Zero-Touch Control Loop.
