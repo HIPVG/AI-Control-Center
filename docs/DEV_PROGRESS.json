@@ -1,12 +1,12 @@
 {
   "roadmap_version": 1,
-  "current_milestone": "CODEX_ARCHITECT_SINGLE_STEP_VALIDATION",
-  "completed_milestones": ["M0", "M1", "M2", "M3", "M4", "M5", "M7", "M8", "M9", "M11", "M12", "M13", "M14", "M15", "M16", "M17"],
+  "current_milestone": "DASHBOARD_V2_EXTERNAL_VALIDATION",
+  "completed_milestones": ["M0", "M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "M9", "M11", "M12", "M13", "M14", "M15", "M16", "M17", "M19"],
   "blocked_milestones": [],
-  "human_gate": "CODEX_ARCHITECT_SINGLE_STEP_VALIDATION",
-  "latest_test_result": "141 passed, 2 warnings",
-  "latest_commit": "d59cc87",
+  "human_gate": "DASHBOARD_V2_EXTERNAL_VALIDATION",
+  "latest_test_result": "144 passed, 2 warnings",
+  "latest_commit": "97eed36",
   "remote_push_state": "pending",
   "safe_semantic_task_found": false,
-  "updated_at": "2026-09-21T00:00:00+09:00"
+  "updated_at": "2026-09-22T00:00:00+09:00"
 }

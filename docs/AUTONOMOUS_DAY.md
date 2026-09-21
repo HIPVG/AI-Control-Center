@@ -66,8 +66,8 @@ work. Day and overall progress are calculated from terminal queue tasks.
 
 `week1-day3-local-llm-v2` and `week1-day3-local-llm-v3-codex-core` are
 three-task Codex-Core validation plans. The latter is the explicit external
-Codex-Core validation plan. The historical one-task
-The completed historical one-task `week1-day3-local-llm` plan remains unchanged.
+Codex-Core validation plan. The completed historical one-task
+`week1-day3-local-llm` plan remains unchanged.
 `week1-day3-local-llm-real-architect` is opt-in and fails with a typed provider
 configuration error until credentials and a trusted profile mapping are configured.
 `week1-day3-local-llm-v2-real-architect` is the equivalent three-task variant.
@@ -76,6 +76,22 @@ For a normal PowerShell production session, set `OPENAI_API_KEY`,
 `scripts/start.ps1`. Evaluator overrides use the corresponding
 `..._EVALUATOR_PROVIDER` name. Concrete model routing stays in
 `config/model_profiles.yaml` and is persisted as bounded diagnostics/state.
+
+## Validated Codex-Core baseline and context policy
+
+`week1-day3-local-llm-v3-codex-core` completed external single-step validation:
+Codex Architect selected `PC-001-A`, its deterministic precheck completed with
+`COMPLETE_NO_CHANGE`, Builder and Independent Evaluator calls remained zero,
+and the Day paused at `33.33%`. The observed Architect call used the `standard`
+profile at `medium` reasoning, with 19,132 uncached input tokens, 88 output
+tokens, and about 9.6 seconds duration.
+
+That measurement established a baseline, not a reason to relax safety. The
+Architect now runs outside repository roots so Codex cannot inherit project
+instructions or source context. Its bounded structured input contains only the
+plan/day, eligible IDs with titles/types, compact queue/prior-result state,
+remaining call budgets, stop limits, and progress. Router settings stay outside
+the Architect prompt and remain authoritative in Python and audit telemetry.
 
 ## Model routing boundary
 

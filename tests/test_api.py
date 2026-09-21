@@ -31,6 +31,18 @@ def test_day_mode_is_a_typed_query_not_a_browser_supplied_configuration_object(c
     assert client.post("/api/day/start/not-configured?mode=unsafe").status_code == 422
 
 
+def test_dashboard_v2_uses_only_configured_day_plan_api_contracts(client):
+    plans = client.get("/api/day/plans").json()
+    codex_core = next(plan for plan in plans if plan["plan_id"] == "week1-day3-local-llm-v3-codex-core")
+    assert codex_core["architect_provider"] == "codex"
+    html = (control_app.ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    script = (control_app.ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
+    assert 'id="run-day"' in html
+    assert "/api/day/start/" in script
+    assert "/api/run/mock" not in script
+    assert "innerHTML" not in script
+
+
 def test_model_router_single_step_day_is_auditable_without_external_execution(monkeypatch):
     engine = ControlCenterEngine(runtime_config=RuntimeConfig())
     engine.day_runner.execute_task = lambda task_id, **kwargs: {

@@ -8,25 +8,37 @@
   </head>
   <body>
     <main>
-      <header>
-        <div><p class="eyebrow">AI CONTROL CENTER</p><h1>Week <span id="week">–</span></h1><p>Calendar Day <span id="calendar-day">–</span> · <strong>Validation Day <span id="validation-day">–</span> / 7</strong></p><p class="eyebrow">CODEX MODE: <span id="codex-mode">–</span></p></div>
-        <button id="run-mock">Run mock workflow</button>
+      <header class="hero">
+        <div>
+          <p class="eyebrow">AI CONTROL CENTER · CODEX CORE</p>
+          <h1>Autonomous Day</h1>
+          <p class="muted">Week <span id="week">–</span> · Validation Day <span id="validation-day">–</span> · Runtime <strong id="codex-mode">–</strong></p>
+        </div>
+        <div class="controls" aria-label="Day controls">
+          <label for="plan-selector">Configured plan</label>
+          <select id="plan-selector" aria-label="Configured Day plan"></select>
+          <button id="run-day" type="button">Run Codex-Core single step</button>
+          <button id="refresh" class="secondary" type="button">Refresh</button>
+        </div>
       </header>
-      <section class="progress-grid" aria-label="Progress">
-        <article><h2>Overall Progress</h2><strong id="overall-progress">–%</strong><div class="meter"><i id="overall-meter"></i></div><small>Plan/task completion</small></article>
-        <article><h2>Day Progress</h2><strong id="day-progress">–%</strong><div class="meter accent"><i id="day-meter"></i></div><small>Validation-day completion</small></article>
+      <p id="operation-status" class="operation-status" aria-live="polite"></p>
+      <section class="progress-grid" aria-label="Autonomous Day progress">
+        <article><p class="eyebrow">OVERALL PROGRESS</p><strong id="overall-progress">–%</strong><div class="meter"><i id="overall-meter"></i></div><small>Configured plan completion</small></article>
+        <article><p class="eyebrow">DAY PROGRESS</p><strong id="day-progress">–%</strong><div class="meter accent"><i id="day-meter"></i></div><small id="day-state-note">Awaiting a Day run</small></article>
       </section>
       <section class="cards">
-        <article class="current"><p class="eyebrow">CURRENT TASK</p><h2 id="task-title">Loading…</h2><p>Task Progress <strong id="task-progress">–</strong></p><p>Retry <strong id="retry">–</strong></p><p>State <span class="state" id="state">–</span></p></article>
-        <article><p class="eyebrow">CODEX TOKEN USAGE</p><h2 id="token-total">–</h2><dl><div><dt>Input</dt><dd id="token-input">–</dd></div><div><dt>Cached</dt><dd id="token-cached">–</dd></div><div><dt>Output</dt><dd id="token-output">–</dd></div><div><dt>Budget</dt><dd id="budget-percent">–</dd></div></dl></article>
-        <article><p class="eyebrow">DAILY RESULTS</p><div class="summary"><span>PASS <b id="pass-count">–</b></span><span>FAIL <b id="fail-count">–</b></span><span>REVIEW <b id="review-count">–</b></span></div></article>
+        <article><p class="eyebrow">CURRENT TASK</p><h2 id="task-title">No active Day plan</h2><p class="large-state" id="day-state">IDLE</p><dl><div><dt>Queue state</dt><dd id="task-queue-state">–</dd></div><div><dt>Retry / repair</dt><dd id="task-retry">–</dd></div></dl></article>
+        <article><p class="eyebrow">MODEL ROUTING</p><h2 id="route-provider">No route selected</h2><dl><div><dt>Profile</dt><dd id="route-profile">–</dd></div><div><dt>Model / reasoning</dt><dd id="route-model">–</dd></div><div><dt>Context size</dt><dd id="route-context">–</dd></div></dl><p id="route-reason" class="muted compact">A route is recorded before each AI/Codex call.</p></article>
+        <article><p class="eyebrow">HUMAN REVIEW</p><h2 id="review-status">None</h2><p id="review-detail" class="muted compact">No blocking review item.</p></article>
       </section>
       <section class="two-col">
-        <article><h2>Agent Activity</h2><ul id="agents" class="activity"></ul></article>
-        <article><h2>Evaluation Metrics</h2><ul id="metrics" class="metrics"></ul></article>
+        <article><div class="section-heading"><div><p class="eyebrow">CODEX ROLE ACTIVITY</p><h2>Governed calls</h2></div></div><ul id="roles" class="key-values"></ul></article>
+        <article><div class="section-heading"><div><p class="eyebrow">TOKEN USAGE</p><h2>Day totals</h2></div></div><ul id="tokens" class="key-values"></ul></article>
       </section>
-      <section><h2>Validation Day Progress</h2><div id="days" class="days"></div></section>
-      <section class="details"><nav aria-label="Detail areas"><button>Timeline</button><button>Codex</button><button>Evaluation</button><button>Tests</button><button>Diff</button><button>Tokens</button><button>Git</button></nav><article><h2>Audit Timeline</h2><ol id="timeline" class="timeline"><li>Awaiting workflow event.</li></ol></article></section>
+      <section class="two-col">
+        <article><div class="section-heading"><div><p class="eyebrow">TASK QUEUE</p><h2>Trusted configured tasks</h2></div></div><ol id="task-queue" class="queue"><li>Awaiting a Day plan.</li></ol></article>
+        <article><div class="section-heading"><div><p class="eyebrow">AUDIT TIMELINE</p><h2>Latest autonomous events</h2></div></div><ol id="timeline" class="timeline"><li>Awaiting workflow event.</li></ol></article>
+      </section>
     </main>
     <script src="/static/app.js"></script>
   </body>

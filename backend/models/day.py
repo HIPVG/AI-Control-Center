@@ -143,6 +143,8 @@ class DayPlanRegistry(BaseModel):
             {
                 "plan_id": plan.plan_id,
                 "title": plan.title,
+                "architect_provider": plan.architect_provider,
+                "evaluator_provider": plan.evaluator_provider,
                 "task_ids": plan.task_ids,
                 "single_step_default": plan.single_step_default,
                 "continuous_mode_supported": plan.continuous_mode_supported,

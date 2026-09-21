@@ -68,7 +68,7 @@ def test_day_runner_passes_the_router_resolved_openai_config_to_the_architect():
 
     class Architect:
         def choose(self, request, execution):
-            observed.append((request["routing"], execution.model_dump(mode="json")))
+            observed.append((request, execution.model_dump(mode="json")))
             return ArchitectDecision(task_id="A", reason="trusted queue")
 
     result = DayRunner(
@@ -77,10 +77,12 @@ def test_day_runner_passes_the_router_resolved_openai_config_to_the_architect():
         architects={"openai": Architect()}, model_router=router(),
         provider_budgets={role: ProviderBudget(daily_input_tokens=100000, daily_output_tokens=100000) for role in ("architect", "evaluator", "codex")},
     ).start("real")
-    routing, execution = observed[0]
-    assert routing["provider"] == execution["provider"] == "openai"
-    assert routing["model"] == execution["model"] == "gpt-5.6-terra"
-    assert routing["reasoning_effort"] == execution["reasoning_effort"] == "medium"
+    context, execution = observed[0]
+    assert "routing" not in context
+    assert set(context) == {"plan", "validation_day", "eligible_tasks", "queue", "prior_results", "remaining_calls", "stop_limits", "progress"}
+    assert execution["provider"] == "openai"
+    assert execution["model"] == "gpt-5.6-terra"
+    assert execution["reasoning_effort"] == "medium"
     assert result["model_routing_decisions"][0]["model"] == "gpt-5.6-terra"
 
 
@@ -126,7 +128,8 @@ def test_day_runner_persists_router_selection_and_profile_token_accounting():
 
     class Architect:
         def choose(self, request, execution):
-            assert request["routing"]["profile_id"] == "standard"
+            assert "routing" not in request
+            assert request["eligible_tasks"] == [{"task_id": "A", "title": "A", "task_type": "code_fix"}]
             assert (execution.provider, execution.model) == ("mock", None)
             return ArchitectDecision(task_id="A", reason="trusted queue", task_complexity="complex", token_usage=TokenUsage(input_tokens=20, cached_input_tokens=5, output_tokens=3, available=True))
 

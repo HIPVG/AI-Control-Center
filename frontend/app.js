@@ -1,51 +1,106 @@
 const byId = (id) => document.getElementById(id);
-const percent = (value) => `${value}%`;
-const formatMetric = (name) => name.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+const compactNumber = (value) => Number(value ?? 0).toLocaleString();
+const percentage = (value) => `${Number(value ?? 0).toFixed(2).replace(/\.00$/, "")}%`;
+
+function node(tag, text, className) {
+  const element = document.createElement(tag);
+  element.textContent = text;
+  if (className) element.className = className;
+  return element;
+}
+
+function keyValue(label, value) {
+  const item = document.createElement("li");
+  item.append(node("span", label), node("b", value));
+  return item;
+}
+
+function renderPlans(plans) {
+  const select = byId("plan-selector");
+  const selected = select.value;
+  select.replaceChildren(...plans.map((plan) => {
+    const option = document.createElement("option");
+    option.value = plan.plan_id;
+    option.textContent = `${plan.plan_id} · ${plan.architect_provider}`;
+    return option;
+  }));
+  const codexDefault = plans.find((plan) => plan.plan_id === "week1-day3-local-llm-v3-codex-core");
+  select.value = plans.some((plan) => plan.plan_id === selected) ? selected : (codexDefault?.plan_id ?? plans[0]?.plan_id ?? "");
+}
 
 function render(status) {
-  byId("week").textContent = status.week;
-  byId("calendar-day").textContent = status.calendar_day;
-  byId("validation-day").textContent = status.validation_day;
-  byId("codex-mode").textContent = status.runtime.codex.mode.toUpperCase();
-  byId("overall-progress").textContent = percent(status.overall_progress);
-  byId("day-progress").textContent = percent(status.day_progress);
-  byId("overall-meter").style.width = percent(status.overall_progress);
-  byId("day-meter").style.width = percent(status.day_progress);
-  byId("task-title").textContent = `${status.current_task.task_id} ${status.current_task.title}`;
-  byId("task-progress").textContent = `${status.current_task.completed} / ${status.current_task.total}  ${status.task_progress}%`;
-  byId("retry").textContent = `${status.current_task.retry} / ${status.current_task.max_retry}`;
-  byId("state").textContent = status.run_state.state;
-  byId("token-total").textContent = `${status.token_usage.day_total.toLocaleString()} tokens`;
-  byId("token-input").textContent = status.token_usage.input_tokens.toLocaleString();
-  byId("token-cached").textContent = status.token_usage.cached_input_tokens.toLocaleString();
-  byId("token-output").textContent = status.token_usage.output_tokens.toLocaleString();
-  byId("budget-percent").textContent = percent(status.token_usage.budget_percent);
-  byId("pass-count").textContent = status.summary.pass;
-  byId("fail-count").textContent = status.summary.fail;
-  byId("review-count").textContent = status.summary.review;
-  byId("agents").replaceChildren(...Object.entries(status.agent_activity).map(([name, value]) => {
-    const item = document.createElement("li"); item.innerHTML = `<span>${name}</span><b>${value}</b>`; return item;
+  const day = status.day ?? {};
+  const task = day.current_task;
+  const routing = day.current_routing;
+  const tokens = day.token_usage ?? {};
+  const review = day.human_review_queue?.at(-1);
+  byId("week").textContent = status.week ?? "–";
+  byId("validation-day").textContent = day.plan_id ? status.validation_day : "–";
+  byId("codex-mode").textContent = status.runtime?.codex?.mode?.toUpperCase() ?? "–";
+  byId("overall-progress").textContent = percentage(day.overall_progress);
+  byId("day-progress").textContent = percentage(day.day_progress);
+  byId("overall-meter").style.width = percentage(day.overall_progress);
+  byId("day-meter").style.width = percentage(day.day_progress);
+  byId("day-state").textContent = day.state ?? "IDLE";
+  byId("day-state-note").textContent = day.stop_reason ?? "No active Day plan";
+  byId("task-title").textContent = task ? task.task_id : "No active task";
+  byId("task-queue-state").textContent = task?.state ?? "–";
+  byId("task-retry").textContent = task ? `${task.attempts} / ${task.repair_loops}` : "–";
+  byId("route-provider").textContent = routing ? `${routing.provider ?? "–"} / ${routing.role ?? "–"}` : "No route selected";
+  byId("route-profile").textContent = routing?.profile_id ?? "–";
+  byId("route-model").textContent = routing?.model ? `${routing.model} / ${routing.reasoning_effort ?? "–"}` : "–";
+  byId("route-context").textContent = routing ? `${compactNumber(routing.context_size)} chars` : "–";
+  byId("route-reason").textContent = routing?.selection_reason ?? "A route is recorded before each AI/Codex call.";
+  byId("review-status").textContent = review ? "Action required" : "None";
+  byId("review-detail").textContent = review ? `${review.task_id}: ${review.reason}` : "No blocking review item.";
+  byId("roles").replaceChildren(
+    keyValue("Architect", `${compactNumber(day.architect_calls)} call(s)`),
+    keyValue("Builder", `${compactNumber(day.codex_calls)} call(s)`),
+    keyValue("Independent evaluator", `${compactNumber(day.evaluator_calls)} call(s)`),
+    keyValue("AI calls avoided", `${day.deterministic_zero_usage_task_ids?.length ?? 0} deterministic task(s)`),
+  );
+  byId("tokens").replaceChildren(
+    keyValue("Architect input", compactNumber(tokens.architect?.gross_input_tokens ?? tokens.architect?.input_tokens)),
+    keyValue("Architect uncached", compactNumber(tokens.architect?.uncached_input_tokens ?? (tokens.architect?.input_tokens - tokens.architect?.cached_input_tokens))),
+    keyValue("Architect output", compactNumber(tokens.architect?.output_tokens)),
+    keyValue("Day total", compactNumber(day.token_totals?.day_total)),
+  );
+  byId("task-queue").replaceChildren(...(day.queue?.length ? day.queue : [{ task_id: "No tasks", state: "–", final_result: "" }]).map((item) => {
+    const row = document.createElement("li");
+    row.append(node("strong", item.task_id), node("span", item.state), node("small", item.final_result ?? ""));
+    return row;
   }));
-  byId("metrics").replaceChildren(...Object.entries(status.metrics).map(([name, value]) => {
-    const item = document.createElement("li"); item.innerHTML = `<span>${formatMetric(name)}</span><b>${value.toFixed(1)} / 5</b>`; return item;
-  }));
-  byId("days").replaceChildren(...status.days.map((day) => {
-    const item = document.createElement("div"); item.className = day.current ? "day current-day" : "day"; item.innerHTML = `<b>Day ${day.day}</b><span>${day.title}</span><i style="width:${day.progress}%"></i>`; return item;
-  }));
-  const timeline = status.timeline ?? [];
-  byId("timeline").replaceChildren(...(timeline.length ? timeline : [{ timestamp: "", message: "Awaiting workflow event." }]).map((event) => {
-    const item = document.createElement("li"); item.textContent = `${event.timestamp ? new Date(event.timestamp).toLocaleTimeString() + "  " : ""}${event.message}`; return item;
+  const taskIds = new Set((day.queue ?? []).map((item) => item.task_id));
+  const events = (status.timeline ?? []).filter((event) => event.event_type?.startsWith("DAY_") || taskIds.has(event.task_id)).slice(-24);
+  byId("timeline").replaceChildren(...(events.length ? events : [{ message: "Awaiting autonomous workflow event." }]).map((event) => {
+    const timestamp = event.timestamp ? `${new Date(event.timestamp).toLocaleTimeString()}  ` : "";
+    return node("li", `${timestamp}${event.message}`);
   }));
 }
 
 async function refresh() {
-  const response = await fetch("/api/status");
-  render(await response.json());
+  const [statusResponse, plansResponse] = await Promise.all([fetch("/api/status"), fetch("/api/day/plans")]);
+  if (!statusResponse.ok || !plansResponse.ok) throw new Error("Unable to load Control Center state.");
+  renderPlans(await plansResponse.json());
+  render(await statusResponse.json());
 }
 
-byId("run-mock").addEventListener("click", async () => {
-  const button = byId("run-mock"); button.disabled = true; button.textContent = "Running…";
-  try { const response = await fetch("/api/run/mock", { method: "POST" }); render(await response.json()); }
-  finally { button.disabled = false; button.textContent = "Run mock workflow"; }
+byId("refresh").addEventListener("click", () => refresh().catch((error) => { byId("operation-status").textContent = error.message; }));
+byId("run-day").addEventListener("click", async () => {
+  const button = byId("run-day");
+  button.disabled = true;
+  byId("operation-status").textContent = "Starting trusted single-step Day run…";
+  try {
+    const planId = encodeURIComponent(byId("plan-selector").value);
+    const response = await fetch(`/api/day/start/${planId}?mode=single-step`, { method: "POST" });
+    if (!response.ok) throw new Error("Day start request was rejected.");
+    await refresh();
+    byId("operation-status").textContent = "Day state refreshed from the trusted backend.";
+  } catch (error) {
+    byId("operation-status").textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
 });
-refresh();
+
+refresh().catch((error) => { byId("operation-status").textContent = error.message; });

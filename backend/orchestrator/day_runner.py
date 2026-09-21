@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timezone
 from typing import Any, Callable, Protocol
 
@@ -104,9 +105,11 @@ class DayRunner:
             return
         if not self._provider_precheck("architect", self.snapshot.architect_calls):
             return
+        architect_context = self._architect_request(plan)
         routing = self._select_profile(
             plan, RoutingRole.ARCHITECT, task_type="day_planning", complexity=TaskComplexity.NORMAL,
-            previous_attempt_count=0, previous_failure_type=None, context_size=len(self.snapshot.queue),
+            previous_attempt_count=0, previous_failure_type=None,
+            context_size=len(json.dumps(architect_context, ensure_ascii=False, separators=(",", ":"))),
             execution_provider=plan.architect_provider,
         )
         if routing is None:
@@ -117,7 +120,7 @@ class DayRunner:
             return
         self.snapshot.architect_calls += 1
         try:
-            decision = architect.choose(self._architect_request(plan, routing), ProviderExecutionConfig.from_routing_decision(routing))
+            decision = architect.choose(architect_context, ProviderExecutionConfig.from_routing_decision(routing))
         except RuntimeError as exc:
             self._human_review(
                 "SYSTEM", f"ARCHITECT_PROVIDER_ERROR:{_provider_error_code(exc)}",
@@ -359,17 +362,28 @@ class DayRunner:
             self.snapshot.deterministic_zero_usage_task_ids.append(task_id)
             self._audit(task_id, "DAY_DETERMINISTIC_NO_AI", {"token_usage": TokenUsage().model_dump(), "reason": "PRECHECK_PASS"})
 
-    def _architect_request(self, plan: DayPlan, routing: RoutingDecision) -> dict[str, Any]:
+    def _architect_request(self, plan: DayPlan) -> dict[str, Any]:
         eligible = [item for item in self.snapshot.queue if item.state in {QueueTaskState.PENDING, QueueTaskState.READY, QueueTaskState.REPAIR_PENDING}]
+        terminal = {QueueTaskState.PASS, QueueTaskState.COMPLETE_NO_CHANGE, QueueTaskState.SKIPPED}
         return {
-            "plan_id": plan.plan_id, "validation_day": plan.validation_day,
-            "eligible_tasks": [{"task_id": item.task_id, "title": self.tasks.get(item.task_id).title, "task_type": self.tasks.get(item.task_id).task_type.value, "evaluator_type": self.tasks.get(item.task_id).evaluator_type, "repair_loops": item.repair_loops} for item in eligible],
-            "queue": [{"task_id": item.task_id, "state": item.state.value, "final_result": item.final_result} for item in self.snapshot.queue],
-            "completed": [item.task_id for item in self.snapshot.queue if item.state in {QueueTaskState.PASS, QueueTaskState.COMPLETE_NO_CHANGE, QueueTaskState.SKIPPED}],
-            "review": [{"task_id": item.task_id, "reason": item.reason} for item in self.snapshot.human_review_queue],
-            "remaining_budgets": {"architect_calls": plan.max_architect_calls - self.snapshot.architect_calls, "evaluator_calls": plan.max_evaluator_calls - self.snapshot.evaluator_calls, "codex_calls": plan.max_codex_calls - self.snapshot.codex_calls},
-            "stop_conditions": {"max_tasks_per_run": plan.max_tasks_per_run, "max_failed_tasks": plan.max_failed_tasks},
-            "routing": routing.model_dump(mode="json"),
+            "plan": plan.plan_id,
+            "validation_day": plan.validation_day,
+            "eligible_tasks": [
+                {"task_id": item.task_id, "title": self.tasks.get(item.task_id).title, "task_type": self.tasks.get(item.task_id).task_type.value}
+                for item in eligible
+            ],
+            "queue": [{"id": item.task_id, "state": item.state.value} for item in self.snapshot.queue],
+            "prior_results": [
+                {"id": item.task_id, "result": item.final_result}
+                for item in self.snapshot.queue if item.state in terminal
+            ],
+            "remaining_calls": {
+                "architect": plan.max_architect_calls - self.snapshot.architect_calls,
+                "builder": plan.max_codex_calls - self.snapshot.codex_calls,
+                "evaluator": plan.max_evaluator_calls - self.snapshot.evaluator_calls,
+            },
+            "stop_limits": {"tasks": plan.max_tasks_per_run, "failed": plan.max_failed_tasks},
+            "progress": {"day": self.snapshot.day_progress, "overall": self.snapshot.overall_progress},
         }
 
     def _evaluator_request(self, task: ConfiguredTask, item: QueuedTask, result: dict[str, Any], routing: RoutingDecision) -> dict[str, Any]:

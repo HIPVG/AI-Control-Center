@@ -47,6 +47,16 @@ Codex validation uses the same plan with `runtime.local.yaml` set to `real`:
 Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/api/day/start/week1-day3-local-llm-v3-codex-core?mode=single-step | ConvertTo-Json -Depth 20
 ```
 
+## Dashboard v2
+
+Opening `http://127.0.0.1:8000` shows the live Autonomous Day dashboard. It
+defaults to `week1-day3-local-llm-v3-codex-core` and can start only a
+configured single-step plan. The dashboard reads trusted Day state to display
+the queue, `PAUSED` progress, ModelRouter selection, Codex role counts,
+gross/cached/uncached Architect tokens, Human Review, and the audit timeline.
+It never accepts browser-supplied commands, prompts, paths, budgets, or task
+definitions.
+
 `config/model_profiles.yaml` defines the logical reasoning profiles and their
 concrete provider mappings. Codex Core maps simple/normal/complex work to
 economical/standard/deep (Low/Medium/High); the Router, not a provider, selects

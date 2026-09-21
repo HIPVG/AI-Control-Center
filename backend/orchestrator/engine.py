@@ -1,6 +1,8 @@
 import json
 import hashlib
+import os
 import subprocess
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Protocol
@@ -88,7 +90,7 @@ class ControlCenterEngine:
         self.worktree_root = (worktree_root or project_root / "state" / "worktrees").resolve()
         self.smoke_workspace = SmokeWorkspace(smoke_root or project_root / "state" / "smoke")
         self.real_runner = real_runner or RealCodexRunner(self.runtime.codex)
-        role_workspace = project_root / "state" / "codex-roles"
+        role_workspace = self._codex_role_workspace_root()
         self.codex_architect = (
             CodexArchitectProvider(self.real_runner, role_workspace)
             if self.runtime.codex.mode == CodexMode.REAL else MockCodexArchitectProvider()
@@ -116,6 +118,16 @@ class ControlCenterEngine:
             persist=self._save_day_state, audit=self._day_audit,
             saved=self.data.get("day_orchestration"),
         )
+
+    @staticmethod
+    def _codex_role_workspace_root() -> Path:
+        """Keep read-only role calls outside any repository's inherited context."""
+        configured = os.environ.get("AI_CONTROL_CENTER_CODEX_ROLE_WORKSPACE")
+        if configured:
+            return Path(configured).resolve()
+        local_data = os.environ.get("LOCALAPPDATA")
+        base = Path(local_data) if local_data else Path(tempfile.gettempdir())
+        return (base / "AI-Control-Center" / "codex-roles").resolve()
 
     def _defaults(self) -> dict[str, Any]:
         task_completed, task_total = 18, 22

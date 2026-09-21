@@ -11,7 +11,7 @@ branch. Status is tracked in `docs/DEV_PROGRESS.json`.
 | M3 | Deterministic no-AI path | M0 | no speculative Codex route | no | COMPLETE |
 | M4 | Multi-task single-step | M0 | paused/complete progress tests | no | COMPLETE |
 | M5 | Mock continuous Day | M4 | bounded continuous tests | no | COMPLETE |
-| M6 | Real Architect readiness | M2–M5 | plan, mock request/parser/error tests, external checklist | REAL_ARCHITECT_SINGLE_STEP_VALIDATION | HUMAN_GATE |
+| M6 | Real Architect readiness | M2–M5 | plan, mock request/parser/error tests, external checklist | REAL_ARCHITECT_SINGLE_STEP_VALIDATION | COMPLETE |
 | M7 | Provider configuration validation | M2 | credentials fail closed; no mock fallback; telemetry matches route | no | COMPLETE |
 | M8 | Runtime/source configuration separation | M0 | local-overrides-defaults precedence tests | no | COMPLETE |
 | M9 | Development runtime experience | M0 | launcher binding/reload tests | no | COMPLETE |
@@ -23,7 +23,8 @@ branch. Status is tracked in `docs/DEV_PROGRESS.json`.
 | M15 | UI-readiness API data | M4 | Day state exposes task, routing, tokens, review queue | no | COMPLETE |
 | M16 | Real provider structured-output compatibility | M2, M6 | strict DTO schema, request shape, output mapping, sanitized error tests | no | COMPLETE |
 | M17 | Codex Core architecture | M0, M1, M4 | read-only structured Codex Architect/Reviewer roles, API-independent default plan, role telemetry tests | CODEX_ARCHITECT_SINGLE_STEP_VALIDATION | COMPLETE |
-| M18 | Dashboard v2 | M17 external validation | consume Day queue, role calls, routing, tokens, review, timeline | no | ROADMAP |
+| M18 | Dashboard v2 | M17 external validation | consume Day queue, role calls, routing, tokens, review, timeline | DASHBOARD_V2_EXTERNAL_VALIDATION | HUMAN_GATE |
+| M19 | Architect context efficiency | M17 validation telemetry | isolated non-repository role workspace, compact context, character telemetry | no | COMPLETE |
 
 M10 is deliberately non-blocking: a real semantic task must not be invented.
 
@@ -32,3 +33,11 @@ adapters are retained as explicit optional independent providers. Session reuse
 is deliberately deferred: current one-call-per-role/task execution preserves
 reproducibility and audit boundaries until measured cache savings justify a
 bounded, resettable session policy.
+
+The real Codex Architect gate passed with one `standard` / `medium` call,
+19,132 uncached input tokens, 88 output tokens, and a 9.6-second duration. M19
+uses this recorded baseline: it removes inherited repository context and
+unneeded routing fields before changing any profile, authority, or safety rule.
+Dashboard v2 is ready for its external validation gate; it consumes only
+trusted Day APIs and never accepts browser-supplied commands, prompts, paths,
+or plan definitions.

@@ -87,6 +87,19 @@ def test_default_codex_core_plan_does_not_need_openai_key_and_pauses_after_prech
     assert result["current_routing"]["provider"] == "codex"
 
 
+def test_role_workspace_defaults_outside_the_control_center_repository(monkeypatch, tmp_path):
+    monkeypatch.delenv("AI_CONTROL_CENTER_CODEX_ROLE_WORKSPACE", raising=False)
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "local-app-data"))
+    root = ControlCenterEngine._codex_role_workspace_root()
+    assert root == (tmp_path / "local-app-data" / "AI-Control-Center" / "codex-roles").resolve()
+    assert "AI-Control-Center\\state" not in str(root)
+
+
+def test_explicit_role_workspace_override_is_available_for_managed_local_runtime(monkeypatch, tmp_path):
+    monkeypatch.setenv("AI_CONTROL_CENTER_CODEX_ROLE_WORKSPACE", str(tmp_path / "roles"))
+    assert ControlCenterEngine._codex_role_workspace_root() == (tmp_path / "roles").resolve()
+
+
 def test_successful_deterministic_task_never_calls_independent_evaluator():
     from backend.control.tasks import ConfiguredTask, TaskCommand, TaskRegistry
     from backend.models.day import DayPlan, DayPlanRegistry
