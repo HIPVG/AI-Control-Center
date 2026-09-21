@@ -178,6 +178,7 @@ def test_baseline_then_worktree_only_fault_repair_completes_and_records_tokens(t
     assert result["repair_delta_files"] == ["scripts/process_consistency.py"]
     assert result["postcheck_result"] == "PASS"
     assert result["original_file_match"] is True
+    assert result["original_file_match_method"] == "git_diff_quiet"
     assert result["token_usage"] == TokenUsage(input_tokens=11, cached_input_tokens=4, output_tokens=3, available=True).model_dump()
     assert source.joinpath("scripts/process_consistency.py").read_text(encoding="utf-8") == ORIGINAL
     assert Path(result["worktree_path"], "scripts/process_consistency.py").read_text(encoding="utf-8") == ORIGINAL
@@ -237,7 +238,56 @@ def test_passing_but_different_repair_requires_human_review(tmp_path):
     result = engine.run_fault_repair("PC-001-A-CONTROLLED-FAULT")
     assert result["postcheck_result"] == "PASS"
     assert result["original_file_match"] is False
+    assert result["original_file_match_method"] == "git_diff_quiet"
     assert result["error_code"] == "ORIGINAL_FILE_MISMATCH"
+    assert result["final_result"] == "HUMAN_REVIEW"
+
+
+def test_git_original_match_accepts_clean_target_and_rejects_actual_change(tmp_path):
+    source = git_source(tmp_path)
+    assert ControlCenterEngine._git_original_file_match(source, "scripts/process_consistency.py") == (True, "git_diff_quiet")
+    source.joinpath("scripts/process_consistency.py").write_text(ORIGINAL.replace("difference > 0", "difference >= 0", 1), encoding="utf-8")
+    assert ControlCenterEngine._git_original_file_match(source, "scripts/process_consistency.py") == (False, "git_diff_quiet")
+
+
+def test_git_original_match_uses_only_trusted_target_and_allows_git_clean_line_endings(monkeypatch, tmp_path):
+    worktree = tmp_path / "worktree"
+    target = worktree / "scripts" / "process_consistency.py"
+    target.parent.mkdir(parents=True)
+    target.write_bytes(ORIGINAL.replace("\n", "\r\n").encode("utf-8"))
+    captured = {}
+
+    def git_clean(argv, **kwargs):
+        captured["argv"] = argv
+        captured["kwargs"] = kwargs
+        return subprocess.CompletedProcess(argv, 0, stdout="", stderr="")
+
+    monkeypatch.setattr("backend.orchestrator.engine.subprocess.run", git_clean)
+    assert ControlCenterEngine._git_original_file_match(worktree, "scripts/process_consistency.py") == (True, "git_diff_quiet")
+    assert captured["argv"][-2:] == ["--", "scripts/process_consistency.py"]
+    assert captured["kwargs"]["cwd"] == worktree.resolve()
+    assert captured["kwargs"]["shell"] is False
+
+
+def test_git_original_match_error_requires_human_review_path(monkeypatch, tmp_path):
+    worktree = tmp_path / "worktree"
+    worktree.mkdir()
+    monkeypatch.setattr(
+        "backend.orchestrator.engine.subprocess.run",
+        lambda argv, **kwargs: subprocess.CompletedProcess(argv, 2, stdout="", stderr="git failure"),
+    )
+    assert ControlCenterEngine._git_original_file_match(worktree, "scripts/process_consistency.py") == (None, "git_diff_quiet")
+
+
+def test_git_comparison_error_after_passing_postcheck_requires_human_review(monkeypatch, tmp_path):
+    runner = RepairWriter()
+    engine, _ = engine_for(tmp_path, runner)
+    command_results(engine, passing_sequence())
+    monkeypatch.setattr(engine, "_git_original_file_match", lambda worktree, target: (None, "git_diff_quiet"))
+    result = engine.run_fault_repair("PC-001-A-CONTROLLED-FAULT")
+    assert result["postcheck_result"] == "PASS"
+    assert result["original_file_match"] is None
+    assert result["error_code"] == "ORIGINAL_FILE_COMPARISON_FAILED"
     assert result["final_result"] == "HUMAN_REVIEW"
 
 

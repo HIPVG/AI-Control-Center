@@ -144,6 +144,7 @@ class FaultRepairResult(BaseModel):
     postcheck_result: str = "not_run"
     postcheck: CommandRunResult | None = None
     original_file_match: bool | None = None
+    original_file_match_method: str | None = None
     token_usage: TokenUsage = Field(default_factory=TokenUsage)
     context_character_count: int = 0
     context_byte_count: int = 0

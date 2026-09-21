@@ -350,7 +350,8 @@ class ControlCenterEngine:
         source_target = (source_root / profile.target_file).resolve()
         try:
             source_target.relative_to(source_root)
-            original_target = source_target.read_bytes()
+            if not source_target.is_file():
+                raise OSError("configured fault target is not a file")
         except (ValueError, OSError):
             return self._fault_finish(FaultRepairResult(
                 **common, source_head_sha=source_head, state=WorkflowState.HUMAN_REVIEW.value, final_result="HUMAN_REVIEW",
@@ -423,7 +424,7 @@ class ControlCenterEngine:
             ))
         self._event(profile.task_id, AuditEventType.DETERMINISTIC_CHECK, f"{profile.task_id} PRECHECK FAIL", details=precheck.model_dump())
         self._transition(profile.task_id, WorkflowState.TRIAGE, "fault precheck classified CODE_FIX")
-        return self._run_fault_codex_attempts(profile, common, source_head, original_target, working_directory, worktree, injection_status, baseline, precheck)
+        return self._run_fault_codex_attempts(profile, common, source_head, working_directory, worktree, injection_status, baseline, precheck)
 
     def _fault_finish(self, result: FaultRepairResult) -> dict[str, Any]:
         self.data.setdefault("fault_repair_runs", []).append(result.model_dump(mode="json"))
@@ -435,7 +436,6 @@ class ControlCenterEngine:
         profile: FaultProfile,
         common: dict[str, Any],
         source_head: str,
-        original_target: bytes,
         working_directory: Path,
         worktree: Path,
         injection_status: dict[str, str],
@@ -547,17 +547,23 @@ class ControlCenterEngine:
                 continue
             self._event(profile.task_id, AuditEventType.TEST_RESULT, "Deterministic POSTCHECK PASS", details=postcheck.model_dump())
             self._transition(profile.task_id, WorkflowState.EVALUATING, "deterministic postcheck passed")
-            target = (worktree / profile.target_file).resolve()
-            try:
-                original_match = target.read_bytes() == original_target
-            except OSError:
-                original_match = False
+            original_match, comparison_method = self._git_original_file_match(worktree, profile.target_file)
+            if original_match is None:
+                self._transition(profile.task_id, WorkflowState.HUMAN_REVIEW, "Git comparison of repaired target failed")
+                return self._fault_finish(FaultRepairResult(
+                    **common, source_head_sha=source_head, baseline_result="PASS", baseline=baseline, fault_injected=True,
+                    precheck_result="FAIL", precheck=precheck, triage_result="CODE_FIX", codex_invoked=True, codex_attempts=attempts,
+                    repair_delta_files=repair_delta, scope_guard_result="PASS", postcheck_result="PASS", postcheck=postcheck,
+                    original_file_match_method=comparison_method, token_usage=aggregate,
+                    context_character_count=len(prompt), context_byte_count=len(prompt.encode("utf-8")), state=WorkflowState.HUMAN_REVIEW.value,
+                    final_result="HUMAN_REVIEW", human_review_reason="Git comparison of repaired target failed", error_code="ORIGINAL_FILE_COMPARISON_FAILED",
+                ))
             if not original_match:
                 self._transition(profile.task_id, WorkflowState.HUMAN_REVIEW, "passing repair differs from original clean source")
                 return self._fault_finish(FaultRepairResult(
                     **common, source_head_sha=source_head, baseline_result="PASS", baseline=baseline, fault_injected=True,
                     precheck_result="FAIL", precheck=precheck, triage_result="CODE_FIX", codex_invoked=True, codex_attempts=attempts,
-                    repair_delta_files=repair_delta, scope_guard_result="PASS", postcheck_result="PASS", postcheck=postcheck, original_file_match=False, token_usage=aggregate,
+                    repair_delta_files=repair_delta, scope_guard_result="PASS", postcheck_result="PASS", postcheck=postcheck, original_file_match=False, original_file_match_method=comparison_method, token_usage=aggregate,
                     context_character_count=len(prompt), context_byte_count=len(prompt.encode("utf-8")), state=WorkflowState.HUMAN_REVIEW.value,
                     final_result="HUMAN_REVIEW", human_review_reason="passing repair differs from original clean source", error_code="ORIGINAL_FILE_MISMATCH",
                 ))
@@ -565,7 +571,7 @@ class ControlCenterEngine:
             return self._fault_finish(FaultRepairResult(
                 **common, source_head_sha=source_head, baseline_result="PASS", baseline=baseline, fault_injected=True,
                 precheck_result="FAIL", precheck=precheck, triage_result="CODE_FIX", codex_invoked=True, codex_attempts=attempts,
-                repair_delta_files=repair_delta, scope_guard_result="PASS", postcheck_result="PASS", postcheck=postcheck, original_file_match=True, token_usage=aggregate,
+                repair_delta_files=repair_delta, scope_guard_result="PASS", postcheck_result="PASS", postcheck=postcheck, original_file_match=True, original_file_match_method=comparison_method, token_usage=aggregate,
                 context_character_count=len(prompt), context_byte_count=len(prompt.encode("utf-8")), state=WorkflowState.COMPLETE.value, final_result="COMPLETE",
             ))
 
@@ -648,6 +654,28 @@ class ControlCenterEngine:
         except ValueError as exc:
             raise ValueError("fault artifact path escaped managed state") from exc
         return root
+
+    @staticmethod
+    def _git_original_file_match(worktree: Path, target_file: str) -> tuple[bool | None, str]:
+        """Use Git's normalized content comparison for the one trusted repair file."""
+        root = worktree.resolve()
+        target = (root / target_file).resolve()
+        try:
+            relative = target.relative_to(root).as_posix()
+        except ValueError:
+            return None, "git_diff_quiet"
+        try:
+            completed = subprocess.run(
+                ["git", "-c", f"safe.directory={root}", "diff", "--quiet", "HEAD", "--", relative],
+                cwd=root, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=10, check=False, shell=False,
+            )
+        except (FileNotFoundError, OSError, subprocess.TimeoutExpired):
+            return None, "git_diff_quiet"
+        if completed.returncode == 0:
+            return True, "git_diff_quiet"
+        if completed.returncode == 1:
+            return False, "git_diff_quiet"
+        return None, "git_diff_quiet"
 
     @staticmethod
     def _snapshot_status_delta(before: dict[str, str], after: dict[str, str]) -> list[str]:
