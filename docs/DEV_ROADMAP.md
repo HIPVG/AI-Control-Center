@@ -27,7 +27,7 @@ branch. Status is tracked in `docs/DEV_PROGRESS.json`.
 | M19 | Architect context efficiency | M17 validation telemetry | isolated non-repository role workspace, compact context, character telemetry | no | COMPLETE |
 | M20 | Real continuous Codex-Core Day | M18 | trusted multi-task Day completes end-to-end without per-task human action | REAL_CODEX_CORE_CONTINUOUS_VALIDATION | COMPLETE |
 | M21 | Exception-driven escalation | M20 | auto-resolve/retry/replan routine failure classes; human only for true authority/external boundaries | BATCH_WITH_M22_EXTERNAL_VALIDATION | IMPLEMENTED |
-| M22 | Real LocalLLM experiment integration | M21 implementation | run an existing trusted LocalLLM-Lab experiment through Control Center, preserve experiment-vs-code semantics, capture artifacts/telemetry | ESCALATION_AND_REAL_LOCAL_LLM_VALIDATION | IN_PROGRESS |
+| M22 | Real LocalLLM experiment integration | M21 implementation | run an existing trusted LocalLLM-Lab experiment through Control Center, preserve experiment-vs-code semantics, capture artifacts/telemetry | ESCALATION_AND_REAL_LOCAL_LLM_VALIDATION | HUMAN_GATE |
 | M23 | PowerShell-free daily operation | M18, M22 | auto-start/service behavior and dashboard start/resume/stop/health controls | ZERO_COMMAND_DAILY_OPERATION_VALIDATION | ROADMAP |
 | M24 | Goal-to-Plan | M21, M22 | bounded goal intake → Codex plan → deterministic policy validation → execution | GOAL_TO_PLAN_EXTERNAL_VALIDATION | ROADMAP |
 | M25 | Self-repair and bounded replan | M21, M24 | classify failure → retry/repair/review/replan automatically within limits | AUTONOMOUS_RECOVERY_VALIDATION | ROADMAP |

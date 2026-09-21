@@ -13,7 +13,7 @@ def client(monkeypatch):
 
 
 def test_required_endpoints_are_available(client):
-    for path in ("/api/status", "/api/plan", "/api/tasks", "/api/timeline", "/api/token-usage", "/api/runtime", "/api/day/plans", "/api/day/status"):
+    for path in ("/api/status", "/api/plan", "/api/tasks", "/api/timeline", "/api/token-usage", "/api/runtime", "/api/day/plans", "/api/day/status", "/api/experiments"):
         assert client.get(path).status_code == 200
     assert client.post("/api/run/mock").status_code == 200
     assert client.post("/api/run/codex-smoke").json()["error_code"] == "REAL_MODE_REQUIRED"
@@ -39,9 +39,11 @@ def test_dashboard_v2_uses_only_configured_day_plan_api_contracts(client):
     script = (control_app.ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
     assert 'id="run-day"' in html
     assert 'id="run-continuous"' in html
+    assert 'id="run-experiment"' in html
     assert "/api/day/start/" in script
     assert "/api/day/resume?mode=continuous" in script
     assert "continuous_mode_supported" in script
+    assert "/api/experiments" in script
     assert "/api/run/mock" not in script
     assert "innerHTML" not in script
 

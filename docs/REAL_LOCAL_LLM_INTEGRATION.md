@@ -126,6 +126,11 @@ Real experiment execution should eventually be visible from the existing dashboa
 
 Avoid requiring routine PowerShell commands.
 
+The initial trusted experiment is exposed by Dashboard v2 as **Run trusted
+LocalLLM experiment**. The browser sends only the configured experiment ID;
+the server resolves the LocalLLM-Lab runner, loopback engine, model, cases,
+timeout, and artifact root from `config/experiments.yaml`.
+
 ## Completion gate
 
 The first external gate should prove:

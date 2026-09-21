@@ -1,0 +1,8 @@
+experiments:
+  local_llm_process_consistency_smoke:
+    project_id: local_llm_lab
+    runner: scripts/run_process_consistency_smoke.py
+    model: qwen3-8b-q4:latest
+    cases: [PC-001-A, PC-001-C, PC-003-A, PC-003-C]
+    timeout_seconds: 120
+    output_root: results/process-consistency

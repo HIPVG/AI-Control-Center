@@ -2,6 +2,7 @@ import json
 import hashlib
 import os
 import subprocess
+import sys
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -19,6 +20,8 @@ from backend.control.context_broker import ContextBroker
 from backend.control.model_router import ModelRouter, load_model_profile_registry
 from backend.control.orchestration import load_orchestration_config
 from backend.control.faults import FaultProfile, FaultRegistry, load_fault_registry, locate_qa_shipment_gt_operator
+from backend.control.experiments import load_experiments
+from backend.models.experiment import ExperimentOutcome, ExperimentRun
 from backend.control.projects import ProjectRegistry, load_project_registry
 from backend.control.plans import load_plan_registry
 from backend.control.task_discovery import DeterministicTaskDiscovery, DiscoveryRegistry, FailingTaskDiscoveryResult, load_discovery_registry
@@ -87,6 +90,7 @@ class ControlCenterEngine:
         self.model_router = ModelRouter(self.model_profiles)
         self.discoveries = discovery_registry or load_discovery_registry(project_root / "config" / "discovery.yaml")
         self.faults = fault_registry or load_fault_registry(project_root / "config" / "faults.yaml")
+        self.experiments = load_experiments(project_root / "config" / "experiments.yaml")
         self.worktree_root = (worktree_root or project_root / "state" / "worktrees").resolve()
         self.smoke_workspace = SmokeWorkspace(smoke_root or project_root / "state" / "smoke")
         self.real_runner = real_runner or RealCodexRunner(self.runtime.codex)
@@ -148,6 +152,7 @@ class ControlCenterEngine:
             "day_orchestration": {},
             "task_discoveries": [],
             "fault_repair_runs": [],
+            "experiment_runs": [],
             "task_start_completed": {"PC-014": 18},
             "task_progress": calculate_progress(task_completed, task_total),
             "current_task": {"task_id": "PC-014", "title": "Evidence Grounding", "completed": task_completed, "total": task_total, "retry": 0, "max_retry": 2},
@@ -315,6 +320,43 @@ class ControlCenterEngine:
 
     def configured_plans(self) -> list[dict[str, object]]:
         return self.plans.metadata()
+
+    def configured_experiments(self) -> list[dict[str, object]]:
+        return [{"experiment_id": item.experiment_id, "project_id": item.project_id, "model": item.model, "cases": item.cases} for item in self.experiments.values()]
+
+    def run_experiment(self, experiment_id: str) -> dict[str, Any]:
+        started = datetime.now(timezone.utc)
+        definition = self.experiments.get(experiment_id)
+        if definition is None:
+            return ExperimentRun(experiment_id=experiment_id, project_id="unconfigured", started_at=started, outcome=ExperimentOutcome.CONFIGURATION_BLOCKED, classification_reason="EXPERIMENT_NOT_CONFIGURED").model_dump(mode="json")
+        project = self.projects.get(definition.project_id)
+        root = project.path.resolve() if project else None
+        runner = (root / definition.runner).resolve() if root else None
+        if not root or not runner or not runner.is_file() or not runner.is_relative_to(root):
+            result = ExperimentRun(experiment_id=experiment_id, project_id=definition.project_id, started_at=started, completed_at=datetime.now(timezone.utc), outcome=ExperimentOutcome.CONFIGURATION_BLOCKED, classification_reason="TRUSTED_RUNNER_UNAVAILABLE")
+            return self._finish_experiment(result)
+        command = [sys.executable, str(runner), "--engine", "ollama", "--model", definition.model, "--cases", ",".join(definition.cases), "--timeout", str(definition.timeout_seconds), "--output-root", definition.output_root]
+        try:
+            completed = subprocess.run(command, cwd=root, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=definition.timeout_seconds + 30, check=False)
+            payload = json.loads(completed.stdout.strip().splitlines()[-1]) if completed.stdout.strip() else {}
+        except subprocess.TimeoutExpired:
+            result = ExperimentRun(experiment_id=experiment_id, project_id=definition.project_id, started_at=started, completed_at=datetime.now(timezone.utc), outcome=ExperimentOutcome.TIMEOUT, classification_reason="RUNNER_TIMEOUT", model=definition.model)
+            return self._finish_experiment(result)
+        except (OSError, json.JSONDecodeError):
+            result = ExperimentRun(experiment_id=experiment_id, project_id=definition.project_id, started_at=started, completed_at=datetime.now(timezone.utc), outcome=ExperimentOutcome.HARNESS_FAILURE, classification_reason="RUNNER_OUTPUT_INVALID", model=definition.model)
+            return self._finish_experiment(result)
+        error = (payload.get("error") or {}).get("code")
+        status = payload.get("status")
+        outcome = ExperimentOutcome.RESULT_RECORDED if status == "completed" else ExperimentOutcome.MODEL_NOT_FOUND if error == "model_not_found" else ExperimentOutcome.ENGINE_UNAVAILABLE if error == "engine_unavailable" else ExperimentOutcome.CONFIGURATION_BLOCKED if status == "blocked" else ExperimentOutcome.MODEL_QUALITY_FINDING if status == "completed_with_errors" else ExperimentOutcome.HARNESS_FAILURE
+        result = ExperimentRun(experiment_id=experiment_id, project_id=definition.project_id, started_at=started, completed_at=datetime.now(timezone.utc), outcome=outcome, runner_exit_code=completed.returncode, artifact_path=payload.get("output_directory"), model=definition.model, engine="ollama", response_count=int(payload.get("response_count", 0)), success_count=int(payload.get("success_count", 0)), failed_count=int(payload.get("failed_count", 0)), classification_reason=error or status or "RUNNER_UNKNOWN")
+        return self._finish_experiment(result)
+
+    def _finish_experiment(self, result: ExperimentRun) -> dict[str, Any]:
+        payload = result.model_dump(mode="json")
+        self.data["experiment_runs"].append(payload)
+        self._event(result.experiment_id, AuditEventType.EXPERIMENT_RESULT, f"Experiment {result.outcome.value}", details=payload)
+        self._save()
+        return payload
 
     def start_day(self, plan_id: str, *, mode: DayExecutionMode = DayExecutionMode.SINGLE_STEP) -> dict[str, Any]:
         return self.day_runner.start(plan_id, mode=mode)

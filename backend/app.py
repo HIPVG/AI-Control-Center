@@ -60,6 +60,16 @@ def day_status() -> dict:
     return engine.day_status()
 
 
+@app.get("/api/experiments")
+def experiments() -> list[dict]:
+    return engine.configured_experiments()
+
+
+@app.post("/api/experiments/{experiment_id}/run")
+def run_experiment(experiment_id: str) -> dict:
+    return engine.run_experiment(experiment_id)
+
+
 @app.post("/api/day/start/{plan_id}")
 def start_day(plan_id: str, mode: DayExecutionMode = Query(DayExecutionMode.SINGLE_STEP)) -> dict:
     return engine.start_day(plan_id, mode=mode)

@@ -25,7 +25,7 @@
   ],
   "blocked_milestones": [],
   "human_gate": "ESCALATION_AND_REAL_LOCAL_LLM_VALIDATION",
-  "latest_test_result": "148 passed, 2 warnings",
+  "latest_test_result": "151 passed, 2 warnings",
   "latest_commit": "b947ba4",
   "remote_push_state": "pending",
   "safe_semantic_task_found": false,

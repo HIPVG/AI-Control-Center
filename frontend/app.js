@@ -3,6 +3,7 @@ const compactNumber = (value) => Number(value ?? 0).toLocaleString();
 const percentage = (value) => `${Number(value ?? 0).toFixed(2).replace(/\.00$/, "")}%`;
 let configuredPlans = [];
 let latestStatus = null;
+let configuredExperiments = [];
 
 function node(tag, text, className) {
   const element = document.createElement(tag);
@@ -92,9 +93,11 @@ function render(status) {
 }
 
 async function refresh() {
-  const [statusResponse, plansResponse] = await Promise.all([fetch("/api/status"), fetch("/api/day/plans")]);
-  if (!statusResponse.ok || !plansResponse.ok) throw new Error("Unable to load Control Center state.");
+  const [statusResponse, plansResponse, experimentsResponse] = await Promise.all([fetch("/api/status"), fetch("/api/day/plans"), fetch("/api/experiments")]);
+  if (!statusResponse.ok || !plansResponse.ok || !experimentsResponse.ok) throw new Error("Unable to load Control Center state.");
   renderPlans(await plansResponse.json());
+  configuredExperiments = await experimentsResponse.json();
+  byId("run-experiment").disabled = configuredExperiments.length === 0;
   render(await statusResponse.json());
 }
 
@@ -135,6 +138,25 @@ byId("run-continuous").addEventListener("click", async () => {
     byId("operation-status").textContent = error.message;
   } finally {
     updateContinuousControl();
+  }
+});
+
+byId("run-experiment").addEventListener("click", async () => {
+  const experiment = configuredExperiments[0];
+  const button = byId("run-experiment");
+  if (!experiment) return;
+  button.disabled = true;
+  byId("operation-status").textContent = `Starting trusted LocalLLM experiment: ${experiment.experiment_id}`;
+  try {
+    const response = await fetch(`/api/experiments/${encodeURIComponent(experiment.experiment_id)}/run`, { method: "POST" });
+    const result = await response.json();
+    if (!response.ok) throw new Error("LocalLLM experiment request was rejected.");
+    await refresh();
+    byId("operation-status").textContent = `Experiment ${result.outcome}: ${result.classification_reason}`;
+  } catch (error) {
+    byId("operation-status").textContent = error.message;
+  } finally {
+    button.disabled = configuredExperiments.length === 0;
   }
 });
 
