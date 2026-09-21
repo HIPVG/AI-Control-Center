@@ -12,7 +12,7 @@ from backend.control.orchestration import load_orchestration_config
 from backend.control.model_router import ModelRouter, load_model_profile_registry
 from backend.control.tasks import ConfiguredTask, TaskCommand, TaskRegistry
 from backend.models.day import (
-    ArchitectProviderOutput, DayExecutionMode, DayPlan, DayPlanRegistry, DayRunSnapshot,
+    ArchitectDecision, ArchitectProviderOutput, DayExecutionMode, DayPlan, DayPlanRegistry, DayRunSnapshot,
     DayRunState, EvaluatorProviderOutput, QueuedTask, SemanticEvaluation,
 )
 from backend.models.orchestration import ProviderBudget, ProviderSettings
@@ -135,6 +135,36 @@ def test_continuous_mode_processes_all_tasks_and_preserves_mode_for_resume():
     assert result["state"] == "COMPLETE"
     assert result["mode"] == "continuous"
     assert result["day_progress"] == 100
+
+
+def test_retryable_architect_failure_is_retried_once_and_persisted_as_typed_escalation():
+    class Architect:
+        calls = 0
+
+        def choose(self, request, execution):
+            self.calls += 1
+            if self.calls == 1:
+                raise ProviderRequestError("CODEX_TIMEOUT", "bounded timeout")
+            return ArchitectDecision(task_id="A", reason="retry selected trusted task")
+
+    plan = DayPlan(plan_id="p", title="p", task_ids=["A"], architect_provider="codex", max_auto_provider_retries=1)
+    day = DayRunner(DayPlanRegistry(plans={"p": plan}), TaskRegistry(tasks={"A": configured_task("A")}), complete_no_change, architects={"codex": Architect()})
+    result = day.start("p", mode=DayExecutionMode.CONTINUOUS)
+    assert result["state"] == "COMPLETE"
+    assert result["auto_provider_retries"] == 1
+    assert result["escalation_events"] == [{"category": "RETRYABLE", "reason": "CODEX_TIMEOUT", "action": "RETRY_ARCHITECT"}]
+
+
+def test_external_architect_failure_remains_a_typed_human_boundary():
+    class Architect:
+        def choose(self, request, execution):
+            raise ProviderRequestError("CODEX_NOT_FOUND", "requires runtime installation")
+
+    plan = DayPlan(plan_id="p", title="p", task_ids=["A"], architect_provider="codex")
+    day = DayRunner(DayPlanRegistry(plans={"p": plan}), TaskRegistry(tasks={"A": configured_task("A")}), complete_no_change, architects={"codex": Architect()})
+    result = day.start("p", mode=DayExecutionMode.CONTINUOUS)
+    assert result["state"] == "HUMAN_REVIEW"
+    assert result["human_review_queue"][0]["escalation_category"] == "EXTERNAL_ACTION_REQUIRED"
 
 
 def test_continuous_human_review_and_hard_limits_stop_without_extra_task_execution():

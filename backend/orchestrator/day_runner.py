@@ -5,7 +5,7 @@ from typing import Any, Callable, Protocol
 from backend.agents.day_providers import DayArchitect, DayEvaluator, MockDayArchitect, MockSemanticEvaluator
 from backend.control.tasks import ConfiguredTask, TaskRegistry
 from backend.control.model_router import ModelRouter, accumulate_profile_usage
-from backend.models.day import DayExecutionMode, DayPlan, DayPlanRegistry, DayRunSnapshot, DayRunState, HumanReviewItem, QueueTaskState, QueuedTask
+from backend.models.day import DayExecutionMode, DayPlan, DayPlanRegistry, DayRunSnapshot, DayRunState, EscalationCategory, HumanReviewItem, QueueTaskState, QueuedTask
 from backend.models.model_routing import FailureType, ProviderExecutionConfig, RoutingDecision, RoutingPolicy, RoutingRequest, RoutingRole, TaskComplexity
 from backend.models.orchestration import ProviderBudget
 from backend.models.result import TokenUsage
@@ -124,10 +124,17 @@ class DayRunner:
         try:
             decision = architect.choose(architect_context, ProviderExecutionConfig.from_routing_decision(routing))
         except RuntimeError as exc:
+            code = _provider_error_code(exc)
+            category = _provider_escalation(code)
+            if category == EscalationCategory.RETRYABLE and self.snapshot.auto_provider_retries < plan.max_auto_provider_retries:
+                self.snapshot.auto_provider_retries += 1
+                self._escalation("SYSTEM", category, code, "RETRY_ARCHITECT")
+                self._save()
+                return
             self._human_review(
-                "SYSTEM", f"ARCHITECT_PROVIDER_ERROR:{_provider_error_code(exc)}",
+                "SYSTEM", f"ARCHITECT_PROVIDER_ERROR:{code}",
                 result={"human_review_reason": _provider_error_message(exc)}, routing=routing,
-                failure_type="provider_error", provider_diagnostics=_provider_error_diagnostics(exc),
+                failure_type="provider_error", provider_diagnostics=_provider_error_diagnostics(exc), escalation_category=category,
             )
             return
         self._add_usage("architect", decision.token_usage)
@@ -141,11 +148,11 @@ class DayRunner:
             if self._all_successful():
                 self._complete()
             else:
-                self._human_review("SYSTEM", "ARCHITECT_PREMATURE_DAY_COMPLETE", routing=routing, failure_type="architect_decision")
+                self._request_replan(plan, "ARCHITECT_PREMATURE_DAY_COMPLETE", routing)
             return
         item = self._eligible_item(decision.task_id)
         if item is None:
-            self._human_review("SYSTEM", "ARCHITECT_INVALID_TASK", routing=routing, failure_type="architect_decision")
+            self._request_replan(plan, "ARCHITECT_INVALID_TASK", routing)
             return
         if decision.decision == "HUMAN_REVIEW":
             self._human_review(item.task_id, decision.reason, routing=routing, failure_type="architect_decision")
@@ -429,6 +436,7 @@ class DayRunner:
         routing: RoutingDecision | None = None,
         failure_type: str | None = None,
         provider_diagnostics: dict[str, object] | None = None,
+        escalation_category: EscalationCategory = EscalationCategory.HUMAN_DECISION_REQUIRED,
     ) -> None:
         item = next((candidate for candidate in self.snapshot.queue if candidate.task_id == task_id), None)
         if item:
@@ -439,11 +447,25 @@ class DayRunner:
             summary=result.get("human_review_reason"), changed_files=result.get("changed_files", []),
             result_reference=result.get("run_id"), routing_profile_id=routing.profile_id if routing else None,
             failure_type=failure_type, provider_diagnostics=provider_diagnostics or {},
+            escalation_category=escalation_category,
         )
         self.snapshot.human_review_queue.append(review)
         self.snapshot.state, self.snapshot.stop_reason = DayRunState.HUMAN_REVIEW, reason
         self._audit(task_id, "DAY_HUMAN_REVIEW", review.model_dump(mode="json"))
         self._save()
+
+    def _request_replan(self, plan: DayPlan, reason: str, routing: RoutingDecision) -> None:
+        if self.snapshot.auto_replans < plan.max_auto_replans:
+            self.snapshot.auto_replans += 1
+            self._escalation("SYSTEM", EscalationCategory.REPLAN_REQUIRED, reason, "REPLAN_ARCHITECT")
+            self._save()
+            return
+        self._human_review("SYSTEM", reason, routing=routing, failure_type="architect_decision")
+
+    def _escalation(self, task_id: str, category: EscalationCategory, reason: str, action: str) -> None:
+        event = {"category": category.value, "reason": reason, "action": action}
+        self.snapshot.escalation_events.append(event)
+        self._audit(task_id, "DAY_ESCALATION", event)
 
     def _plan(self) -> DayPlan | None:
         return self.plans.get(self.snapshot.plan_id) if self.snapshot.plan_id else None
@@ -475,3 +497,11 @@ def _provider_error_message(exc: RuntimeError) -> str:
 def _provider_error_diagnostics(exc: RuntimeError) -> dict[str, object]:
     value = getattr(exc, "diagnostics", None)
     return value if isinstance(value, dict) else {}
+
+
+def _provider_escalation(code: str) -> EscalationCategory:
+    if code in {"CODEX_TIMEOUT", "CODEX_TURN_FAILED", "CODEX_ROLE_FAILED", "CODEX_OUTPUT_INVALID", "OPENAI_TIMEOUT"}:
+        return EscalationCategory.RETRYABLE
+    if code in {"CODEX_NOT_FOUND", "CODEX_HOME_NOT_FOUND", "CODEX_SQLITE_HOME_NOT_FOUND", "OPENAI_CREDENTIALS_MISSING"}:
+        return EscalationCategory.EXTERNAL_ACTION_REQUIRED
+    return EscalationCategory.HUMAN_DECISION_REQUIRED

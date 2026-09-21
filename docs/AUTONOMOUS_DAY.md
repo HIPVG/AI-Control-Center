@@ -67,6 +67,16 @@ unsupported execution mode. The DayRunner itself rejects a replacement start
 while a Day is `RUNNING`, `PAUSED`, or in `HUMAN_REVIEW`; it must be resumed or
 the review handled without silently discarding its trusted queue and audit.
 
+## Exception-driven escalation
+
+Day failures are persisted as typed escalation events. Bounded transient
+Architect failures (`CODEX_TIMEOUT`, failed/invalid bounded role output) retry
+once under trusted plan policy; invalid Architect selections trigger one bounded
+replan using the same configured queue. Missing runtime prerequisites become
+`EXTERNAL_ACTION_REQUIRED`; unknown, scope, authority, or policy failures remain
+`HUMAN_DECISION_REQUIRED`. Automatic recovery never changes task scope, plans,
+budgets, or retry ceilings.
+
 Hard limits are trusted plan/config values: tasks per run, failed tasks,
 Architect/Evaluator/Codex calls, repair loops, and role-specific token budgets.
 Pre-call provider budget gates stop safely; a usage value reported after a

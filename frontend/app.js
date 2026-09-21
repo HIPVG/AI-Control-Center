@@ -70,6 +70,7 @@ function render(status) {
     keyValue("Builder", `${compactNumber(day.codex_calls)} call(s)`),
     keyValue("Independent evaluator", `${compactNumber(day.evaluator_calls)} call(s)`),
     keyValue("AI calls avoided", `${day.deterministic_zero_usage_task_ids?.length ?? 0} deterministic task(s)`),
+    keyValue("Auto recovery", `${compactNumber(day.auto_provider_retries)} retry / ${compactNumber(day.auto_replans)} replan`),
   );
   byId("tokens").replaceChildren(
     keyValue("Architect input", compactNumber(tokens.architect?.gross_input_tokens ?? tokens.architect?.input_tokens)),

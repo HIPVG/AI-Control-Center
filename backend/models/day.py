@@ -24,6 +24,14 @@ class DayExecutionMode(str, Enum):
     CONTINUOUS = "continuous"
 
 
+class EscalationCategory(str, Enum):
+    AUTO_RESOLVABLE = "AUTO_RESOLVABLE"
+    RETRYABLE = "RETRYABLE"
+    REPLAN_REQUIRED = "REPLAN_REQUIRED"
+    EXTERNAL_ACTION_REQUIRED = "EXTERNAL_ACTION_REQUIRED"
+    HUMAN_DECISION_REQUIRED = "HUMAN_DECISION_REQUIRED"
+
+
 class QueueTaskState(str, Enum):
     PENDING = "PENDING"
     READY = "READY"
@@ -130,6 +138,8 @@ class DayPlan(BaseModel):
     allowed_profile_ids: list[str] = Field(default_factory=lambda: ["economical", "standard", "deep"])
     allow_profile_budget_downgrade: bool = False
     max_profile_escalation_level: int = Field(default=2, ge=0, le=2)
+    max_auto_provider_retries: int = Field(default=1, ge=0, le=3)
+    max_auto_replans: int = Field(default=1, ge=0, le=3)
 
 
 class DayPlanRegistry(BaseModel):
@@ -176,6 +186,7 @@ class HumanReviewItem(BaseModel):
     routing_profile_id: str | None = None
     failure_type: str | None = None
     provider_diagnostics: dict[str, object] = Field(default_factory=dict)
+    escalation_category: EscalationCategory = EscalationCategory.HUMAN_DECISION_REQUIRED
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
@@ -200,4 +211,7 @@ class DayRunSnapshot(BaseModel):
     profile_token_usage: dict[str, ProfileTokenUsage] = Field(default_factory=dict)
     model_routing_decisions: list[RoutingDecision] = Field(default_factory=list)
     deterministic_zero_usage_task_ids: list[str] = Field(default_factory=list)
+    auto_provider_retries: int = Field(default=0, ge=0)
+    auto_replans: int = Field(default=0, ge=0)
+    escalation_events: list[dict[str, object]] = Field(default_factory=list)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

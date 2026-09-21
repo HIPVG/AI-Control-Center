@@ -22,6 +22,7 @@ def test_every_static_day_runner_audit_event_is_registered():
         "DAY_TASK_RESULT",
         "DAY_EVALUATION_RESULT",
         "DAY_HUMAN_REVIEW",
+        "DAY_ESCALATION",
         "DAY_STOPPED",
         "DAY_COMPLETE",
     }
@@ -29,5 +30,6 @@ def test_every_static_day_runner_audit_event_is_registered():
 
 
 def test_new_day_audit_events_remain_serializable():
-    event = AuditEvent(task_id="PC-001-A", event_type=AuditEventType.DAY_MODEL_ROUTING, message="routing selected")
-    assert event.model_dump(mode="json")["event_type"] == "DAY_MODEL_ROUTING"
+    for event_type in (AuditEventType.DAY_MODEL_ROUTING, AuditEventType.DAY_ESCALATION):
+        event = AuditEvent(task_id="PC-001-A", event_type=event_type, message="structured Day event")
+        assert event.model_dump(mode="json")["event_type"] == event_type.value
