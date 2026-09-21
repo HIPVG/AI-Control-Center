@@ -64,9 +64,14 @@ Always:
 Authoritative architecture:
 - `docs/ARCHITECTURE.md`
 
+Autonomous development reasoning policy:
+- `docs/DEVELOPMENT_REASONING_POLICY.md`
+
 Bootstrap implementation instruction:
 - `prompts/CODEX_BOOTSTRAP.md`
 
 If implementation details conflict with the architecture, preserve the architecture unless the task explicitly updates it.
+
+Codex should select its development reasoning level according to `docs/DEVELOPMENT_REASONING_POLICY.md` rather than asking the human for routine Low/Medium/High choices.
 
 Keep this file concise. Put detailed design decisions in `docs/`, not here.
