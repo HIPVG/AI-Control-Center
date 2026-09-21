@@ -64,15 +64,56 @@ def test_real_smoke_uses_workspace_write_with_controlled_process_arguments(monke
     monkeypatch.setattr("backend.runners.codex.subprocess.run", completed)
     workspace = SmokeWorkspace(tmp_path / "smoke")
     run = workspace.create_run()
+    monkeypatch.setattr("backend.runners.codex.shutil.which", lambda _: r"C:\\Tools\\codex.exe")
     result = RealCodexRunner(real_config()).run_smoke(run, workspace.result_path(run))
     assert result.status == "completed"
+    assert captured["command"][0].endswith("codex.exe")
     assert captured["command"][1:6] == ["exec", "--sandbox", "workspace-write", "--skip-git-repo-check", "--json"]
     assert captured["kwargs"]["cwd"] == run
     assert captured["kwargs"]["capture_output"]
     assert captured["kwargs"]["text"]
     assert captured["kwargs"]["shell"] is False
+    assert captured["kwargs"]["stdin"] == subprocess.DEVNULL
+    assert isinstance(captured["kwargs"]["env"], dict)
     assert result.diagnostics.stdout_event_count == 3
+    assert result.diagnostics.executable_path.endswith("codex.exe")
+    assert result.diagnostics.thread_started
+    assert result.diagnostics.turn_started
+    assert result.diagnostics.turn_completed
     assert result.token_usage.available
+
+
+def test_windows_executable_is_resolved_before_execution(monkeypatch):
+    monkeypatch.setattr("backend.runners.codex.shutil.which", lambda _: r"C:\\OpenAI\\bin\\codex.exe")
+    runner = RealCodexRunner(real_config())
+    path, command = runner.build_smoke_command("prompt")
+    assert path.endswith("codex.exe")
+    assert command[0].endswith("codex.exe")
+    assert command[-1] == "prompt"
+
+
+def test_missing_executable_keeps_configured_name_for_structured_not_found(monkeypatch):
+    monkeypatch.setattr("backend.runners.codex.shutil.which", lambda _: None)
+    path, command = RealCodexRunner(real_config("codex")).build_smoke_command("prompt")
+    assert path is None
+    assert command[0] == "codex"
+
+
+def test_windows_command_shim_uses_explicit_command_processor(monkeypatch):
+    monkeypatch.setattr("backend.runners.codex.shutil.which", lambda _: r"C:\\OpenAI\\bin\\codex.cmd")
+    monkeypatch.setenv("COMSPEC", r"C:\Windows\System32\cmd.exe")
+    path, command = RealCodexRunner(real_config()).build_smoke_command("prompt with spaces")
+    assert path.endswith("codex.cmd")
+    assert command[:4] == [r"C:\Windows\System32\cmd.exe", "/d", "/s", "/c"]
+    assert "codex.cmd" in command[4]
+    assert "prompt with spaces" in command[4]
+
+
+def test_windows_profile_is_mapped_to_home_for_codex(monkeypatch):
+    monkeypatch.delenv("HOME", raising=False)
+    monkeypatch.setenv("USERPROFILE", r"C:\\Users\\control-center")
+    environment = RealCodexRunner._process_environment()
+    assert environment["HOME"] == r"C:\\Users\\control-center"
 
 
 def test_turn_failed_event_is_structured_error(monkeypatch, tmp_path):

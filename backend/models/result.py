@@ -20,12 +20,19 @@ class TestResult(BaseModel):
 
 
 class ProcessDiagnostics(BaseModel):
+    executable_path: str | None = None
     argv: list[str] = Field(default_factory=list)
     cwd: str | None = None
     exit_code: int | None = None
     timed_out: bool = False
+    stdin_closed: bool = False
     stdout_event_count: int = Field(default=0, ge=0)
     event_types: list[str] = Field(default_factory=list)
+    thread_started: bool = False
+    turn_started: bool = False
+    turn_completed: bool = False
+    turn_failed: bool = False
+    error_event: bool = False
     stderr_summary: str | None = None
 
 

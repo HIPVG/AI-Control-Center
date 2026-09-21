@@ -1,4 +1,6 @@
 import json
+import os
+import shutil
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -10,7 +12,7 @@ from backend.control.context_broker import TaskContext
 from backend.models.result import ExecutionResult, ProcessDiagnostics, TokenUsage
 from backend.models.runtime import CodexRuntimeConfig
 
-SMOKE_FILENAME = "smoke-result.txt"
+SMOKE_FILENAME = "smoke.txt"
 SMOKE_CONTENT = "AI Control Center Codex smoke test PASS"
 MAX_CAPTURE_CHARS = 2000
 
@@ -20,6 +22,8 @@ class JsonlParseResult(BaseModel):
     malformed_lines: int = 0
     token_usage: TokenUsage = Field(default_factory=TokenUsage)
     event_types: list[str] = Field(default_factory=list)
+    thread_started: bool = False
+    turn_started: bool = False
     turn_completed: bool = False
     turn_failed: bool = False
     error_event: bool = False
@@ -93,6 +97,8 @@ class CodexRunner:
                 event_type = payload["type"]
                 if event_type not in parsed.event_types:
                     parsed.event_types.append(event_type)
+                parsed.thread_started = parsed.thread_started or event_type == "thread.started"
+                parsed.turn_started = parsed.turn_started or event_type == "turn.started"
                 parsed.turn_completed = parsed.turn_completed or event_type == "turn.completed"
                 parsed.turn_failed = parsed.turn_failed or event_type == "turn.failed"
                 parsed.error_event = parsed.error_event or event_type == "error"
@@ -148,8 +154,8 @@ class RealCodexRunner(CodexRunner):
         self.config = config
 
     def run_smoke(self, smoke_directory: Path, target: Path) -> ExecutionResult:
-        prompt = f"Create {target.name} containing exactly this text and no newline: {SMOKE_CONTENT}"
-        command = self.build_smoke_command(prompt)
+        prompt = f"Create {target.name} in the current working directory containing exactly this text and no newline: {SMOKE_CONTENT}"
+        executable_path, command = self.build_smoke_command(prompt)
         try:
             completed = subprocess.run(
                 command,
@@ -159,6 +165,8 @@ class RealCodexRunner(CodexRunner):
                 timeout=self.config.timeout_seconds,
                 check=False,
                 shell=False,
+                stdin=subprocess.DEVNULL,
+                env=self._process_environment(),
             )
         except FileNotFoundError:
             return ExecutionResult(
@@ -166,7 +174,7 @@ class RealCodexRunner(CodexRunner):
                 test_result="not_run",
                 summary="Configured Codex executable was not found.",
                 error_code="CODEX_NOT_FOUND",
-                diagnostics=self._diagnostics(command, smoke_directory),
+                diagnostics=self._diagnostics(command, smoke_directory, executable_path=executable_path),
             )
         except subprocess.TimeoutExpired as exc:
             return ExecutionResult(
@@ -175,11 +183,24 @@ class RealCodexRunner(CodexRunner):
                 summary="Codex smoke execution timed out.",
                 error_code="CODEX_TIMEOUT",
                 stderr=self._truncate(exc.stderr),
-                diagnostics=self._diagnostics(command, smoke_directory, timed_out=True, stderr=exc.stderr),
+                diagnostics=self._diagnostics(
+                    command,
+                    smoke_directory,
+                    executable_path=executable_path,
+                    timed_out=True,
+                    stderr=exc.stderr,
+                ),
             )
 
         parsed = self.parse_jsonl(completed.stdout)
-        diagnostics = self._diagnostics(command, smoke_directory, exit_code=completed.returncode, parsed=parsed, stderr=completed.stderr)
+        diagnostics = self._diagnostics(
+            command,
+            smoke_directory,
+            executable_path=executable_path,
+            exit_code=completed.returncode,
+            parsed=parsed,
+            stderr=completed.stderr,
+        )
         if completed.returncode != 0:
             return ExecutionResult(
                 status="failed",
@@ -214,9 +235,11 @@ class RealCodexRunner(CodexRunner):
             diagnostics=diagnostics,
         )
 
-    def build_smoke_command(self, prompt: str) -> list[str]:
-        return [
-            self.config.executable,
+    def build_smoke_command(self, prompt: str) -> tuple[str | None, list[str]]:
+        executable_path = self.resolve_executable()
+        executable = executable_path or self.config.executable
+        arguments = [
+            executable,
             "exec",
             "--sandbox",
             "workspace-write",
@@ -224,24 +247,53 @@ class RealCodexRunner(CodexRunner):
             "--json",
             prompt,
         ]
+        if Path(executable).suffix.lower() in {".cmd", ".bat"}:
+            # A Windows command shim cannot be launched reliably with
+            # CreateProcess. Invoke cmd explicitly while retaining shell=False.
+            command_processor = os.environ.get("COMSPEC", r"C:\Windows\System32\cmd.exe")
+            return executable_path, [command_processor, "/d", "/s", "/c", subprocess.list2cmdline(arguments)]
+        return executable_path, arguments
+
+    def resolve_executable(self) -> str | None:
+        configured = Path(self.config.executable)
+        if configured.is_file():
+            return str(configured.resolve())
+        resolved = shutil.which(self.config.executable)
+        return str(Path(resolved).resolve()) if resolved else None
+
+    @staticmethod
+    def _process_environment() -> dict[str, str]:
+        """Supply the Windows profile through HOME when Codex requires it."""
+        environment = os.environ.copy()
+        if not environment.get("HOME") and environment.get("USERPROFILE"):
+            environment["HOME"] = environment["USERPROFILE"]
+        return environment
 
     @staticmethod
     def _diagnostics(
         command: list[str],
         smoke_directory: Path,
         *,
+        executable_path: str | None = None,
         exit_code: int | None = None,
         timed_out: bool = False,
         parsed: JsonlParseResult | None = None,
         stderr: str | bytes | None = None,
     ) -> ProcessDiagnostics:
         return ProcessDiagnostics(
+            executable_path=executable_path,
             argv=command,
             cwd=str(smoke_directory),
             exit_code=exit_code,
             timed_out=timed_out,
+            stdin_closed=True,
             stdout_event_count=parsed.event_count if parsed else 0,
             event_types=parsed.event_types if parsed else [],
+            thread_started=parsed.thread_started if parsed else False,
+            turn_started=parsed.turn_started if parsed else False,
+            turn_completed=parsed.turn_completed if parsed else False,
+            turn_failed=parsed.turn_failed if parsed else False,
+            error_event=parsed.error_event if parsed else False,
             stderr_summary=RealCodexRunner._truncate(stderr),
         )
 
