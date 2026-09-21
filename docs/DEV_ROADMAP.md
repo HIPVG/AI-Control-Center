@@ -33,7 +33,7 @@ branch. Status is tracked in `docs/DEV_PROGRESS.json`.
 | M25 | Self-repair, bounded replan, and autonomous next action | M21, M24 | recover/replan failures within limits and continue the obvious trusted success path without another typed Goal | AUTONOMOUS_RECOVERY_AND_CONTINUE_VALIDATION | COMPLETE |
 | M26 | Automated Git completion | M25 | verified work can commit/push agent branch and prepare PR; no automatic main merge | AUTO_GIT_PR_VALIDATION | COMPLETE |
 | M27 | Zero-Touch Control Loop | M20–M26 | one goal/start → complete or genuine escalation, with no routine relay/PowerShell | ZERO_TOUCH_EXTERNAL_VALIDATION | IN_PROGRESS |
-| M28 | Japanese Dashboard / UX polish | M27 | localize Dashboard labels/messages while preserving English API/state/audit identifiers | JAPANESE_UI_EXTERNAL_VALIDATION | ROADMAP |
+| M28 | Japanese Dashboard / UX simplification | M27 | localize Dashboard labels/messages, remove routine-use controls made redundant by Zero-Touch operation, and preserve English API/state/audit identifiers | JAPANESE_UI_EXTERNAL_VALIDATION | ROADMAP |
 
 M10 is deliberately non-blocking: a real semantic task must not be invented.
 
@@ -189,3 +189,16 @@ External M26 validation passed on 2026-09-22:
 - no PR was created and main was neither merged nor pushed.
 
 This closes M26 and advances development to M27 Zero-Touch Control Loop.
+
+
+M28 should also simplify the Dashboard after M27 proves the Zero-Touch flow.
+Controls that are no longer needed for normal daily operation should be removed
+from the primary UI or demoted to a clearly separated diagnostic/advanced area.
+The goal is not to delete capabilities from the backend, but to remove routine
+operator clutter and make the autonomous path visually dominant.
+
+Candidates for removal/demotion include validation-only buttons, duplicate manual
+run controls, and controls superseded by Recommended next action / Continue
+autonomously. Exact removal decisions should be based on the post-M27 workflow
+and must preserve recovery, diagnostics, and authority-boundary access where
+still operationally necessary.
