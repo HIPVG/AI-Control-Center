@@ -6,7 +6,7 @@
   "human_gate": "REAL_ARCHITECT_SINGLE_STEP_VALIDATION",
   "latest_test_result": "130 passed, 2 warnings",
   "latest_commit": "20975d1",
-  "remote_push_state": "pending",
+  "remote_push_state": "pushed",
   "safe_semantic_task_found": false,
   "updated_at": "2026-09-21T00:00:00+09:00"
 }
