@@ -29,7 +29,7 @@
   ],
   "blocked_milestones": [],
   "human_gate": "AUTONOMOUS_RECOVERY_AND_CONTINUE_VALIDATION",
-  "latest_test_result": "163 passed, 3 warnings",
+  "latest_test_result": "167 passed, 3 warnings",
   "latest_commit": "f466661",
   "remote_push_state": "pushed",
   "safe_semantic_task_found": false,
@@ -117,5 +117,12 @@
     "CONTINUE_WITHOUT_REPEATED_GOAL"
   ],
   "autonomous_next_action_doc": "docs/AUTONOMOUS_NEXT_ACTION.md",
-  "goal_entry_role": "EXCEPTION_PATH_FOR_DIRECTION_CHANGE"
+  "goal_entry_role": "EXCEPTION_PATH_FOR_DIRECTION_CHANGE",
+  "m25_implementation": "READY_FOR_EXTERNAL_VALIDATION",
+  "m25_next_action_target": "local_llm_process_consistency_smoke",
+  "m25_validation_controls": [
+    "transient-architect",
+    "invalid-architect-task",
+    "missing-runtime"
+  ]
 }

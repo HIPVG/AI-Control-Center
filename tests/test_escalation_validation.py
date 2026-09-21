@@ -18,3 +18,15 @@ def test_validation_only_missing_runtime_is_external_action_without_retry():
     assert day["state"] == "HUMAN_REVIEW"
     assert day["auto_provider_retries"] == 0
     assert day["human_review_queue"][0]["escalation_category"] == "EXTERNAL_ACTION_REQUIRED"
+
+
+def test_validation_only_invalid_architect_task_replans_once_and_completes():
+    engine = ControlCenterEngine(runtime_config=RuntimeConfig())
+    day = engine.run_escalation_validation("invalid-architect-task")["result"]
+    assert day["state"] == "COMPLETE"
+    assert day["auto_replans"] == 1
+    assert day["auto_provider_retries"] == 0
+    assert day["human_review_queue"] == []
+    assert day["escalation_events"][-1] == {
+        "category": "REPLAN_REQUIRED", "reason": "ARCHITECT_INVALID_TASK", "action": "REPLAN_ARCHITECT",
+    }

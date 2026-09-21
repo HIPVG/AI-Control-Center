@@ -23,8 +23,10 @@ from backend.control.orchestration import load_orchestration_config
 from backend.control.faults import FaultProfile, FaultRegistry, load_fault_registry, locate_qa_shipment_gt_operator
 from backend.control.experiments import load_experiments
 from backend.control.goal_policy import propose_goal
+from backend.control.next_action import recommend_next_action
 from backend.models.goal import GoalPlan, GoalPlanStatus
 from backend.models.experiment import ExperimentOutcome, ExperimentRun
+from backend.models.next_action import NextActionType
 from backend.control.projects import ProjectRegistry, load_project_registry
 from backend.control.plans import load_plan_registry
 from backend.control.task_discovery import DeterministicTaskDiscovery, DiscoveryRegistry, FailingTaskDiscoveryResult, load_discovery_registry
@@ -315,6 +317,7 @@ class ControlCenterEngine:
             "runtime": self.runtime.model_dump(mode="json"),
             "timeline": [event.model_dump(mode="json") for event in self.timeline],
             "day": self.day_runner.view(),
+            "next_action": self.next_action(),
         }
 
     def runtime_view(self) -> dict[str, Any]:
@@ -340,6 +343,23 @@ class ControlCenterEngine:
 
     def goal_plans(self) -> list[dict[str, Any]]:
         return list(self.data["goal_plans"])
+
+    def next_action(self) -> dict[str, Any]:
+        return recommend_next_action(self.data["experiment_runs"], set(self.experiments)).model_dump(mode="json")
+
+    def continue_autonomously(self) -> dict[str, Any]:
+        """Execute only the current policy-approved, configured continuation."""
+        action = self.next_action()
+        if action["action_type"] != NextActionType.RUN_TRUSTED_EXPERIMENT.value or not action.get("target_id"):
+            return {"error_code": "NEXT_ACTION_REQUIRES_ATTENTION", "next_action": action}
+        result = self.run_experiment(action["target_id"])
+        self._event(
+            "AUTONOMY", AuditEventType.NEXT_ACTION_CONTINUED,
+            f"Autonomous continuation executed: {action['target_id']}",
+            details={"action": action, "outcome": result["outcome"]},
+        )
+        self._save()
+        return {"next_action": action, "result": result}
 
     def propose_goal(self, goal: str) -> dict[str, Any]:
         proposal = propose_goal(goal, set(self.experiments))
@@ -393,7 +413,7 @@ class ControlCenterEngine:
 
     def run_escalation_validation(self, scenario: str) -> dict[str, Any]:
         """Isolated, no-provider M21 contract check; never touches normal Day state."""
-        if scenario not in {"transient-architect", "missing-runtime"}:
+        if scenario not in {"transient-architect", "missing-runtime", "invalid-architect-task"}:
             return {"error_code": "ESCALATION_VALIDATION_NOT_CONFIGURED"}
         task = ConfiguredTask(task_id="VALIDATION-ONLY", project_id="validation", title="Validation-only deterministic task", task_type=TaskType.CODE_FIX, precheck=TaskCommand(argv=["python", "-c", "pass"]), postcheck=TaskCommand(argv=["python", "-c", "pass"]), allowed_files=["validation-only"], context_files=["validation-only"], requires_codex=False)
         plan = DayPlan(plan_id="validation-only", title="Validation-only", task_ids=[task.task_id], architect_provider="validation", continuous_mode_supported=True)
@@ -406,6 +426,8 @@ class ControlCenterEngine:
                     raise ProviderRequestError("CODEX_TIMEOUT", "validation-only transient timeout")
                 if scenario == "missing-runtime":
                     raise ProviderRequestError("CODEX_NOT_FOUND", "validation-only missing runtime")
+                if scenario == "invalid-architect-task" and self.calls == 1:
+                    return ArchitectDecision(task_id="NOT_CONFIGURED", reason="validation-only invalid task")
                 return ArchitectDecision(task_id="VALIDATION-ONLY", reason="validation-only trusted task")
 
         runner = DayRunner(DayPlanRegistry(plans={plan.plan_id: plan}), TaskRegistry(tasks={task.task_id: task}), lambda *_args, **_kwargs: {"task_id": task.task_id, "final_result": "COMPLETE_NO_CHANGE", "codex_attempts": [], "codex_invoked": False}, architects={"validation": ValidationArchitect()})

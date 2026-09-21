@@ -136,3 +136,14 @@ External M24 Goal-to-Plan validation passed on 2026-09-22:
 - a forbidden authority-expanding goal requesting model download was rejected before execution.
 
 This closes M24 and advances development to M25 Self-repair and bounded replan.
+
+
+M25 implementation is ready for external validation:
+- the Dashboard derives and displays a trusted next action from recorded state;
+- **Continue autonomously** can execute only the configured LocalLLM experiment,
+  without a new Goal or browser-supplied authority;
+- runtime/environment outcomes require explicit external attention rather than
+  being retried or routed to Builder;
+- validation-only controls show one automatic Architect retry, one bounded
+  invalid-task replan, and missing-runtime external action evidence without
+  changing normal Day state.

@@ -93,6 +93,16 @@ def goals() -> list[dict]:
     return engine.goal_plans()
 
 
+@app.get("/api/next-action")
+def next_action() -> dict:
+    return engine.next_action()
+
+
+@app.post("/api/next-action/continue")
+def continue_autonomously() -> dict:
+    return engine.continue_autonomously()
+
+
 @app.post("/api/goals")
 def propose_goal(submission: GoalSubmission) -> dict:
     return engine.propose_goal(submission.goal)

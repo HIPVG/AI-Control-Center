@@ -22,16 +22,22 @@
           <button id="stop-day" class="secondary" type="button">Stop Day</button>
           <button id="run-experiment" class="secondary" type="button">Run trusted LocalLLM experiment</button>
           <button id="validate-transient" class="secondary" type="button">Validate Architect retry</button>
+          <button id="validate-replan" class="secondary" type="button">Validate bounded replan</button>
           <button id="validate-runtime" class="secondary" type="button">Validate missing runtime</button>
           <button id="refresh" class="secondary" type="button">Refresh</button>
         </div>
       </header>
       <p id="operation-status" class="operation-status" aria-live="polite"></p>
-      <section class="goal-control" aria-label="Goal to Plan">
-        <div><p class="eyebrow">GOAL TO PLAN</p><h2>Start from a bounded goal</h2><p class="muted compact">The trusted policy can propose only configured capabilities.</p></div>
+      <section class="goal-control" aria-label="Autonomous continuation">
+        <div><p class="eyebrow">RECOMMENDED NEXT ACTION</p><h2 id="next-action-summary">Checking trusted continuation…</h2><p id="next-action-reason" class="muted compact">The policy uses only configured capability and recorded trusted state.</p></div>
+        <p id="next-action-policy" class="muted compact" aria-live="polite">Awaiting policy result.</p>
+        <button id="continue-autonomously" type="button" disabled>Continue autonomously</button>
+      </section>
+      <section class="goal-control" aria-label="Change direction">
+        <div><p class="eyebrow">CHANGE DIRECTION</p><h2>Use a bounded Goal only when direction changes</h2><p class="muted compact">Normal continuation uses the recommended trusted action above.</p></div>
         <label for="goal-input">Goal</label><input id="goal-input" maxlength="280" placeholder="Run the trusted LocalLLM process consistency experiment" autocomplete="off">
         <button id="propose-goal" type="button">Propose trusted plan</button><button id="execute-goal" class="secondary" type="button" disabled>Execute proposed plan</button>
-        <p id="goal-plan-status" class="muted compact" aria-live="polite">Awaiting a bounded goal.</p>
+        <p id="goal-plan-status" class="muted compact" aria-live="polite">No direction change requested.</p>
       </section>
       <section class="progress-grid" aria-label="Autonomous Day progress">
         <article><p class="eyebrow">OVERALL PROGRESS</p><strong id="overall-progress">–%</strong><div class="meter"><i id="overall-meter"></i></div><small>Configured plan completion</small></article>

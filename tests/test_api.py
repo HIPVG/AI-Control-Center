@@ -22,7 +22,7 @@ def client(monkeypatch):
 
 
 def test_required_endpoints_are_available(client):
-    for path in ("/api/status", "/api/plan", "/api/tasks", "/api/timeline", "/api/token-usage", "/api/runtime", "/api/operation/health", "/api/day/plans", "/api/day/status", "/api/experiments", "/api/goals"):
+    for path in ("/api/status", "/api/plan", "/api/tasks", "/api/timeline", "/api/token-usage", "/api/runtime", "/api/operation/health", "/api/day/plans", "/api/day/status", "/api/experiments", "/api/goals", "/api/next-action"):
         assert client.get(path).status_code == 200
     assert client.post("/api/run/mock").status_code == 200
     assert client.post("/api/run/codex-smoke").json()["error_code"] == "REAL_MODE_REQUIRED"
@@ -56,11 +56,15 @@ def test_dashboard_v2_uses_only_configured_day_plan_api_contracts(client):
     assert 'id="enable-autostart"' in html
     assert 'id="run-experiment"' in html
     assert 'id="validate-transient"' in html
+    assert 'id="validate-replan"' in html
     assert 'id="validate-runtime"' in html
+    assert 'id="continue-autonomously"' in html
     assert 'id="validation-evidence"' in html
     assert 'id="experiment-evidence"' in html
     assert "/api/day/start/" in script
     assert 'fetch("/api/goals"' in script
+    assert 'fetch("/api/next-action")' in script
+    assert 'fetch("/api/next-action/continue"' in script
     assert "/execute" in script
     assert "/api/day/resume?mode=continuous" in script
     assert 'fetch("/api/day/stop"' in script
@@ -72,6 +76,7 @@ def test_dashboard_v2_uses_only_configured_day_plan_api_contracts(client):
     assert "/api/experiments" in script
     assert "/api/validation/escalation/" in script
     assert "normal_day_unchanged" in script
+    assert "auto_replans" in script
     assert "builder_invoked" in script
     assert "/api/run/mock" not in script
     assert "innerHTML" not in script
@@ -83,6 +88,14 @@ def test_goal_endpoint_accepts_only_the_bounded_goal_field(client):
     result = client.post("/api/goals", json={"goal": "Run the trusted LocalLLM process consistency experiment"})
     assert result.json()["status"] == "PROPOSED"
     assert "command" not in result.json()
+
+
+def test_continue_endpoint_uses_only_current_trusted_policy(client, monkeypatch):
+    action = client.get("/api/next-action").json()
+    assert action["action_type"] == "RUN_TRUSTED_EXPERIMENT"
+    monkeypatch.setattr(control_app.engine, "run_experiment", lambda experiment_id: {"experiment_id": experiment_id, "outcome": "RESULT_RECORDED"})
+    result = client.post("/api/next-action/continue", json={"command": "unsafe", "target_id": "unsafe"}).json()
+    assert result["result"]["experiment_id"] == "local_llm_process_consistency_smoke"
 
 
 def test_model_router_single_step_day_is_auditable_without_external_execution(monkeypatch):

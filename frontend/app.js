@@ -30,6 +30,14 @@ function renderGoalPlans(plans) {
   execute.disabled = latest.status !== "PROPOSED";
 }
 
+function renderNextAction(action) {
+  const continueButton = byId("continue-autonomously");
+  byId("next-action-summary").textContent = action?.summary ?? "No trusted continuation is available.";
+  byId("next-action-reason").textContent = action?.reason ?? "Awaiting trusted state.";
+  byId("next-action-policy").textContent = `Policy: ${action?.policy_result ?? "UNKNOWN"}. Reasoning required: ${action?.reasoning_required ? "yes" : "no"}.`;
+  continueButton.disabled = action?.action_type !== "RUN_TRUSTED_EXPERIMENT" || Boolean(action?.human_attention_required);
+}
+
 function node(tag, text, className) {
   const element = document.createElement(tag);
   element.textContent = text;
@@ -110,6 +118,7 @@ function render(status) {
     keyValue("Scenario", validation.scenario),
     keyValue("Final state", validationDay?.state ?? "–"),
     keyValue("Automatic retries", compactNumber(validationDay?.auto_provider_retries)),
+    keyValue("Automatic replans", compactNumber(validationDay?.auto_replans)),
     keyValue("Human Review / attention", compactNumber(validationDay?.human_review_queue?.length)),
     keyValue("Escalation", validationDay?.escalation_events?.at(-1)?.category ?? validationDay?.human_review_queue?.at(-1)?.escalation_category ?? "–"),
     keyValue("Action", validationDay?.escalation_events?.at(-1)?.action ?? "No retry"),
@@ -130,7 +139,7 @@ function render(status) {
     return row;
   }));
   const taskIds = new Set((day.queue ?? []).map((item) => item.task_id));
-  const events = (status.timeline ?? []).filter((event) => event.event_type?.startsWith("DAY_") || event.event_type === "DAILY_OPERATION_AUTOSTART" || taskIds.has(event.task_id)).slice(-24);
+  const events = (status.timeline ?? []).filter((event) => event.event_type?.startsWith("DAY_") || event.event_type?.startsWith("NEXT_ACTION_") || event.event_type === "DAILY_OPERATION_AUTOSTART" || taskIds.has(event.task_id)).slice(-24);
   byId("timeline").replaceChildren(...(events.length ? events : [{ message: "Awaiting autonomous workflow event." }]).map((event) => {
     const timestamp = event.timestamp ? `${new Date(event.timestamp).toLocaleTimeString()}  ` : "";
     return node("li", `${timestamp}${event.message}`);
@@ -138,18 +147,29 @@ function render(status) {
 }
 
 async function refresh() {
-  const [statusResponse, plansResponse, experimentsResponse, healthResponse, goalsResponse] = await Promise.all([fetch("/api/status"), fetch("/api/day/plans"), fetch("/api/experiments"), fetch("/api/operation/health"), fetch("/api/goals")]);
-  if (!statusResponse.ok || !plansResponse.ok || !experimentsResponse.ok || !healthResponse.ok || !goalsResponse.ok) throw new Error("Unable to load Control Center state.");
+  const [statusResponse, plansResponse, experimentsResponse, healthResponse, goalsResponse, nextActionResponse] = await Promise.all([fetch("/api/status"), fetch("/api/day/plans"), fetch("/api/experiments"), fetch("/api/operation/health"), fetch("/api/goals"), fetch("/api/next-action")]);
+  if (!statusResponse.ok || !plansResponse.ok || !experimentsResponse.ok || !healthResponse.ok || !goalsResponse.ok || !nextActionResponse.ok) throw new Error("Unable to load Control Center state.");
   renderPlans(await plansResponse.json());
   configuredExperiments = await experimentsResponse.json();
   byId("run-experiment").disabled = configuredExperiments.length === 0;
   render(await statusResponse.json());
   renderHealth(await healthResponse.json());
   renderGoalPlans(await goalsResponse.json());
+  renderNextAction(await nextActionResponse.json());
 }
 
 byId("refresh").addEventListener("click", () => refresh().catch((error) => { byId("operation-status").textContent = error.message; }));
 byId("plan-selector").addEventListener("change", updateContinuousControl);
+byId("continue-autonomously").addEventListener("click", async () => {
+  const button = byId("continue-autonomously"); button.disabled = true;
+  byId("operation-status").textContent = "Continuing with the trusted recommended action…";
+  try {
+    const response = await fetch("/api/next-action/continue", { method: "POST" }); const result = await response.json();
+    if (!response.ok || result.error_code) throw new Error(result.error_code ?? "Autonomous continuation was not available.");
+    await refresh(); byId("operation-status").textContent = `Continuation completed: ${result.result.outcome}.`;
+  } catch (error) { byId("operation-status").textContent = error.message; }
+  finally { await refresh().catch(() => {}); }
+});
 byId("propose-goal").addEventListener("click", async () => {
   const goal = byId("goal-input").value.trim(); const button = byId("propose-goal");
   if (!goal) { byId("goal-plan-status").textContent = "Enter a bounded goal."; return; }
@@ -255,7 +275,7 @@ byId("run-experiment").addEventListener("click", async () => {
   }
 });
 
-for (const [id, scenario] of [["validate-transient", "transient-architect"], ["validate-runtime", "missing-runtime"]]) {
+for (const [id, scenario] of [["validate-transient", "transient-architect"], ["validate-replan", "invalid-architect-task"], ["validate-runtime", "missing-runtime"]]) {
   byId(id).addEventListener("click", async () => {
     const button = byId(id); button.disabled = true;
     try {

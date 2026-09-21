@@ -115,3 +115,22 @@ The M25 external validation should prove both:
    typed Goal.
 
 Human attention remains required only for genuine authority/external boundaries.
+
+## M25 implementation contract
+
+The current implementation derives `NextAction` entirely in trusted Python from
+the latest recorded experiment result and the configured experiment registry.
+The only executable recommendation is the fixed
+`local_llm_process_consistency_smoke` target. The browser supplies no target,
+command, path, model, or configuration to **Continue autonomously**.
+
+Runtime-, configuration-, and harness-blocking outcomes yield
+`EXTERNAL_ACTION_REQUIRED` with the recorded classification reason and disable
+continuation. A successful or model-quality result keeps the fixed trusted
+experiment as the bounded continuation. Executing it audit-records the
+structured recommendation and observed outcome.
+
+M25 also exposes a validation-only `invalid-architect-task` scenario. It first
+returns an unconfigured task identifier, verifies exactly one bounded
+`REPLAN_ARCHITECT`, then returns the sole configured validation task. This
+isolated scenario never reads or changes normal Day state.
