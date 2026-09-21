@@ -36,6 +36,7 @@ branch. Status is tracked in `docs/DEV_PROGRESS.json`.
 M10 is deliberately non-blocking: a real semantic task must not be invented.
 
 The strategic target is defined in `docs/ZERO_TOUCH_CONTROL_LOOP.md`.
+Autonomous development reasoning selection is governed by `docs/DEVELOPMENT_REASONING_POLICY.md`; Terra / Medium is the normal default, with bounded self-selected escalation/de-escalation.
 Development priority is now autonomy, reliability, recovery, and observability.
 Token optimization remains measured but is secondary unless it becomes an actual
 operational constraint.
