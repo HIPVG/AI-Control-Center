@@ -35,6 +35,12 @@ task evidence, and configured rubric fields. Provider diagnostics retain model,
 duration, attempt count, typed decision, and token usage; credentials, headers,
 raw requests, and raw responses are never persisted.
 
+Provider-generated responses use dedicated strict DTO schemas. Every DTO field
+is required (nullable fields use `null`), every object forbids additional
+properties, and runtime-only token usage or diagnostics are composed only by
+trusted Python after provider output validation. Provider failures persist a
+bounded error code, request stage, and sanitized diagnostics for Human Review.
+
 ## Operation
 
 `POST /api/day/start/{plan_id}?mode=single-step` advances at most one selected

@@ -6,7 +6,9 @@ import re
 from time import monotonic
 from typing import Any, Callable, Protocol
 
-from backend.models.day import ArchitectDecision, SemanticEvaluation
+from pydantic import BaseModel
+
+from backend.models.day import ArchitectDecision, ArchitectProviderOutput, EvaluatorProviderOutput, SemanticEvaluation
 from backend.models.model_routing import ProviderExecutionConfig
 from backend.models.orchestration import ProviderSettings
 from backend.models.result import TokenUsage
@@ -16,11 +18,17 @@ class ProviderConfigurationError(RuntimeError):
     pass
 
 
-class ProviderTimeoutError(RuntimeError):
-    pass
-
-
 class ProviderRequestError(RuntimeError):
+    """A sanitized provider failure safe to persist in Human Review."""
+
+    def __init__(self, code: str, message: str, *, diagnostics: dict[str, object] | None = None) -> None:
+        super().__init__(code)
+        self.code = code
+        self.safe_message = message
+        self.diagnostics = diagnostics or {}
+
+
+class ProviderTimeoutError(ProviderRequestError):
     pass
 
 
@@ -78,10 +86,11 @@ class _OpenAIStructuredProvider:
             raise ProviderConfigurationError("OpenAI Python SDK is not installed") from exc
         return OpenAI(api_key=api_key, timeout=execution.timeout_seconds, max_retries=0)
 
-    def _request(self, *, instructions: str, payload: dict[str, Any], result_type: type[ArchitectDecision] | type[SemanticEvaluation], execution: ProviderExecutionConfig) -> tuple[dict[str, Any], TokenUsage, dict[str, object]]:
+    def _request(self, *, instructions: str, payload: dict[str, Any], output_type: type[BaseModel], execution: ProviderExecutionConfig) -> tuple[BaseModel, TokenUsage, dict[str, object]]:
         started = monotonic()
         client = self._client(execution)
         last_error: Exception | None = None
+        schema = strict_provider_schema(output_type)
         for attempt in range(self.settings.max_transient_retries + 1):
             try:
                 response = client.responses.create(
@@ -91,50 +100,73 @@ class _OpenAIStructuredProvider:
                     store=False,
                     instructions=instructions,
                     input=json.dumps(payload, ensure_ascii=False),
-                    text={"format": {"type": "json_schema", "name": result_type.__name__.lower(), "strict": True, "schema": result_type.model_json_schema()}},
+                    text={"format": {"type": "json_schema", "name": output_type.__name__.lower(), "strict": True, "schema": schema}},
                 )
                 output_text = _read(response, "output_text")
                 if not isinstance(output_text, str):
-                    raise ProviderRequestError("provider returned no structured output")
-                parsed = json.loads(output_text)
+                    raise ProviderRequestError("OPENAI_INVALID_STRUCTURED_OUTPUT", "provider returned no structured output", diagnostics={"provider_error_type": "MissingOutput", "request_stage": "structured_output"})
+                parsed = output_type.model_validate(json.loads(output_text))
                 usage = _token_usage(_read(response, "usage"))
                 return parsed, usage, {
                     "provider": self.provider_name, "profile_id": execution.profile_id,
                     "model": execution.model, "reasoning_effort": execution.reasoning_effort,
                     "timeout_seconds": execution.timeout_seconds, "max_output_tokens": execution.max_output_tokens,
-                    "duration_ms": round((monotonic() - started) * 1000, 2), "attempts": attempt + 1, "success": True,
+                    "duration_ms": round((monotonic() - started) * 1000, 2), "attempts": attempt + 1,
+                    "success": True, "request_stage": "responses.create",
                 }
             except (json.JSONDecodeError, ValueError) as exc:
-                raise ProviderRequestError("provider returned invalid structured output") from exc
+                raise ProviderRequestError(
+                    "OPENAI_INVALID_STRUCTURED_OUTPUT", "provider returned invalid structured output",
+                    diagnostics={"provider_error_type": type(exc).__name__, "request_stage": "structured_output"},
+                ) from exc
             except ProviderRequestError:
                 raise
             except Exception as exc:  # SDK exceptions are normalized at this boundary.
                 last_error = exc
                 if not _is_transient(exc) or attempt >= self.settings.max_transient_retries:
-                    if "timeout" in type(exc).__name__.lower():
-                        raise ProviderTimeoutError("provider request timed out") from exc
-                    raise ProviderRequestError("provider request failed") from exc
-        raise ProviderRequestError("provider request failed") from last_error
+                    error = _sanitize_openai_error(exc, stage="responses.create")
+                    if error.code == "OPENAI_TIMEOUT":
+                        raise ProviderTimeoutError(error.code, error.safe_message, diagnostics=error.diagnostics) from exc
+                    raise error from exc
+        raise ProviderRequestError("OPENAI_REQUEST_FAILED", "provider request failed") from last_error
 
 
 class OpenAIDayArchitect(_OpenAIStructuredProvider):
     def choose(self, request: dict[str, Any], execution: ProviderExecutionConfig) -> ArchitectDecision:
-        parsed, usage, diagnostics = self._request(
+        output, usage, diagnostics = self._request(
             instructions="Choose only from eligible configured task IDs. Do not create tasks, commands, paths, budgets, or acceptance criteria.",
-            payload=request, result_type=ArchitectDecision, execution=execution,
+            payload=request, output_type=ArchitectProviderOutput, execution=execution,
         )
-        return ArchitectDecision.model_validate({**parsed, "token_usage": usage, "diagnostics": diagnostics})
+        return ArchitectDecision.model_validate({**output.model_dump(), "token_usage": usage, "diagnostics": diagnostics})
 
 
 class OpenAISemanticEvaluator(_OpenAIStructuredProvider):
     def evaluate(self, request: dict[str, Any], execution: ProviderExecutionConfig) -> SemanticEvaluation:
-        parsed, usage, diagnostics = self._request(
+        output, usage, diagnostics = self._request(
             instructions="Evaluate only the supplied bounded evidence and trusted rubric. Return no commands, paths, or replacement acceptance criteria.",
-            payload=request, result_type=SemanticEvaluation, execution=execution,
+            payload=request, output_type=EvaluatorProviderOutput, execution=execution,
         )
-        result = SemanticEvaluation.model_validate({**parsed, "token_usage": usage, "diagnostics": diagnostics})
+        assert isinstance(output, EvaluatorProviderOutput)
+        allowed_metrics = set(request.get("rubric", {}).get("metrics", []))
+        metrics = {metric.name: metric.score for metric in output.metrics}
+        if len(metrics) != len(output.metrics) or not set(metrics).issubset(allowed_metrics):
+            raise ProviderRequestError(
+                "OPENAI_INVALID_STRUCTURED_OUTPUT", "provider returned unsupported evaluation metrics",
+                diagnostics={"provider_error_type": "MetricValidation", "request_stage": "structured_output"},
+            )
+        result = SemanticEvaluation.model_validate({
+            **output.model_dump(exclude={"metrics"}), "metrics": metrics,
+            "token_usage": usage, "diagnostics": diagnostics,
+        })
         if result.repair_instruction and (len(result.repair_instruction) > 1000 or "\n" in result.repair_instruction or re.search(r"(?i)(\\\\|/|--|\\b(?:python|powershell|cmd|git)\\b|\\.py\\b)", result.repair_instruction)):
-            raise ProviderRequestError("repair instruction exceeds bounded plain-text policy")
+            raise ProviderRequestError(
+                "OPENAI_INVALID_STRUCTURED_OUTPUT",
+                "repair instruction exceeds bounded plain-text policy",
+                diagnostics={
+                    "provider_error_type": "RepairInstructionPolicy",
+                    "request_stage": "structured_output",
+                },
+            )
         return result
 
 
@@ -151,3 +183,90 @@ def _token_usage(usage: Any) -> TokenUsage:
 def _is_transient(exc: Exception) -> bool:
     name = type(exc).__name__.lower()
     return any(token in name for token in ("timeout", "connection", "rate", "internalserver"))
+
+
+def strict_provider_schema(output_type: type[BaseModel]) -> dict[str, Any]:
+    """Return an API-safe strict Structured Outputs schema or fail before I/O."""
+    schema = output_type.model_json_schema()
+    validate_strict_provider_schema(schema)
+    return schema
+
+
+def validate_strict_provider_schema(schema: dict[str, Any]) -> None:
+    """Validate the OpenAI strict-schema subset relied on by provider DTOs."""
+    if schema.get("type") != "object" or "anyOf" in schema:
+        raise ValueError("strict provider schema root must be an object without anyOf")
+    definitions = schema.get("$defs", {})
+    if not isinstance(definitions, dict):
+        raise ValueError("strict provider schema definitions must be an object")
+    _validate_schema_node(schema, definitions, "$")
+    for name, definition in definitions.items():
+        if not isinstance(definition, dict):
+            raise ValueError(f"strict provider schema definition {name} must be an object")
+        _validate_schema_node(definition, definitions, f"$defs.{name}")
+
+
+def _validate_schema_node(node: dict[str, Any], definitions: dict[str, Any], path: str) -> None:
+    supported = {"$ref", "additionalProperties", "anyOf", "description", "enum", "items", "properties", "required", "title", "type", "$defs"}
+    unsupported = set(node) - supported
+    if unsupported:
+        raise ValueError(f"strict provider schema has unsupported keywords at {path}: {', '.join(sorted(unsupported))}")
+    if "$ref" in node:
+        reference = node["$ref"]
+        if not isinstance(reference, str) or not reference.startswith("#/$defs/") or reference.removeprefix("#/$defs/") not in definitions:
+            raise ValueError(f"strict provider schema has unsupported reference at {path}")
+        return
+    if node.get("type") == "object" or "properties" in node:
+        properties = node.get("properties")
+        if not isinstance(properties, dict) or node.get("additionalProperties") is not False:
+            raise ValueError(f"strict provider schema object must forbid additional properties at {path}")
+        if set(node.get("required", [])) != set(properties):
+            raise ValueError(f"strict provider schema requires every property at {path}")
+        for name, child in properties.items():
+            if not isinstance(child, dict):
+                raise ValueError(f"strict provider schema property must be a schema at {path}.{name}")
+            _validate_schema_node(child, definitions, f"{path}.{name}")
+    if node.get("type") == "array":
+        items = node.get("items")
+        if not isinstance(items, dict):
+            raise ValueError(f"strict provider schema array items must be a schema at {path}")
+        _validate_schema_node(items, definitions, f"{path}[]")
+    if "anyOf" in node:
+        variants = node["anyOf"]
+        if not isinstance(variants, list) or not variants:
+            raise ValueError(f"strict provider schema anyOf must be non-empty at {path}")
+        for index, variant in enumerate(variants):
+            if not isinstance(variant, dict):
+                raise ValueError(f"strict provider schema anyOf member must be a schema at {path}[{index}]")
+            _validate_schema_node(variant, definitions, f"{path}[{index}]")
+
+
+def _sanitize_openai_error(exc: Exception, *, stage: str) -> ProviderRequestError:
+    status = getattr(exc, "status_code", getattr(exc, "status", None))
+    api_code = getattr(exc, "code", None)
+    error_type = type(exc).__name__
+    raw_message = (str(exc).splitlines() or [""])[0][:240]
+    lowered = f"{error_type} {api_code or ''} {raw_message}".lower()
+    if "timeout" in lowered:
+        code, message = "OPENAI_TIMEOUT", "OpenAI request timed out"
+    elif "quota" in lowered or "insufficient_quota" in lowered:
+        code, message = "OPENAI_QUOTA", "OpenAI quota is unavailable"
+    elif "rate" in lowered or status == 429:
+        code, message = "OPENAI_RATE_LIMIT", "OpenAI rate limit reached"
+    elif "schema" in lowered or "json_schema" in lowered or "invalid_json" in lowered:
+        code, message = "OPENAI_SCHEMA_INVALID", "OpenAI rejected the structured output schema"
+    elif "permission" in lowered or status == 403 or "model" in lowered and status in {400, 404}:
+        code, message = "OPENAI_MODEL_ACCESS", "OpenAI model access was rejected"
+    elif status == 400 or "badrequest" in lowered:
+        code, message = "OPENAI_BAD_REQUEST", "OpenAI rejected the request"
+    else:
+        code, message = "OPENAI_REQUEST_FAILED", "OpenAI request failed"
+    diagnostics: dict[str, object] = {"provider_error_type": error_type, "request_stage": stage}
+    if isinstance(status, int):
+        diagnostics["http_status"] = status
+    if isinstance(api_code, str) and api_code:
+        diagnostics["api_error_code"] = api_code[:80]
+    if raw_message:
+        redacted = re.sub(r"(?i)bearer\s+\S+", "Bearer [redacted]", raw_message)
+        diagnostics["safe_message"] = re.sub(r"(?i)(api[_-]?key\s*[=:]\s*)\S+", r"\1[redacted]", redacted)
+    return ProviderRequestError(code, message, diagnostics=diagnostics)

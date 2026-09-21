@@ -21,5 +21,6 @@ branch. Status is tracked in `docs/DEV_PROGRESS.json`.
 | M13 | Observability/token efficiency | M1 | role/profile accounting and no-AI audit tests | no | COMPLETE |
 | M14 | External validation checklist | M6 | concise proven/remaining checklist | no | COMPLETE |
 | M15 | UI-readiness API data | M4 | Day state exposes task, routing, tokens, review queue | no | COMPLETE |
+| M16 | Real provider structured-output compatibility | M2, M6 | strict DTO schema, request shape, output mapping, sanitized error tests | no | COMPLETE |
 
 M10 is deliberately non-blocking: a real semantic task must not be invented.

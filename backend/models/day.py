@@ -3,7 +3,7 @@ from enum import Enum
 from typing import Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from backend.models.result import TokenUsage
 from backend.models.model_routing import ProfileTokenUsage, RoutingDecision
@@ -55,6 +55,39 @@ class SemanticEvaluation(BaseModel):
     repair_instruction: str | None = None
     token_usage: TokenUsage = Field(default_factory=TokenUsage)
     diagnostics: dict[str, object] = Field(default_factory=dict)
+
+
+class ArchitectProviderOutput(BaseModel):
+    """Strict, model-generated output; runtime metadata is composed locally."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    decision: Literal["RUN_TASK", "SKIP_TASK", "HUMAN_REVIEW", "STOP_DAY", "DAY_COMPLETE"]
+    task_id: str | None
+    reason: str
+    priority: int | None
+    task_complexity: Literal["simple", "normal", "complex"] | None
+
+
+class EvaluatorMetricProviderOutput(BaseModel):
+    """Fixed metric representation compatible with strict JSON Schema."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    score: float
+
+
+class EvaluatorProviderOutput(BaseModel):
+    """Strict, model-generated evaluation output without internal metadata."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    decision: Literal["PASS", "REPAIR", "HUMAN_REVIEW", "NOT_REQUIRED"]
+    reason: str
+    blocking_issues: list[str]
+    repair_instruction: str | None
+    metrics: list[EvaluatorMetricProviderOutput]
 
 
 class DayPlan(BaseModel):
@@ -119,6 +152,7 @@ class HumanReviewItem(BaseModel):
     result_reference: str | None = None
     routing_profile_id: str | None = None
     failure_type: str | None = None
+    provider_diagnostics: dict[str, object] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 

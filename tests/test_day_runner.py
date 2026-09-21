@@ -2,12 +2,19 @@ from pathlib import Path
 
 import pytest
 
-from backend.agents.day_providers import MockDayArchitect, MockSemanticEvaluator, OpenAIDayArchitect, OpenAISemanticEvaluator, ProviderConfigurationError, ProviderTimeoutError
+from backend.agents.day_providers import (
+    MockDayArchitect, MockSemanticEvaluator, OpenAIDayArchitect, OpenAISemanticEvaluator,
+    ProviderConfigurationError, ProviderRequestError, ProviderTimeoutError,
+    strict_provider_schema, validate_strict_provider_schema,
+)
 from backend.control.plans import load_plan_registry
 from backend.control.orchestration import load_orchestration_config
 from backend.control.model_router import ModelRouter, load_model_profile_registry
 from backend.control.tasks import ConfiguredTask, TaskCommand, TaskRegistry
-from backend.models.day import DayExecutionMode, DayPlan, DayPlanRegistry, DayRunSnapshot, DayRunState, QueuedTask, SemanticEvaluation
+from backend.models.day import (
+    ArchitectProviderOutput, DayExecutionMode, DayPlan, DayPlanRegistry, DayRunSnapshot,
+    DayRunState, EvaluatorProviderOutput, QueuedTask, SemanticEvaluation,
+)
 from backend.models.orchestration import ProviderBudget, ProviderSettings
 from backend.models.model_routing import ProviderExecutionConfig
 from backend.models.runtime import CodexAttemptResult
@@ -59,6 +66,33 @@ def test_mock_provider_diagnostics_report_mock_without_a_model():
     assert architect.diagnostics["provider"] == evaluator.diagnostics["provider"] == "mock"
     assert architect.diagnostics["execution"]["model"] is None
     assert evaluator.diagnostics["execution"]["model"] is None
+
+
+def test_provider_output_schemas_are_strict_and_exclude_internal_fields():
+    architect_schema = strict_provider_schema(ArchitectProviderOutput)
+    evaluator_schema = strict_provider_schema(EvaluatorProviderOutput)
+    for schema in (architect_schema, evaluator_schema):
+        validate_strict_provider_schema(schema)
+        assert schema["type"] == "object"
+        assert schema["additionalProperties"] is False
+        assert set(schema["required"]) == set(schema["properties"])
+        assert "token_usage" not in schema["properties"]
+        assert "diagnostics" not in schema["properties"]
+    for field in ("task_id", "priority", "task_complexity"):
+        assert field in architect_schema["required"]
+        assert {variant["type"] for variant in architect_schema["properties"][field]["anyOf"]} >= {"null"}
+    metric_schema = evaluator_schema["$defs"]["EvaluatorMetricProviderOutput"]
+    assert metric_schema["additionalProperties"] is False
+    assert set(metric_schema["required"]) == {"name", "score"}
+
+
+def test_strict_schema_validator_rejects_free_form_or_optional_object_fields():
+    with pytest.raises(ValueError, match="forbid additional properties"):
+        validate_strict_provider_schema({"type": "object", "properties": {"unsafe": {"type": "object"}}, "required": ["unsafe"]})
+    with pytest.raises(ValueError, match="requires every property"):
+        validate_strict_provider_schema({"type": "object", "properties": {"missing": {"type": "string"}}, "required": [], "additionalProperties": False})
+    with pytest.raises(ValueError, match="unsupported keywords"):
+        validate_strict_provider_schema({"type": "object", "properties": {"name": {"type": "string", "pattern": ".*"}}, "required": ["name"], "additionalProperties": False})
 
 
 def test_single_step_pauses_after_first_task_then_completes_final_task_with_progress():
@@ -169,7 +203,7 @@ class FakeClient:
 
 def test_openai_architect_and_evaluator_build_structured_sdk_requests_parse_usage_and_retry(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-    architect_responses = FakeResponses([type("APITimeout", (Exception,), {})(), {"output_text": '{"decision":"RUN_TASK","task_id":"A","reason":"ok","priority":1}', "usage": {"input_tokens": 12, "input_tokens_details": {"cached_tokens": 3}, "output_tokens": 4}}])
+    architect_responses = FakeResponses([type("APITimeout", (Exception,), {})(), {"output_text": '{"decision":"RUN_TASK","task_id":"A","reason":"ok","priority":1,"task_complexity":"simple"}', "usage": {"input_tokens": 12, "input_tokens_details": {"cached_tokens": 3}, "output_tokens": 4}}])
     settings = ProviderSettings(provider="openai", model="ignored-test-model", max_transient_retries=1)
     execution = ProviderExecutionConfig(profile_id="standard", provider="openai", model="gpt-5.6-terra", reasoning_effort="medium", timeout_seconds=123, max_output_tokens=456)
     client_options = []
@@ -183,15 +217,66 @@ def test_openai_architect_and_evaluator_build_structured_sdk_requests_parse_usag
     assert architect_responses.calls[0]["model"] == "gpt-5.6-terra"
     assert architect_responses.calls[0]["reasoning"] == {"effort": "medium"}
     assert architect_responses.calls[0]["max_output_tokens"] == 456
+    architect_schema = architect_responses.calls[0]["text"]["format"]["schema"]
+    assert architect_schema["additionalProperties"] is False
+    assert set(architect_schema["required"]) == set(architect_schema["properties"])
+    assert "token_usage" not in architect_schema["properties"]
+    assert "diagnostics" not in architect_schema["properties"]
     assert client_options == [{"api_key": "test-key", "timeout": 123, "max_retries": 0}]
     assert decision.diagnostics["model"] == "gpt-5.6-terra"
     assert decision.diagnostics["timeout_seconds"] == 123
 
-    evaluator_responses = FakeResponses([{"output_text": '{"decision":"PASS","reason":"ok","metrics":{"groundedness":4.8},"blocking_issues":[],"repair_instruction":null}', "usage": {"input_tokens": 8, "output_tokens": 2}}])
+    evaluator_responses = FakeResponses([{"output_text": '{"decision":"PASS","reason":"ok","metrics":[{"name":"groundedness","score":4.8}],"blocking_issues":[],"repair_instruction":null}', "usage": {"input_tokens": 8, "output_tokens": 2}}])
     evaluation = OpenAISemanticEvaluator(settings, client_factory=lambda **kwargs: FakeClient(evaluator_responses)).evaluate({"task_id": "S", "rubric": {"metrics": ["groundedness"]}}, execution)
     assert evaluation.decision == "PASS"
     assert evaluation.metrics["groundedness"] == 4.8
     assert evaluation.diagnostics["reasoning_effort"] == "medium"
+    evaluator_schema = evaluator_responses.calls[0]["text"]["format"]["schema"]
+    assert evaluator_schema["additionalProperties"] is False
+    assert "token_usage" not in evaluator_schema["properties"]
+    assert "diagnostics" not in evaluator_schema["properties"]
+
+
+def test_openai_bad_request_is_sanitized_as_schema_diagnostic(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+    class BadRequestError(Exception):
+        status_code = 400
+        code = "invalid_json_schema"
+
+        def __str__(self):
+            return "Invalid schema: additionalProperties must be false"
+
+    execution = ProviderExecutionConfig(provider="openai", model="gpt-5.6-terra", reasoning_effort="medium", timeout_seconds=30, max_output_tokens=100)
+    provider = OpenAIDayArchitect(ProviderSettings(provider="openai", max_transient_retries=0), client_factory=lambda **_kwargs: FakeClient(FakeResponses([BadRequestError()])))
+    with pytest.raises(ProviderRequestError) as captured:
+        provider.choose({"eligible_tasks": []}, execution)
+    assert captured.value.code == "OPENAI_SCHEMA_INVALID"
+    assert captured.value.diagnostics == {
+        "provider_error_type": "BadRequestError", "request_stage": "responses.create",
+        "http_status": 400, "api_error_code": "invalid_json_schema",
+        "safe_message": "Invalid schema: additionalProperties must be false",
+    }
+
+
+def test_openai_evaluator_rejects_an_unsafe_repair_instruction_as_typed_output_error(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    execution = ProviderExecutionConfig(provider="openai", model="gpt-5.6-terra", reasoning_effort="medium", timeout_seconds=30, max_output_tokens=100)
+    response = {
+        "output_text": '{"decision":"REPAIR","reason":"needs change","metrics":[],"blocking_issues":[],"repair_instruction":"Run /unsafe-command"}',
+        "usage": {"input_tokens": 8, "output_tokens": 2},
+    }
+    evaluator = OpenAISemanticEvaluator(
+        ProviderSettings(provider="openai", max_transient_retries=0),
+        client_factory=lambda **_kwargs: FakeClient(FakeResponses([response])),
+    )
+    with pytest.raises(ProviderRequestError) as captured:
+        evaluator.evaluate({"task_id": "S", "rubric": {"metrics": []}}, execution)
+    assert captured.value.code == "OPENAI_INVALID_STRUCTURED_OUTPUT"
+    assert captured.value.diagnostics == {
+        "provider_error_type": "RepairInstructionPolicy",
+        "request_stage": "structured_output",
+    }
 
 
 def test_openai_provider_fails_closed_without_credentials_and_exposes_typed_timeout(monkeypatch):
@@ -222,6 +307,26 @@ def test_real_architect_plan_without_credentials_enters_human_review_without_moc
     review = result["human_review_queue"][0]
     assert review["failure_type"] == "provider_error"
     assert review["routing_profile_id"] == "standard"
+
+
+def test_sanitized_provider_diagnostics_are_persisted_in_human_review():
+    task = configured_task("A")
+    plan = DayPlan(plan_id="real", title="real", task_ids=["A"], architect_provider="openai", evaluator_provider="mock", continuous_mode_supported=False)
+
+    class ErrorArchitect:
+        def choose(self, request, execution):
+            raise ProviderRequestError("OPENAI_SCHEMA_INVALID", "OpenAI rejected the structured output schema", diagnostics={"http_status": 400, "request_stage": "responses.create"})
+
+    day = DayRunner(
+        DayPlanRegistry(plans={"real": plan}), TaskRegistry(tasks={"A": task}),
+        lambda *_args, **_kwargs: pytest.fail("Codex must not run"), architects={"openai": ErrorArchitect()},
+        model_router=ModelRouter(load_model_profile_registry(Path("config/model_profiles.yaml"))),
+        provider_budgets={role: ProviderBudget(daily_input_tokens=100000, daily_output_tokens=100000) for role in ("architect", "evaluator", "codex")},
+    )
+    review = day.start("real")["human_review_queue"][0]
+    assert review["reason"] == "ARCHITECT_PROVIDER_ERROR:OPENAI_SCHEMA_INVALID"
+    assert review["summary"] == "OpenAI rejected the structured output schema"
+    assert review["provider_diagnostics"] == {"http_status": 400, "request_stage": "responses.create"}
 
 
 def test_interrupted_day_preserves_structured_state_and_requires_explicit_resume():

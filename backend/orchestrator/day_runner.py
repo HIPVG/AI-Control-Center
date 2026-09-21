@@ -119,7 +119,11 @@ class DayRunner:
         try:
             decision = architect.choose(self._architect_request(plan, routing), ProviderExecutionConfig.from_routing_decision(routing))
         except RuntimeError as exc:
-            self._human_review("SYSTEM", f"ARCHITECT_PROVIDER_ERROR:{type(exc).__name__}", routing=routing, failure_type="provider_error")
+            self._human_review(
+                "SYSTEM", f"ARCHITECT_PROVIDER_ERROR:{_provider_error_code(exc)}",
+                result={"human_review_reason": _provider_error_message(exc)}, routing=routing,
+                failure_type="provider_error", provider_diagnostics=_provider_error_diagnostics(exc),
+            )
             return
         self._add_usage("architect", decision.token_usage)
         self._add_profile_usage(routing, decision.token_usage, decision.diagnostics)
@@ -235,7 +239,11 @@ class DayRunner:
         try:
             evaluation = evaluator.evaluate(self._evaluator_request(task, item, result, routing), ProviderExecutionConfig.from_routing_decision(routing))
         except RuntimeError as exc:
-            self._human_review(item.task_id, f"EVALUATOR_PROVIDER_ERROR:{type(exc).__name__}", result=result, routing=routing, failure_type="provider_error")
+            self._human_review(
+                item.task_id, f"EVALUATOR_PROVIDER_ERROR:{_provider_error_code(exc)}",
+                result={**result, "human_review_reason": _provider_error_message(exc)}, routing=routing,
+                failure_type="provider_error", provider_diagnostics=_provider_error_diagnostics(exc),
+            )
             return
         self._add_usage("evaluator", evaluation.token_usage)
         self._add_profile_usage(routing, evaluation.token_usage, evaluation.diagnostics)
@@ -404,6 +412,7 @@ class DayRunner:
         result: dict[str, Any] | None = None,
         routing: RoutingDecision | None = None,
         failure_type: str | None = None,
+        provider_diagnostics: dict[str, object] | None = None,
     ) -> None:
         item = next((candidate for candidate in self.snapshot.queue if candidate.task_id == task_id), None)
         if item:
@@ -413,7 +422,7 @@ class DayRunner:
             plan_id=self.snapshot.plan_id, task_id=task_id, reason=reason,
             summary=result.get("human_review_reason"), changed_files=result.get("changed_files", []),
             result_reference=result.get("run_id"), routing_profile_id=routing.profile_id if routing else None,
-            failure_type=failure_type,
+            failure_type=failure_type, provider_diagnostics=provider_diagnostics or {},
         )
         self.snapshot.human_review_queue.append(review)
         self.snapshot.state, self.snapshot.stop_reason = DayRunState.HUMAN_REVIEW, reason
@@ -435,3 +444,18 @@ class DayRunner:
     def _audit(self, task_id: str, event_type: str, details: dict[str, Any]) -> None:
         if self.audit:
             self.audit(task_id, event_type, details)
+
+
+def _provider_error_code(exc: RuntimeError) -> str:
+    value = getattr(exc, "code", None)
+    return value if isinstance(value, str) and value else type(exc).__name__
+
+
+def _provider_error_message(exc: RuntimeError) -> str:
+    value = getattr(exc, "safe_message", None)
+    return value if isinstance(value, str) and value else _provider_error_code(exc)
+
+
+def _provider_error_diagnostics(exc: RuntimeError) -> dict[str, object]:
+    value = getattr(exc, "diagnostics", None)
+    return value if isinstance(value, dict) else {}
