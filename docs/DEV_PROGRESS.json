@@ -1,6 +1,6 @@
 {
   "roadmap_version": 4,
-  "current_milestone": "COMPLETE",
+  "current_milestone": "M29_WEEK1_DAY4_7_AUTONOMOUS_EXECUTION",
   "completed_milestones": [
     "M0",
     "M1",
@@ -32,7 +32,7 @@
     "M28"
   ],
   "blocked_milestones": [],
-  "human_gate": null,
+  "human_gate": "WEEK1_DAY4_7_AUTONOMOUS_VALIDATION",
   "latest_test_result": "181 passed, 3 warnings",
   "latest_commit": "6e690463b28bd586e9151653b237844d217cc4bc",
   "remote_push_state": "pushed",
@@ -44,7 +44,7 @@
     "uncached_input_tokens": 18454,
     "output_tokens": 82
   },
-  "updated_at": "2026-09-22T08:00:00+09:00",
+  "updated_at": "2026-09-22T08:15:00+09:00",
   "real_codex_core_continuous_validation": "PASSED",
   "continuous_runtime_evidence": {
     "start_progress_percent": 33.33,
@@ -225,5 +225,20 @@
     "model_install": false,
     "cloud_fallback": false
   },
-  "roadmap_complete": true
+  "roadmap_complete": false,
+  "m29_status": "IN_PROGRESS",
+  "m29_policy_doc": "docs/WEEK1_DAY4_7_AUTONOMOUS.md",
+  "m29_days": [
+    4,
+    5,
+    6,
+    7
+  ],
+  "m29_normal_interaction": "CONTINUE_AUTONOMOUSLY_NO_REPEATED_GOAL",
+  "m29_authority_boundaries": [
+    "NO_MODEL_DOWNLOAD_OR_INSTALL",
+    "NO_BENCHMARK_INSTALL",
+    "NO_UNAPPROVED_CONTEXT_EXPANSION",
+    "NO_CLOUD_FALLBACK"
+  ]
 }
