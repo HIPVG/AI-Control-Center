@@ -13,11 +13,17 @@ def client(monkeypatch):
 
 
 def test_required_endpoints_are_available(client):
-    for path in ("/api/status", "/api/plan", "/api/tasks", "/api/timeline", "/api/token-usage", "/api/runtime"):
+    for path in ("/api/status", "/api/plan", "/api/tasks", "/api/timeline", "/api/token-usage", "/api/runtime", "/api/day/plans", "/api/day/status"):
         assert client.get(path).status_code == 200
     assert client.post("/api/run/mock").status_code == 200
     assert client.post("/api/run/codex-smoke").json()["error_code"] == "REAL_MODE_REQUIRED"
     assert client.get("/").status_code == 200
+
+
+def test_day_endpoints_accept_only_configured_plan_ids_and_keep_continuous_mode_disabled(client):
+    assert client.post("/api/day/start/not-configured", json={"command": "unsafe"}).json()["error_code"] == "PLAN_NOT_CONFIGURED"
+    assert client.post("/api/day/resume", json={"single_step": False}).json()["error_code"] == "NO_DAY_PLAN"
+    assert client.post("/api/day/stop").status_code == 200
 
 
 def test_status_includes_timeline_for_dashboard_rendering(client):

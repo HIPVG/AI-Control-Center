@@ -38,7 +38,8 @@ class ConfiguredTask(BaseModel):
     context_files: list[str] = Field(min_length=1)
     max_retry: int = Field(default=1, ge=0, le=20)
     requires_codex: bool = True
-    evaluator_type: Literal["deterministic"] = "deterministic"
+    evaluator_type: Literal["deterministic", "semantic"] = "deterministic"
+    evaluation_metrics: list[str] = Field(default_factory=list)
     context_max_characters: int = Field(default=16000, ge=1, le=100000)
 
     @field_validator("working_directory")
@@ -50,6 +51,13 @@ class ConfiguredTask(BaseModel):
     @classmethod
     def task_paths_must_be_safe(cls, value: list[str]) -> list[str]:
         return _safe_relative_paths(value)
+
+    @field_validator("evaluation_metrics")
+    @classmethod
+    def metrics_must_be_named(cls, value: list[str]) -> list[str]:
+        if any(not metric.strip() for metric in value) or len(value) != len(set(value)):
+            raise ValueError("evaluation metrics must be unique non-empty names")
+        return value
 
 
 class TaskRegistry(BaseModel):

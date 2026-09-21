@@ -49,6 +49,31 @@ def runtime() -> dict:
     return engine.runtime_view()
 
 
+@app.get("/api/day/plans")
+def day_plans() -> list[dict]:
+    return engine.configured_plans()
+
+
+@app.get("/api/day/status")
+def day_status() -> dict:
+    return engine.day_status()
+
+
+@app.post("/api/day/start/{plan_id}")
+def start_day(plan_id: str) -> dict:
+    return engine.start_day(plan_id)
+
+
+@app.post("/api/day/resume")
+def resume_day() -> dict:
+    return engine.resume_day()
+
+
+@app.post("/api/day/stop")
+def stop_day() -> dict:
+    return engine.stop_day()
+
+
 @app.post("/api/run/mock")
 def run_mock() -> dict:
     return engine.run_mock()

@@ -7,11 +7,13 @@ from typing import Any, Protocol
 from uuid import uuid4
 
 from backend.agents.architect import MockArchitect
+from backend.agents.day_providers import MockDayArchitect, MockSemanticEvaluator, OpenAIDayArchitect, OpenAISemanticEvaluator
 from backend.agents.evaluator import MockEvaluator
 from backend.agents.triage import MockTriage, TriageDecision
 from backend.control.context_broker import ContextBroker
 from backend.control.faults import FaultProfile, FaultRegistry, load_fault_registry, locate_qa_shipment_gt_operator
 from backend.control.projects import ProjectRegistry, load_project_registry
+from backend.control.plans import load_plan_registry
 from backend.control.task_discovery import DeterministicTaskDiscovery, DiscoveryRegistry, FailingTaskDiscoveryResult, load_discovery_registry
 from backend.control.tasks import ConfiguredTask, TaskCommand, TaskRegistry, load_task_registry
 from backend.control.scope_guard import ScopeGuard
@@ -23,6 +25,7 @@ from backend.models.state import RunState, WorkflowState
 from backend.models.task import TaskType, WorkOrder
 from backend.orchestrator.state_machine import StateManager
 from backend.orchestrator.progress import calculate_progress
+from backend.orchestrator.day_runner import DayRunner
 from backend.runners.codex import MockCodexRunner, RealCodexRunner, SmokeWorkspace
 from backend.runners.pytest_runner import PytestRunner
 
@@ -59,6 +62,7 @@ class ControlCenterEngine:
         discovery_registry: DiscoveryRegistry | None = None,
         fault_registry: FaultRegistry | None = None,
         worktree_root: Path | None = None,
+        plan_registry: Any | None = None,
     ) -> None:
         self.store = state_store
         self.state_manager = StateManager()
@@ -68,6 +72,7 @@ class ControlCenterEngine:
         self.runtime = runtime_config or load_runtime_config(project_root / "config" / "runtime.yaml")
         self.projects = project_registry or load_project_registry(project_root / "config" / "projects.yaml")
         self.tasks = task_registry or load_task_registry(project_root / "config" / "tasks.yaml")
+        self.plans = plan_registry or load_plan_registry(project_root / "config" / "plans.yaml")
         self.discoveries = discovery_registry or load_discovery_registry(project_root / "config" / "discovery.yaml")
         self.faults = fault_registry or load_fault_registry(project_root / "config" / "faults.yaml")
         self.worktree_root = (worktree_root or project_root / "state" / "worktrees").resolve()
@@ -75,6 +80,13 @@ class ControlCenterEngine:
         self.real_runner = real_runner or RealCodexRunner(self.runtime.codex)
         self.timeline: list[AuditEvent] = []
         self._load()
+        self.day_runner = DayRunner(
+            self.plans, self.tasks, self._run_day_task,
+            architects={"mock": MockDayArchitect(), "openai": OpenAIDayArchitect()},
+            evaluators={"mock": MockSemanticEvaluator(), "openai": OpenAISemanticEvaluator()},
+            persist=self._save_day_state, audit=self._day_audit,
+            saved=self.data.get("day_orchestration"),
+        )
 
     def _defaults(self) -> dict[str, Any]:
         task_completed, task_total = 18, 22
@@ -92,6 +104,7 @@ class ControlCenterEngine:
             "token_usage_tracking_version": 1,
             "project_smoke_results": [],
             "task_runs": [],
+            "day_orchestration": {},
             "task_discoveries": [],
             "fault_repair_runs": [],
             "task_start_completed": {"PC-014": 18},
@@ -250,6 +263,7 @@ class ControlCenterEngine:
             "token_usage": self.budgets.usage_view(),
             "runtime": self.runtime.model_dump(mode="json"),
             "timeline": [event.model_dump(mode="json") for event in self.timeline],
+            "day": self.day_runner.view(),
         }
 
     def runtime_view(self) -> dict[str, Any]:
@@ -257,6 +271,33 @@ class ControlCenterEngine:
 
     def configured_tasks(self) -> list[dict[str, str]]:
         return self.tasks.metadata()
+
+    def configured_plans(self) -> list[dict[str, object]]:
+        return self.plans.metadata()
+
+    def start_day(self, plan_id: str, *, single_step: bool | None = None) -> dict[str, Any]:
+        return self.day_runner.start(plan_id, single_step=single_step)
+
+    def resume_day(self, *, single_step: bool | None = None) -> dict[str, Any]:
+        return self.day_runner.resume(single_step=single_step)
+
+    def stop_day(self) -> dict[str, Any]:
+        return self.day_runner.stop()
+
+    def day_status(self) -> dict[str, Any]:
+        return self.day_runner.view()
+
+    def _run_day_task(self, task_id: str, max_codex_attempts: int | None = None, repair_instruction: str | None = None) -> dict[str, Any]:
+        # The current configured real task set is deterministic. Semantic task
+        # adapters may consume this bounded instruction in a later integration.
+        return self.run_task(task_id, max_codex_attempts=max_codex_attempts)
+
+    def _save_day_state(self, snapshot: dict[str, Any]) -> None:
+        self.data["day_orchestration"] = snapshot
+        self._save()
+
+    def _day_audit(self, task_id: str, event_name: str, details: dict[str, Any]) -> None:
+        self._event(task_id, AuditEventType(event_name), f"Day orchestration: {event_name}", details=details)
 
     def discover_failing_task(self, discovery_id: str) -> dict[str, Any]:
         """Run trusted, deterministic candidate checks without invoking Codex."""
@@ -959,7 +1000,7 @@ class ControlCenterEngine:
             snapshot[path] = f"{line[:2]}:{digest}"
         return snapshot
 
-    def run_task(self, task_id: str) -> dict[str, Any]:
+    def run_task(self, task_id: str, *, max_codex_attempts: int | None = None) -> dict[str, Any]:
         """Execute one trusted configured task in a detached target-project worktree."""
         started = datetime.now(timezone.utc)
         run_id = uuid4().hex
@@ -1054,7 +1095,7 @@ class ControlCenterEngine:
                 **common, state=WorkflowState.HUMAN_REVIEW.value, end_time=datetime.now(timezone.utc), precheck_result="FAIL", precheck=precheck,
                 triage_result="INFRASTRUCTURE_FAILURE", final_result="HUMAN_REVIEW", human_review_reason="worktree status unavailable", error_code="WORKTREE_GIT_UNAVAILABLE",
             ))
-        return self._run_task_codex_attempts(task, common, working_directory, worktree, worktree_baseline, precheck)
+        return self._run_task_codex_attempts(task, common, working_directory, worktree, worktree_baseline, precheck, max_codex_attempts=max_codex_attempts)
 
     def _run_task_codex_attempts(
         self,
@@ -1064,6 +1105,8 @@ class ControlCenterEngine:
         worktree: Path,
         worktree_baseline: dict[str, str],
         precheck: CommandRunResult,
+        *,
+        max_codex_attempts: int | None = None,
     ) -> dict[str, Any]:
         attempts: list[CodexAttemptResult] = []
         aggregate = TokenUsage()
@@ -1072,6 +1115,13 @@ class ControlCenterEngine:
         retry_number = 0
         postcheck: CommandRunResult | None = None
         while True:
+            if max_codex_attempts is not None and len(attempts) >= max_codex_attempts:
+                self._transition(task.task_id, WorkflowState.HUMAN_REVIEW, "Day plan Codex call limit reached")
+                return self._task_finish(TaskRunResult(
+                    **common, state=WorkflowState.HUMAN_REVIEW.value, end_time=datetime.now(timezone.utc), precheck_result="FAIL", precheck=precheck,
+                    triage_result="CODE_FIX", codex_attempts=attempts, allowed_files=task.allowed_files, changed_files=changed_files,
+                    final_result="HUMAN_REVIEW", human_review_reason="CODEX_CALL_LIMIT_EXCEEDED", error_code="CODEX_CALL_LIMIT_EXCEEDED",
+                ))
             budget_decision = self.budgets.check(TokenUsage(), retry_count=retry_number)
             if budget_decision != BudgetDecision.ALLOWED:
                 self._transition(task.task_id, WorkflowState.HUMAN_REVIEW, "pre-execution budget guard blocked Codex")

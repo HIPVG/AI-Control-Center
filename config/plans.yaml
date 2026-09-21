@@ -1,0 +1,15 @@
+plans:
+  week1-day3-local-llm:
+    plan_id: week1-day3-local-llm
+    title: Week 1 Day 3 LocalLLM deterministic validation
+    task_ids:
+      - PC-001-A
+    architect_provider: mock
+    evaluator_provider: mock
+    single_step_default: true
+    continuous_mode_supported: false
+    max_codex_calls: 1
+    max_architect_calls: 2
+    max_evaluator_calls: 0
+    max_repair_loops_per_task: 1
+    stop_on_human_review: true

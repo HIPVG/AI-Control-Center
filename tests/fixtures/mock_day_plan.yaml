@@ -1,0 +1,13 @@
+plans:
+  mock-day:
+    plan_id: mock-day
+    title: Automated mock Day plan
+    task_ids: [A, B, C]
+    architect_provider: mock
+    evaluator_provider: mock
+    single_step_default: true
+    continuous_mode_supported: false
+    max_codex_calls: 3
+    max_architect_calls: 5
+    max_evaluator_calls: 5
+    max_repair_loops_per_task: 1
