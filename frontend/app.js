@@ -11,6 +11,10 @@ function renderHealth(health) {
   byId("autostart-status").textContent = autostart.supported
     ? (autostart.enabled ? "Automatic startup is enabled for this Windows user." : "Automatic startup is not enabled.")
     : "Automatic startup requires Windows.";
+  const latestDiagnostic = autostart.startup_diagnostics?.at(-1);
+  if (latestDiagnostic) {
+    byId("autostart-status").textContent += ` Latest startup: ${latestDiagnostic.code}${latestDiagnostic.value !== undefined ? ` (${latestDiagnostic.value})` : ""}.`;
+  }
   const button = byId("enable-autostart");
   button.disabled = !autostart.supported || Boolean(autostart.enabled);
   button.textContent = autostart.enabled ? "Automatic startup enabled" : "Enable automatic startup";

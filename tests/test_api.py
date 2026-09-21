@@ -8,10 +8,10 @@ from backend.models.runtime import RuntimeConfig
 
 class StubDailyOperation:
     def autostart_status(self):
-        return {"supported": True, "enabled": False, "task_name": "AI Control Center", "state": "NOT_ENABLED"}
+        return {"supported": True, "enabled": False, "task_name": "AI Control Center", "state": "NOT_ENABLED", "startup_diagnostics": [{"code": "REPOSITORY_ROOT_READY"}]}
 
     def enable_autostart(self):
-        return {"supported": True, "enabled": True, "task_name": "AI Control Center", "state": "ENABLED", "action": "ENABLED"}
+        return {"supported": True, "enabled": True, "task_name": "AI Control Center", "state": "ENABLED", "action": "ENABLED", "startup_diagnostics": [{"code": "UVICORN_LAUNCHED", "value": 8000}]}
 
 
 @pytest.fixture
@@ -62,6 +62,7 @@ def test_dashboard_v2_uses_only_configured_day_plan_api_contracts(client):
     assert "/api/operation/health" in script
     assert "/api/operation/autostart/enable" in script
     assert "DAILY_OPERATION_AUTOSTART" in script
+    assert "startup_diagnostics" in script
     assert "continuous_mode_supported" in script
     assert "/api/experiments" in script
     assert "/api/validation/escalation/" in script

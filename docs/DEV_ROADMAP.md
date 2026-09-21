@@ -90,7 +90,7 @@ External combined M21/M22 validation passed on 2026-09-22:
 This closes M21 and M22 and advances development to M23 PowerShell-free daily operation.
 
 
-M23 implementation is ready for external validation:
+M23 retry implementation is ready for external validation:
 - the Dashboard reports bounded server health and user-local automatic-start state;
 - it can explicitly enable the fixed, non-overwriting Windows logon task without
   accepting browser-supplied commands or paths;
@@ -100,3 +100,8 @@ M23 implementation is ready for external validation:
   Scheduler is unavailable;
 - the external check requires only Dashboard interaction plus one normal
   Windows sign-in to observe automatic server startup.
+
+The first M23 external attempt found a launcher working-directory defect: a
+Scheduled Task starts PowerShell outside the repository root, so Uvicorn could
+not import `backend.app`. The retry implementation resolves the root from the
+launcher path and records bounded startup codes for browser/log inspection.

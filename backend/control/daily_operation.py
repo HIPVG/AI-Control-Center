@@ -3,12 +3,18 @@
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 from pathlib import Path
 from typing import Callable
 
 
 TASK_NAME = "AI Control Center"
+STARTUP_LOG_NAME = "startup.log"
+STARTUP_CODES = {
+    "REPOSITORY_ROOT_UNAVAILABLE", "REPOSITORY_ROOT_READY", "PYTHON_UNAVAILABLE",
+    "PYTHON_RESOLVED", "UVICORN_LAUNCHED", "UVICORN_EXITED", "LAUNCH_EXCEPTION",
+}
 
 
 class DailyOperationService:
@@ -31,15 +37,35 @@ class DailyOperationService:
         self.command_runner = command_runner
 
     def autostart_status(self) -> dict[str, object]:
+        diagnostics = self.startup_diagnostics()
         if self.platform_name != "nt":
-            return {"supported": False, "enabled": False, "task_name": TASK_NAME, "state": "WINDOWS_REQUIRED"}
+            return {"supported": False, "enabled": False, "task_name": TASK_NAME, "state": "WINDOWS_REQUIRED", "startup_diagnostics": diagnostics}
         completed = self._run(["schtasks.exe", "/Query", "/TN", TASK_NAME])
         return {
             "supported": True,
             "enabled": completed.returncode == 0,
             "task_name": TASK_NAME,
             "state": "ENABLED" if completed.returncode == 0 else "NOT_ENABLED",
+            "startup_diagnostics": diagnostics,
         }
+
+    def startup_diagnostics(self) -> list[dict[str, object]]:
+        """Return only allow-listed startup state codes from the fixed local log."""
+        path = self.project_root / "logs" / STARTUP_LOG_NAME
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()[-12:]
+        except OSError:
+            return []
+        diagnostics: list[dict[str, object]] = []
+        for line in lines:
+            match = re.fullmatch(r"[^|]{1,40}\s+\|\s+([A-Z_]+)(?:\s+\|\s+(?:port|exit_code)=(\d{1,5}))?", line.strip())
+            if not match or match.group(1) not in STARTUP_CODES:
+                continue
+            item: dict[str, object] = {"code": match.group(1)}
+            if match.group(2) is not None:
+                item["value"] = int(match.group(2))
+            diagnostics.append(item)
+        return diagnostics
 
     def enable_autostart(self) -> dict[str, object]:
         current = self.autostart_status()

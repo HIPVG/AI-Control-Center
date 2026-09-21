@@ -27,7 +27,7 @@
   ],
   "blocked_milestones": [],
   "human_gate": "ZERO_COMMAND_DAILY_OPERATION_VALIDATION",
-  "latest_test_result": "158 passed, 3 warnings",
+  "latest_test_result": "160 passed, 3 warnings",
   "latest_commit": "40105cf",
   "remote_push_state": "pushed",
   "safe_semantic_task_found": false,
@@ -38,7 +38,7 @@
     "uncached_input_tokens": 18454,
     "output_tokens": 82
   },
-  "updated_at": "2026-09-22T04:20:00+09:00",
+  "updated_at": "2026-09-22T04:48:00+09:00",
   "real_codex_core_continuous_validation": "PASSED",
   "continuous_runtime_evidence": {
     "start_progress_percent": 33.33,
@@ -89,5 +89,8 @@
     "continuous_resume",
     "day_stop"
   ],
-  "m23_test_result": "158 passed, 3 warnings"
+  "m23_test_result": "160 passed, 3 warnings",
+  "m23_initial_external_result": "FAILED_CWD_DEPENDENCY",
+  "m23_retry_fix": "START_SCRIPT_RESOLVES_OWN_ROOT_AND_EMITS_BOUNDED_STARTUP_CODES",
+  "m23_external_validation": "RETRY_READY"
 }
