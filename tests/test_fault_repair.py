@@ -1,7 +1,8 @@
+import ast
 import subprocess
 from pathlib import Path
 
-from backend.control.faults import FaultProfile, FaultRegistry, load_fault_registry
+from backend.control.faults import FaultProfile, FaultRegistry, load_fault_registry, locate_qa_shipment_gt_operator
 from backend.control.projects import ConfiguredProject, ProjectRegistry
 from backend.control.tasks import TaskCommand
 from backend.models.result import ExecutionResult, ProcessDiagnostics, TokenUsage
@@ -9,8 +10,16 @@ from backend.models.runtime import CodexMode, CodexRuntimeConfig, CommandRunResu
 from backend.orchestrator.engine import ControlCenterEngine
 
 
-ORIGINAL = "anomalous=difference>0\n"
-INJECTED = "anomalous=0<difference<60\n"
+ORIGINAL = """def evaluate(case):
+    kind = case["kind"]
+    difference = case["difference"]
+    if kind == "qa_shipment_quantity":
+        anomalous = difference > 0
+    elif kind == "other":
+        anomalous = difference > 0
+    return anomalous
+"""
+INJECTED = ORIGINAL.replace("anomalous = difference > 0", "anomalous = difference >= 0", 1)
 
 
 def profile(*, max_retry=1):
@@ -21,10 +30,8 @@ def profile(*, max_retry=1):
         base_case="PC-001-A",
         title="Controlled repair",
         target_file="scripts/process_consistency.py",
-        fault_type="comparison reversal",
+        fault_type="comparison operator",
         fault_description="Never include this explicit injection answer in Codex context.",
-        expected_original=ORIGINAL,
-        injected_text=INJECTED,
         baseline=TaskCommand(argv=["python", "scripts/validate.py"]),
         postcheck=TaskCommand(argv=["python", "scripts/validate.py"]),
         allowed_files=["scripts/process_consistency.py"],
@@ -61,7 +68,7 @@ class RepairWriter:
         if self.mode == "restore":
             target.write_text(ORIGINAL, encoding="utf-8")
         elif self.mode == "different":
-            target.write_text("anomalous=difference>=0\n", encoding="utf-8")
+            target.write_text(ORIGINAL.replace("difference > 0", "difference >= 0", 1), encoding="utf-8")
         elif self.mode == "outside":
             target.write_text(ORIGINAL, encoding="utf-8")
             (working_directory / "outside.py").write_text("unexpected\n", encoding="utf-8")
@@ -106,6 +113,56 @@ def test_fault_profile_is_narrow_and_real_profile_is_configured():
     assert actual.allowed_files == ["scripts/process_consistency.py"]
     assert actual.context_files == ["scripts/process_consistency.py"]
     assert actual.max_retry == 1
+
+
+def inject_source(tmp_path, source):
+    worktree = tmp_path / "worktree"
+    target = worktree / "scripts" / "process_consistency.py"
+    target.parent.mkdir(parents=True)
+    target.write_text(source, encoding="utf-8")
+    injected, error = ControlCenterEngine._inject_fault(worktree, profile())
+    return target, injected, error
+
+
+def test_semantic_locator_accepts_whitespace_and_operator_spacing_variants(tmp_path):
+    variants = [
+        ORIGINAL,
+        ORIGINAL.replace("        anomalous = difference > 0", "        anomalous=difference>0"),
+        ORIGINAL.replace("        anomalous = difference > 0", "        anomalous = difference   >   0"),
+    ]
+    for index, source in enumerate(variants):
+        target, injected, error = inject_source(tmp_path / str(index), source)
+        assert injected, error
+        assert ">=" in target.read_text(encoding="utf-8")
+
+
+def test_semantic_injection_changes_only_qa_branch_and_keeps_other_comparisons(tmp_path):
+    target, injected, error = inject_source(tmp_path, ORIGINAL)
+    assert injected, error
+    mutated = target.read_text(encoding="utf-8")
+    assert "if kind == \"qa_shipment_quantity\":\n        anomalous = difference >= 0" in mutated
+    assert "elif kind == \"other\":\n        anomalous = difference > 0" in mutated
+    assert ast.parse(mutated)
+    assert len(mutated) == len(ORIGINAL) + 1
+
+
+def test_semantic_locator_rejects_missing_or_ambiguous_targets(tmp_path):
+    missing_evaluate = ORIGINAL.replace("def evaluate", "def not_evaluate")
+    missing_branch = ORIGINAL.replace("qa_shipment_quantity", "other_quantity")
+    already_injected = INJECTED
+    ambiguous = ORIGINAL + "\n" + ORIGINAL
+    for index, source in enumerate((missing_evaluate, missing_branch, already_injected, ambiguous)):
+        target, injected, error = inject_source(tmp_path / str(index), source)
+        assert not injected
+        assert error == "FAULT_SOURCE_MISMATCH"
+        assert target.read_text(encoding="utf-8") == source
+
+
+def test_semantic_locator_returns_only_the_qa_operator_offset():
+    offset = locate_qa_shipment_gt_operator(ORIGINAL.encode("utf-8"))
+    assert offset is not None
+    assert ORIGINAL.encode("utf-8")[offset:offset + 1] == b">"
+    assert locate_qa_shipment_gt_operator(INJECTED.encode("utf-8")) is None
 
 
 def test_baseline_then_worktree_only_fault_repair_completes_and_records_tokens(tmp_path):

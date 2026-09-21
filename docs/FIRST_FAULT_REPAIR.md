@@ -3,7 +3,7 @@
 - Fault ID: `PC-001-A-CONTROLLED-FAULT`
 - Target case: `PC-001-A`
 - Target source: `scripts/process_consistency.py`
-- Fault category: QA shipment anomaly-threshold comparison, injected only in the disposable worktree. It is selected to make `PC-001-A` fail while preserving the paired control and the other QA shipment case.
+- Fault category: QA shipment anomaly comparison operator, injected only in the disposable worktree.
 - Baseline command: `python scripts/validate_process_consistency_cases.py`
 - Precheck command: `python scripts/validate_process_consistency_cases.py`
 - Postcheck command: `python scripts/validate_process_consistency_cases.py`

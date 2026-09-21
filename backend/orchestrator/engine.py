@@ -10,7 +10,7 @@ from backend.agents.architect import MockArchitect
 from backend.agents.evaluator import MockEvaluator
 from backend.agents.triage import MockTriage, TriageDecision
 from backend.control.context_broker import ContextBroker
-from backend.control.faults import FaultProfile, FaultRegistry, load_fault_registry
+from backend.control.faults import FaultProfile, FaultRegistry, load_fault_registry, locate_qa_shipment_gt_operator
 from backend.control.projects import ProjectRegistry, load_project_registry
 from backend.control.task_discovery import DeterministicTaskDiscovery, DiscoveryRegistry, FailingTaskDiscoveryResult, load_discovery_registry
 from backend.control.tasks import ConfiguredTask, TaskCommand, TaskRegistry, load_task_registry
@@ -315,6 +315,14 @@ class ControlCenterEngine:
                 run_id=run_id, fault_id=fault_id, task_id="unconfigured", project_id="unconfigured",
                 state=WorkflowState.FAILED.value, final_result="FAILED", error_code="FAULT_NOT_CONFIGURED",
             ))
+        try:
+            profile.validate_scope()
+        except ValueError:
+            return self._fault_finish(FaultRepairResult(
+                run_id=run_id, fault_id=fault_id, task_id=profile.task_id, project_id=profile.project_id,
+                target_file=profile.target_file, state=WorkflowState.HUMAN_REVIEW.value, final_result="HUMAN_REVIEW",
+                human_review_reason="fault profile does not meet controlled repair scope", error_code="FAULT_SOURCE_MISMATCH",
+            ))
         common: dict[str, Any] = {
             "run_id": run_id, "fault_id": profile.fault_id, "task_id": profile.task_id,
             "project_id": profile.project_id, "target_file": profile.target_file,
@@ -588,19 +596,24 @@ class ControlCenterEngine:
         try:
             target.relative_to(worktree.resolve())
             content = target.read_bytes()
-            expected = profile.expected_original.encode("utf-8")
-            injected = profile.injected_text.encode("utf-8")
-        except (ValueError, OSError, UnicodeError):
+        except (ValueError, OSError):
             return False, "FAULT_TARGET_UNAVAILABLE"
-        if content.count(expected) != 1 and b"\n" in expected:
-            crlf_expected = expected.replace(b"\n", b"\r\n")
-            if content.count(crlf_expected) == 1:
-                expected = crlf_expected
-                injected = injected.replace(b"\n", b"\r\n")
-        if content.count(expected) != 1:
+        try:
+            operator_offset = locate_qa_shipment_gt_operator(content)
+        except ValueError:
+            return False, "FAULT_SOURCE_MISMATCH"
+        if operator_offset is None:
+            return False, "FAULT_SOURCE_MISMATCH"
+        mutated = content[:operator_offset] + b">=" + content[operator_offset + 1:]
+        if len(mutated) != len(content) + 1 or mutated[:operator_offset] != content[:operator_offset] or mutated[operator_offset + 2:] != content[operator_offset + 1:]:
             return False, "FAULT_SOURCE_MISMATCH"
         try:
-            target.write_bytes(content.replace(expected, injected, 1))
+            import ast
+            ast.parse(mutated.decode("utf-8"))
+        except (SyntaxError, UnicodeError):
+            return False, "FAULT_SOURCE_MISMATCH"
+        try:
+            target.write_bytes(mutated)
         except OSError:
             return False, "FAULT_INJECTION_WRITE_FAILED"
         return True, None

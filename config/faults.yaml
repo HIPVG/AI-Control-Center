@@ -7,10 +7,8 @@ faults:
     title: TH-PAD QA / Shipment quantity controlled repair
     working_directory: .
     target_file: scripts/process_consistency.py
-    fault_type: QA shipment anomaly threshold comparison
-    fault_description: Controlled worktree-only narrowing of the QA shipment anomaly predicate.
-    expected_original: "        anomalous=difference>0\\n"
-    injected_text: "        anomalous=0<difference<60\\n"
+    fault_type: QA shipment anomaly comparison operator
+    fault_description: Controlled worktree-only change to the QA shipment anomaly comparison operator.
     baseline:
       argv: [python, scripts/validate_process_consistency_cases.py]
     postcheck:
