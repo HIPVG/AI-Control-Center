@@ -1,4 +1,5 @@
 import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -11,6 +12,14 @@ from backend.runners.codex import CodexRunner, RealCodexRunner, SMOKE_CONTENT, S
 
 def real_config(executable="codex"):
     return CodexRuntimeConfig(mode=CodexMode.REAL, executable=executable, timeout_seconds=5)
+
+
+@pytest.fixture(autouse=True)
+def verified_codex_home(monkeypatch, tmp_path):
+    home = tmp_path / "codex-home"
+    home.mkdir()
+    monkeypatch.setenv("CODEX_HOME", str(home))
+    return home
 
 
 def test_default_runtime_mode_is_mock():
@@ -72,9 +81,12 @@ def test_real_smoke_uses_workspace_write_with_controlled_process_arguments(monke
     assert captured["kwargs"]["cwd"] == run
     assert captured["kwargs"]["capture_output"]
     assert captured["kwargs"]["text"]
+    assert captured["kwargs"]["encoding"] == "utf-8"
+    assert captured["kwargs"]["errors"] == "replace"
     assert captured["kwargs"]["shell"] is False
     assert captured["kwargs"]["stdin"] == subprocess.DEVNULL
     assert isinstance(captured["kwargs"]["env"], dict)
+    assert captured["kwargs"]["env"]["CODEX_HOME"].endswith("codex-home")
     assert result.diagnostics.stdout_event_count == 3
     assert result.diagnostics.executable_path.endswith("codex.exe")
     assert result.diagnostics.thread_started
@@ -114,6 +126,51 @@ def test_windows_profile_is_mapped_to_home_for_codex(monkeypatch):
     monkeypatch.setenv("USERPROFILE", r"C:\\Users\\control-center")
     environment = RealCodexRunner._process_environment()
     assert environment["HOME"] == r"C:\\Users\\control-center"
+
+
+def test_environment_preserves_inherited_values_and_sets_verified_codex_home(monkeypatch, tmp_path):
+    home = tmp_path / "verified-codex-home"
+    home.mkdir()
+    monkeypatch.delenv("HOME", raising=False)
+    monkeypatch.setenv("USERPROFILE", r"C:\\Users\\control-center")
+    monkeypatch.setenv("PATH", r"C:\\Windows\\System32")
+    monkeypatch.setenv("HOMEDRIVE", "C:")
+    monkeypatch.setenv("HOMEPATH", r"\\Users\\control-center")
+    monkeypatch.setenv("LOCALAPPDATA", r"C:\\Users\\control-center\\AppData\\Local")
+    monkeypatch.setenv("APPDATA", r"C:\\Users\\control-center\\AppData\\Roaming")
+    environment = RealCodexRunner._process_environment(home)
+    assert environment["CODEX_HOME"] == str(home)
+    assert environment["HOME"] == r"C:\\Users\\control-center"
+    assert environment["USERPROFILE"] == r"C:\\Users\\control-center"
+    assert environment["PATH"] == r"C:\\Windows\\System32"
+    assert environment["HOMEDRIVE"] == "C:"
+    assert environment["HOMEPATH"] == r"\\Users\\control-center"
+    assert environment["LOCALAPPDATA"].endswith("Local")
+    assert environment["APPDATA"].endswith("Roaming")
+
+
+def test_missing_explicit_codex_home_is_rejected_without_starting_subprocess(monkeypatch, tmp_path):
+    called = False
+
+    def unexpected_run(*args, **kwargs):
+        nonlocal called
+        called = True
+        raise AssertionError("subprocess must not start")
+
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / "missing-codex-home"))
+    monkeypatch.setattr("backend.runners.codex.subprocess.run", unexpected_run)
+    workspace = SmokeWorkspace(tmp_path / "smoke")
+    run = workspace.create_run()
+    result = RealCodexRunner(real_config()).run_smoke(run, workspace.result_path(run))
+    assert result.error_code == "CODEX_HOME_NOT_FOUND"
+    assert not called
+
+
+def test_diagnostics_do_not_include_environment_or_authentication_material():
+    diagnostics = RealCodexRunner._diagnostics(["codex", "exec"], Path("smoke"))
+    serialized = diagnostics.model_dump_json().lower()
+    assert "codex_home" not in serialized
+    assert "auth" not in serialized
 
 
 def test_turn_failed_event_is_structured_error(monkeypatch, tmp_path):

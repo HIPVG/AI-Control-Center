@@ -156,17 +156,28 @@ class RealCodexRunner(CodexRunner):
     def run_smoke(self, smoke_directory: Path, target: Path) -> ExecutionResult:
         prompt = f"Create {target.name} in the current working directory containing exactly this text and no newline: {SMOKE_CONTENT}"
         executable_path, command = self.build_smoke_command(prompt)
+        codex_home = self.resolve_codex_home()
+        if codex_home is None:
+            return ExecutionResult(
+                status="failed",
+                test_result="not_run",
+                summary="Configured Codex home directory was not found.",
+                error_code="CODEX_HOME_NOT_FOUND",
+                diagnostics=self._diagnostics(command, smoke_directory, executable_path=executable_path),
+            )
         try:
             completed = subprocess.run(
                 command,
                 cwd=smoke_directory,
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 timeout=self.config.timeout_seconds,
                 check=False,
                 shell=False,
                 stdin=subprocess.DEVNULL,
-                env=self._process_environment(),
+                env=self._process_environment(codex_home),
             )
         except FileNotFoundError:
             return ExecutionResult(
@@ -262,11 +273,24 @@ class RealCodexRunner(CodexRunner):
         return str(Path(resolved).resolve()) if resolved else None
 
     @staticmethod
-    def _process_environment() -> dict[str, str]:
-        """Supply the Windows profile through HOME when Codex requires it."""
+    def resolve_codex_home() -> Path | None:
+        configured = os.environ.get("CODEX_HOME")
+        if configured:
+            candidate = Path(configured)
+        elif os.environ.get("USERPROFILE"):
+            candidate = Path(os.environ["USERPROFILE"]) / ".codex"
+        else:
+            return None
+        return candidate.resolve() if candidate.is_dir() else None
+
+    @staticmethod
+    def _process_environment(codex_home: Path | None = None) -> dict[str, str]:
+        """Preserve the inherited environment and supply Codex's verified home."""
         environment = os.environ.copy()
         if not environment.get("HOME") and environment.get("USERPROFILE"):
             environment["HOME"] = environment["USERPROFILE"]
+        if codex_home is not None:
+            environment["CODEX_HOME"] = str(codex_home)
         return environment
 
     @staticmethod
