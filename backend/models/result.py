@@ -19,6 +19,16 @@ class TestResult(BaseModel):
     summary: str
 
 
+class ProcessDiagnostics(BaseModel):
+    argv: list[str] = Field(default_factory=list)
+    cwd: str | None = None
+    exit_code: int | None = None
+    timed_out: bool = False
+    stdout_event_count: int = Field(default=0, ge=0)
+    event_types: list[str] = Field(default_factory=list)
+    stderr_summary: str | None = None
+
+
 class ExecutionResult(BaseModel):
     status: str
     files_changed: list[str] = Field(default_factory=list)
@@ -29,3 +39,4 @@ class ExecutionResult(BaseModel):
     exit_code: int | None = None
     error_code: str | None = None
     stderr: str | None = None
+    diagnostics: ProcessDiagnostics | None = None

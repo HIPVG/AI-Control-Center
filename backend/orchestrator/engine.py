@@ -1,4 +1,5 @@
 import json
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Protocol
@@ -51,6 +52,7 @@ class ControlCenterEngine:
         self.state_manager = StateManager()
         self.budgets = TokenBudgetManager(load_budget_config(config_path) if config_path else None)
         project_root = Path(__file__).resolve().parents[2]
+        self.project_root = project_root
         self.runtime = runtime_config or load_runtime_config(project_root / "config" / "runtime.yaml")
         self.smoke_workspace = SmokeWorkspace(smoke_root or project_root / "state" / "smoke")
         self.real_runner = real_runner or RealCodexRunner(self.runtime.codex)
@@ -251,11 +253,22 @@ class ControlCenterEngine:
         smoke_directory = self.smoke_workspace.create_run()
         target = self.smoke_workspace.result_path(smoke_directory)
         relative_path = str(target.relative_to(self.smoke_workspace.root))
+        before_files = self._repository_files()
         self._event(task_id, AuditEventType.SMOKE_STARTED, "Real Codex smoke started in an isolated workspace.", details={"smoke_path": relative_path, "mode": mode.value})
+        self._save()
         execution = self.real_runner.run_smoke(smoke_directory, target)
-        self._event(task_id, AuditEventType.SMOKE_RESULT, execution.summary, details={"status": execution.status, "error_code": execution.error_code, "exit_code": execution.exit_code, "token_usage": execution.token_usage.model_dump()})
+        after_files = self._repository_files()
+        changed_files = sorted(after_files - before_files) if before_files is not None and after_files is not None else []
+        self._event(task_id, AuditEventType.SMOKE_RESULT, f"Codex process completed exit={execution.exit_code if execution.exit_code is not None else 'unavailable'}.", details={"status": execution.status, "error_code": execution.error_code, "exit_code": execution.exit_code, "token_usage": execution.token_usage.model_dump(), "diagnostics": execution.diagnostics.model_dump(mode="json") if execution.diagnostics else None})
         if execution.status != "completed":
             result = SmokeRunResult(status="failed", mode=mode, smoke_path=relative_path, execution=execution, error_code=execution.error_code)
+            self._event(task_id, AuditEventType.SMOKE_REJECTED, f"Real Codex smoke failed: {execution.error_code}.", details=result.model_dump(mode="json"))
+            self._save()
+            return result.model_dump(mode="json")
+
+        if changed_files:
+            result = SmokeRunResult(status="failed", mode=mode, smoke_path=relative_path, execution=execution, error_code="PRODUCTION_FILES_MODIFIED")
+            self._event(task_id, AuditEventType.SMOKE_REJECTED, "Real Codex smoke failed: production files changed.", details={**result.model_dump(mode="json"), "changed_files": changed_files})
             self._save()
             return result.model_dump(mode="json")
 
@@ -266,13 +279,36 @@ class ControlCenterEngine:
             self._save()
             return result.model_dump(mode="json")
 
-        accepted = self.smoke_workspace.accepts(target)
+        acceptance_error = self.smoke_workspace.acceptance_error(target)
+        accepted = acceptance_error is None
         execution.test_result = "pass" if accepted else "fail"
-        result = SmokeRunResult(status="completed" if accepted else "failed", mode=mode, smoke_path=relative_path, deterministic_passed=accepted, execution=execution, error_code=None if accepted else "SMOKE_ACCEPTANCE_FAILED")
+        result = SmokeRunResult(status="completed" if accepted else "failed", mode=mode, smoke_path=relative_path, deterministic_passed=accepted, execution=execution, error_code=acceptance_error)
         event_type = AuditEventType.SMOKE_ACCEPTED if accepted else AuditEventType.SMOKE_REJECTED
-        self._event(task_id, event_type, "Real Codex smoke deterministic acceptance passed." if accepted else "Real Codex smoke deterministic acceptance failed.", details=result.model_dump(mode="json"))
+        if accepted and execution.token_usage.available:
+            self._event(task_id, AuditEventType.SMOKE_ACCEPTED, "Real Codex smoke deterministic acceptance passed; token usage captured.", details=result.model_dump(mode="json"))
+        elif accepted:
+            self._event(task_id, AuditEventType.SMOKE_ACCEPTED, "Real Codex smoke deterministic acceptance passed; token usage unavailable.", details=result.model_dump(mode="json"))
+        else:
+            self._event(task_id, event_type, f"Real Codex smoke failed: {acceptance_error}.", details=result.model_dump(mode="json"))
         self._save()
         return result.model_dump(mode="json")
+
+    def _repository_files(self) -> set[str] | None:
+        try:
+            completed = subprocess.run(
+                ["git", "status", "--porcelain"],
+                cwd=self.project_root,
+                capture_output=True,
+                text=True,
+                timeout=10,
+                check=False,
+                shell=False,
+            )
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            return None
+        if completed.returncode != 0:
+            return None
+        return {line[3:] for line in completed.stdout.splitlines() if len(line) > 3}
 
     def run_mock(self) -> dict[str, Any]:
         task_id = self.data["current_task"]["task_id"]

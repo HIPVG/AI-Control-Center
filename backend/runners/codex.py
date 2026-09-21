@@ -7,7 +7,7 @@ from uuid import uuid4
 from pydantic import BaseModel, Field
 
 from backend.control.context_broker import TaskContext
-from backend.models.result import ExecutionResult, TokenUsage
+from backend.models.result import ExecutionResult, ProcessDiagnostics, TokenUsage
 from backend.models.runtime import CodexRuntimeConfig
 
 SMOKE_FILENAME = "smoke-result.txt"
@@ -19,6 +19,10 @@ class JsonlParseResult(BaseModel):
     event_count: int = 0
     malformed_lines: int = 0
     token_usage: TokenUsage = Field(default_factory=TokenUsage)
+    event_types: list[str] = Field(default_factory=list)
+    turn_completed: bool = False
+    turn_failed: bool = False
+    error_event: bool = False
 
 
 class SmokeWorkspace:
@@ -42,12 +46,17 @@ class SmokeWorkspace:
         return target
 
     def accepts(self, target: Path) -> bool:
+        return self.acceptance_error(target) is None
+
+    def acceptance_error(self, target: Path) -> str | None:
         resolved_target = target.resolve()
         self._ensure_within_root(resolved_target)
+        if not resolved_target.is_file():
+            return "SMOKE_RESULT_MISSING"
         try:
-            return resolved_target.read_text(encoding="utf-8") == SMOKE_CONTENT
+            return None if resolved_target.read_text(encoding="utf-8") == SMOKE_CONTENT else "SMOKE_CONTENT_MISMATCH"
         except (OSError, UnicodeError):
-            return False
+            return "SMOKE_CONTENT_MISMATCH"
 
     def _ensure_within_root(self, candidate: Path) -> None:
         try:
@@ -80,6 +89,13 @@ class CodexRunner:
                 parsed.malformed_lines += 1
                 continue
             parsed.event_count += 1
+            if isinstance(payload, dict) and isinstance(payload.get("type"), str):
+                event_type = payload["type"]
+                if event_type not in parsed.event_types:
+                    parsed.event_types.append(event_type)
+                parsed.turn_completed = parsed.turn_completed or event_type == "turn.completed"
+                parsed.turn_failed = parsed.turn_failed or event_type == "turn.failed"
+                parsed.error_event = parsed.error_event or event_type == "error"
             usage = cls._usage_from_payload(payload)
             if usage.available:
                 latest_usage = usage
@@ -132,12 +148,8 @@ class RealCodexRunner(CodexRunner):
         self.config = config
 
     def run_smoke(self, smoke_directory: Path, target: Path) -> ExecutionResult:
-        prompt = (
-            "Run the bounded AI Control Center smoke test. In the current directory only, "
-            f"create {target.name} with exactly this UTF-8 content and no newline: {SMOKE_CONTENT}. "
-            "Do not read or modify any other files. Do not run git."
-        )
-        command = [self.config.executable, "exec", "--json", prompt]
+        prompt = f"Create {target.name} containing exactly this text and no newline: {SMOKE_CONTENT}"
+        command = self.build_smoke_command(prompt)
         try:
             completed = subprocess.run(
                 command,
@@ -154,6 +166,7 @@ class RealCodexRunner(CodexRunner):
                 test_result="not_run",
                 summary="Configured Codex executable was not found.",
                 error_code="CODEX_NOT_FOUND",
+                diagnostics=self._diagnostics(command, smoke_directory),
             )
         except subprocess.TimeoutExpired as exc:
             return ExecutionResult(
@@ -162,9 +175,11 @@ class RealCodexRunner(CodexRunner):
                 summary="Codex smoke execution timed out.",
                 error_code="CODEX_TIMEOUT",
                 stderr=self._truncate(exc.stderr),
+                diagnostics=self._diagnostics(command, smoke_directory, timed_out=True, stderr=exc.stderr),
             )
 
         parsed = self.parse_jsonl(completed.stdout)
+        diagnostics = self._diagnostics(command, smoke_directory, exit_code=completed.returncode, parsed=parsed, stderr=completed.stderr)
         if completed.returncode != 0:
             return ExecutionResult(
                 status="failed",
@@ -172,18 +187,20 @@ class RealCodexRunner(CodexRunner):
                 summary="Codex smoke execution returned a non-zero exit code.",
                 token_usage=parsed.token_usage,
                 exit_code=completed.returncode,
-                error_code="CODEX_EXIT_NONZERO",
+                error_code="CODEX_TURN_FAILED" if parsed.turn_failed else "CODEX_EXIT_NONZERO",
                 stderr=self._truncate(completed.stderr),
+                diagnostics=diagnostics,
             )
-        if parsed.malformed_lines:
+        if parsed.malformed_lines or parsed.turn_failed or parsed.error_event or not parsed.turn_completed:
             return ExecutionResult(
                 status="failed",
                 test_result="not_run",
-                summary="Codex returned malformed JSONL output.",
+                summary="Codex did not produce a successful completed turn event.",
                 token_usage=parsed.token_usage,
                 exit_code=completed.returncode,
-                error_code="MALFORMED_JSONL",
+                error_code="CODEX_TURN_FAILED" if parsed.turn_failed else "CODEX_OUTPUT_INVALID",
                 stderr=self._truncate(completed.stderr),
+                diagnostics=diagnostics,
             )
         return ExecutionResult(
             status="completed",
@@ -194,6 +211,38 @@ class RealCodexRunner(CodexRunner):
             token_usage=parsed.token_usage,
             exit_code=completed.returncode,
             stderr=self._truncate(completed.stderr),
+            diagnostics=diagnostics,
+        )
+
+    def build_smoke_command(self, prompt: str) -> list[str]:
+        return [
+            self.config.executable,
+            "exec",
+            "--sandbox",
+            "workspace-write",
+            "--skip-git-repo-check",
+            "--json",
+            prompt,
+        ]
+
+    @staticmethod
+    def _diagnostics(
+        command: list[str],
+        smoke_directory: Path,
+        *,
+        exit_code: int | None = None,
+        timed_out: bool = False,
+        parsed: JsonlParseResult | None = None,
+        stderr: str | bytes | None = None,
+    ) -> ProcessDiagnostics:
+        return ProcessDiagnostics(
+            argv=command,
+            cwd=str(smoke_directory),
+            exit_code=exit_code,
+            timed_out=timed_out,
+            stdout_event_count=parsed.event_count if parsed else 0,
+            event_types=parsed.event_types if parsed else [],
+            stderr_summary=RealCodexRunner._truncate(stderr),
         )
 
     @staticmethod

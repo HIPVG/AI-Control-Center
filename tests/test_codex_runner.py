@@ -31,7 +31,7 @@ def test_malformed_jsonl_is_reported_without_raising(monkeypatch, tmp_path):
     workspace = SmokeWorkspace(tmp_path / "smoke")
     run = workspace.create_run()
     result = RealCodexRunner(real_config()).run_smoke(run, workspace.result_path(run))
-    assert result.error_code == "MALFORMED_JSONL"
+    assert result.error_code == "CODEX_OUTPUT_INVALID"
 
 
 def test_executable_not_found_is_structured_error(tmp_path):
@@ -50,6 +50,41 @@ def test_timeout_is_structured_error(monkeypatch, tmp_path):
     run = workspace.create_run()
     result = RealCodexRunner(real_config()).run_smoke(run, workspace.result_path(run))
     assert result.error_code == "CODEX_TIMEOUT"
+
+
+def test_real_smoke_uses_workspace_write_with_controlled_process_arguments(monkeypatch, tmp_path):
+    captured = {}
+
+    def completed(command, **kwargs):
+        captured["command"] = command
+        captured["kwargs"] = kwargs
+        stdout = '{"type":"thread.started"}\n{"type":"turn.started"}\n{"type":"turn.completed","usage":{"input_tokens":5,"cached_input_tokens":1,"output_tokens":2}}'
+        return subprocess.CompletedProcess(command, 0, stdout=stdout, stderr="")
+
+    monkeypatch.setattr("backend.runners.codex.subprocess.run", completed)
+    workspace = SmokeWorkspace(tmp_path / "smoke")
+    run = workspace.create_run()
+    result = RealCodexRunner(real_config()).run_smoke(run, workspace.result_path(run))
+    assert result.status == "completed"
+    assert captured["command"][1:6] == ["exec", "--sandbox", "workspace-write", "--skip-git-repo-check", "--json"]
+    assert captured["kwargs"]["cwd"] == run
+    assert captured["kwargs"]["capture_output"]
+    assert captured["kwargs"]["text"]
+    assert captured["kwargs"]["shell"] is False
+    assert result.diagnostics.stdout_event_count == 3
+    assert result.token_usage.available
+
+
+def test_turn_failed_event_is_structured_error(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        "backend.runners.codex.subprocess.run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(args[0], 0, stdout='{"type":"turn.failed"}', stderr="failed"),
+    )
+    workspace = SmokeWorkspace(tmp_path / "smoke")
+    run = workspace.create_run()
+    result = RealCodexRunner(real_config()).run_smoke(run, workspace.result_path(run))
+    assert result.error_code == "CODEX_TURN_FAILED"
+    assert result.diagnostics.event_types == ["turn.failed"]
 
 
 def test_smoke_workspace_rejects_path_outside_root(tmp_path):
@@ -107,3 +142,44 @@ def test_real_smoke_records_actual_reported_usage(tmp_path):
     assert result["status"] == "completed"
     assert result["deterministic_passed"]
     assert engine.status()["token_usage"]["input_tokens"] == 7
+
+
+class NoResultWriter:
+    def run_smoke(self, smoke_directory, target):
+        return ExecutionResult(status="completed", test_result="pending", summary="no result", token_usage=TokenUsage())
+
+
+def test_real_smoke_reports_missing_result_file(tmp_path):
+    runtime = RuntimeConfig(codex=real_config())
+    engine = ControlCenterEngine(runtime_config=runtime, smoke_root=tmp_path / "smoke", real_runner=NoResultWriter())
+    result = engine.run_codex_smoke()
+    assert result["error_code"] == "SMOKE_RESULT_MISSING"
+
+
+def test_smoke_start_event_is_persisted_before_runner_execution(tmp_path):
+    class Store:
+        data = None
+
+        def load(self):
+            return None
+
+        def save(self, data):
+            self.data = data
+
+    class ObservingRunner:
+        def __init__(self, store):
+            self.store = store
+
+        def run_smoke(self, smoke_directory, target):
+            assert self.store.data["timeline"][-1]["event_type"] == "SMOKE_STARTED"
+            target.write_text(SMOKE_CONTENT, encoding="utf-8")
+            return ExecutionResult(status="completed", test_result="pending", summary="smoke", token_usage=TokenUsage())
+
+    store = Store()
+    engine = ControlCenterEngine(
+        state_store=store,
+        runtime_config=RuntimeConfig(codex=real_config()),
+        smoke_root=tmp_path / "smoke",
+        real_runner=ObservingRunner(store),
+    )
+    assert engine.run_codex_smoke()["status"] == "completed"
