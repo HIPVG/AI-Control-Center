@@ -1,6 +1,6 @@
 {
   "roadmap_version": 4,
-  "current_milestone": "M25_SELF_REPAIR_AND_BOUNDED_REPLAN",
+  "current_milestone": "M26_AUTOMATED_GIT_COMPLETION",
   "completed_milestones": [
     "M0",
     "M1",
@@ -25,10 +25,11 @@
     "M21",
     "M22",
     "M23",
-    "M24"
+    "M24",
+    "M25"
   ],
   "blocked_milestones": [],
-  "human_gate": "AUTONOMOUS_RECOVERY_AND_CONTINUE_VALIDATION",
+  "human_gate": "AUTO_GIT_PR_VALIDATION",
   "latest_test_result": "167 passed, 3 warnings",
   "latest_commit": "d35a230fe3f995739b4799d72ac9e0774ed8a075",
   "remote_push_state": "pushed",
@@ -40,7 +41,7 @@
     "uncached_input_tokens": 18454,
     "output_tokens": 82
   },
-  "updated_at": "2026-09-22T06:30:00+09:00",
+  "updated_at": "2026-09-22T07:00:00+09:00",
   "real_codex_core_continuous_validation": "PASSED",
   "continuous_runtime_evidence": {
     "start_progress_percent": 33.33,
@@ -60,7 +61,7 @@
     "architect_output_tokens": 236,
     "day_total_tokens": 55580
   },
-  "next_milestone_after_current": "M26_AUTOMATED_GIT_COMPLETION",
+  "next_milestone_after_current": "M27_ZERO_TOUCH_CONTROL_LOOP",
   "real_local_llm_integration_doc": "docs/REAL_LOCAL_LLM_INTEGRATION.md",
   "m21_implementation": "READY_FOR_BATCH_VALIDATION",
   "m21_validation_batched_with": "M22",
@@ -124,5 +125,32 @@
     "transient-architect",
     "invalid-architect-task",
     "missing-runtime"
-  ]
+  ],
+  "m25_external_validation": "PASSED",
+  "m25_runtime_evidence": {
+    "architect_retry": {
+      "final_state": "COMPLETE",
+      "automatic_retries": 1,
+      "human_review": 0
+    },
+    "bounded_replan": {
+      "final_state": "COMPLETE",
+      "automatic_replans": 1,
+      "automatic_retries": 0,
+      "human_review": 0,
+      "escalation": "REPLAN_REQUIRED"
+    },
+    "missing_runtime": {
+      "escalation": "EXTERNAL_ACTION_REQUIRED",
+      "automatic_retries": 0,
+      "normal_day_unchanged": true
+    },
+    "trusted_local_llm": {
+      "builder_invoked": false
+    },
+    "continue_autonomously": {
+      "goal_required": false,
+      "outcome": "RESULT_RECORDED"
+    }
+  }
 }
