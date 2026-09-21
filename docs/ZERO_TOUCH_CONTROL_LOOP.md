@@ -106,6 +106,19 @@ Normal use should become:
 
 No routine PowerShell interaction should be necessary.
 
+## M27 integration contract
+
+The Dashboard now provides **Start zero-touch flow** for the one initial
+bounded Goal. Python performs the existing Goal-to-Plan proposal and trusted
+execution without an intermediate proposal/execute relay, then records one
+structured `COMPLETE` or `ATTENTION` result. **Close trusted next action**
+uses the same result contract for the currently policy-approved continuation.
+
+This integration does not weaken the underlying boundaries: DayRunner remains
+responsible for bounded retry/replan, external runtime failures remain typed
+attention, and Git completion remains agent-branch-only with no PR creation or
+main merge. See `docs/ZERO_TOUCH_RUN.md` for the exact contract.
+
 ## Authority boundaries retained
 
 Automatic execution must still stop or request explicit authority for cases such as:

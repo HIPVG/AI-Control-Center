@@ -22,7 +22,7 @@ def client(monkeypatch):
 
 
 def test_required_endpoints_are_available(client):
-    for path in ("/api/status", "/api/plan", "/api/tasks", "/api/timeline", "/api/token-usage", "/api/runtime", "/api/operation/health", "/api/day/plans", "/api/day/status", "/api/experiments", "/api/goals", "/api/next-action", "/api/git/candidates", "/api/git/completions"):
+    for path in ("/api/status", "/api/plan", "/api/tasks", "/api/timeline", "/api/token-usage", "/api/runtime", "/api/operation/health", "/api/day/plans", "/api/day/status", "/api/experiments", "/api/goals", "/api/next-action", "/api/git/candidates", "/api/git/completions", "/api/zero-touch"):
         assert client.get(path).status_code == 200
     assert client.post("/api/run/mock").status_code == 200
     assert client.post("/api/run/codex-smoke").json()["error_code"] == "REAL_MODE_REQUIRED"
@@ -62,6 +62,9 @@ def test_dashboard_v2_uses_only_configured_day_plan_api_contracts(client):
     assert 'id="complete-verified-work"' in html
     assert 'id="validate-git-completion"' in html
     assert 'id="git-completion-evidence"' in html
+    assert 'id="start-zero-touch"' in html
+    assert 'id="continue-zero-touch"' in html
+    assert 'id="zero-touch-evidence"' in html
     assert 'id="validation-evidence"' in html
     assert 'id="experiment-evidence"' in html
     assert "/api/day/start/" in script
@@ -71,6 +74,9 @@ def test_dashboard_v2_uses_only_configured_day_plan_api_contracts(client):
     assert "/api/git/candidates" in script
     assert "/api/git/complete/" in script
     assert "/api/validation/git-completion" in script
+    assert 'fetch("/api/zero-touch")' in script
+    assert 'fetch("/api/zero-touch/start"' in script
+    assert 'fetch("/api/zero-touch/continue"' in script
     assert "/execute" in script
     assert "/api/day/resume?mode=continuous" in script
     assert 'fetch("/api/day/stop"' in script
@@ -85,6 +91,7 @@ def test_dashboard_v2_uses_only_configured_day_plan_api_contracts(client):
     assert "auto_replans" in script
     assert "builder_invoked" in script
     assert "GIT_" in script
+    assert "ZERO_TOUCH_" in script
     assert "/api/run/mock" not in script
     assert "innerHTML" not in script
 
@@ -95,6 +102,11 @@ def test_goal_endpoint_accepts_only_the_bounded_goal_field(client):
     result = client.post("/api/goals", json={"goal": "Run the trusted LocalLLM process consistency experiment"})
     assert result.json()["status"] == "PROPOSED"
     assert "command" not in result.json()
+
+
+def test_zero_touch_start_accepts_only_the_bounded_goal_field(client):
+    response = client.post("/api/zero-touch/start", json={"goal": "Run the trusted LocalLLM experiment", "command": "unsafe"})
+    assert response.status_code == 422
 
 
 def test_continue_endpoint_uses_only_current_trusted_policy(client, monkeypatch):

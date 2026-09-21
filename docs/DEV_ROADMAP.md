@@ -202,3 +202,13 @@ run controls, and controls superseded by Recommended next action / Continue
 autonomously. Exact removal decisions should be based on the post-M27 workflow
 and must preserve recovery, diagnostics, and authority-boundary access where
 still operationally necessary.
+
+M27 implementation is ready for external validation:
+- one bounded Dashboard Goal can plan and execute through the existing trusted
+  policy without a separate proposal/execute relay;
+- each run records concise terminal COMPLETE or ATTENTION evidence, while raw
+  Goal text remains outside the aggregate result;
+- existing retry/replan, external-action, next-action, and agent-branch Git
+  completion policies are reused unchanged rather than bypassed;
+- the Dashboard renders the latest Zero-Touch terminal status and exposes a
+  bounded close-next-action path without browser-supplied authority.

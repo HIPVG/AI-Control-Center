@@ -31,7 +31,7 @@
   ],
   "blocked_milestones": [],
   "human_gate": "ZERO_TOUCH_EXTERNAL_VALIDATION",
-  "latest_test_result": "172 passed, 3 warnings",
+  "latest_test_result": "176 passed, 3 warnings",
   "latest_commit": "afa6eca80c849924a487cd09c79662eed773d7fb",
   "remote_push_state": "pushed",
   "safe_semantic_task_found": false,
@@ -179,5 +179,8 @@
     "main_merged": false,
     "main_pushed": false
   },
-  "m28_ui_cleanup_policy": "REMOVE_OR_DEMOTE_CONTROLS_SUPERSEDED_BY_ZERO_TOUCH_AFTER_M27_VALIDATION"
+  "m28_ui_cleanup_policy": "REMOVE_OR_DEMOTE_CONTROLS_SUPERSEDED_BY_ZERO_TOUCH_AFTER_M27_VALIDATION",
+  "m27_implementation": "READY_FOR_EXTERNAL_VALIDATION",
+  "m27_run_contract": "docs/ZERO_TOUCH_RUN.md",
+  "m27_initial_target": "local_llm_process_consistency_smoke"
 }

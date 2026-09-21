@@ -103,6 +103,21 @@ def continue_autonomously() -> dict:
     return engine.continue_autonomously()
 
 
+@app.get("/api/zero-touch")
+def zero_touch_runs() -> list[dict]:
+    return engine.zero_touch_runs()
+
+
+@app.post("/api/zero-touch/start")
+def start_zero_touch(submission: GoalSubmission) -> dict:
+    return engine.start_zero_touch(submission.goal)
+
+
+@app.post("/api/zero-touch/continue")
+def continue_zero_touch() -> dict:
+    return engine.continue_zero_touch()
+
+
 @app.get("/api/git/candidates")
 def git_completion_candidates() -> list[dict]:
     return engine.git_completion_candidates()

@@ -29,6 +29,7 @@ from backend.models.goal import GoalPlan, GoalPlanStatus
 from backend.models.experiment import ExperimentOutcome, ExperimentRun
 from backend.models.next_action import NextActionType
 from backend.models.git_completion import GitCompletionCandidate, GitCompletionResult, GitCompletionStatus
+from backend.models.zero_touch import ZeroTouchRun, ZeroTouchStatus
 from backend.control.projects import ProjectRegistry, load_project_registry
 from backend.control.plans import load_plan_registry
 from backend.control.task_discovery import DeterministicTaskDiscovery, DiscoveryRegistry, FailingTaskDiscoveryResult, load_discovery_registry
@@ -163,6 +164,7 @@ class ControlCenterEngine:
             "goal_plans": [],
             "escalation_validations": [],
             "git_completions": [],
+            "zero_touch_runs": [],
             "task_start_completed": {"PC-014": 18},
             "task_progress": calculate_progress(task_completed, task_total),
             "current_task": {"task_id": "PC-014", "title": "Evidence Grounding", "completed": task_completed, "total": task_total, "retry": 0, "max_retry": 2},
@@ -322,6 +324,7 @@ class ControlCenterEngine:
             "day": self.day_runner.view(),
             "next_action": self.next_action(),
             "git_completion_candidates": self.git_completion_candidates(),
+            "zero_touch": self.zero_touch_runs(),
         }
 
     def runtime_view(self) -> dict[str, Any]:
@@ -349,7 +352,7 @@ class ControlCenterEngine:
         return list(self.data["goal_plans"])
 
     def next_action(self) -> dict[str, Any]:
-        return recommend_next_action(self.data["experiment_runs"], set(self.experiments), self.git_completion_candidates()).model_dump(mode="json")
+        return recommend_next_action(self.data["experiment_runs"], set(self.experiments), self.git_completion_candidates(), self.data["zero_touch_runs"]).model_dump(mode="json")
 
     def continue_autonomously(self) -> dict[str, Any]:
         """Execute only the current policy-approved, configured continuation."""
@@ -371,6 +374,67 @@ class ControlCenterEngine:
         )
         self._save()
         return {"next_action": action, "result": result}
+
+    def zero_touch_runs(self) -> list[dict[str, Any]]:
+        return list(self.data["zero_touch_runs"])
+
+    def start_zero_touch(self, goal: str) -> dict[str, Any]:
+        """Plan and execute one bounded trusted goal without a relay step."""
+        started = datetime.now(timezone.utc)
+        run_id = uuid4().hex
+        proposal = self.propose_goal(goal)
+        self._event("ZERO_TOUCH", AuditEventType.ZERO_TOUCH_STARTED, "Zero-Touch goal accepted for trusted planning.", details={"run_id": run_id, "goal_id": proposal["goal_id"], "status": proposal["status"]})
+        if proposal["status"] != GoalPlanStatus.PROPOSED.value:
+            return self._finish_zero_touch(ZeroTouchRun(
+                run_id=run_id, started_at=started, completed_at=datetime.now(timezone.utc), status=ZeroTouchStatus.ATTENTION,
+                goal_id=proposal["goal_id"], completion_reason=proposal["policy_reason"], human_attention_required=True,
+            ))
+        execution = self.execute_goal(proposal["goal_id"])
+        if execution.get("error_code"):
+            return self._finish_zero_touch(ZeroTouchRun(
+                run_id=run_id, started_at=started, completed_at=datetime.now(timezone.utc), status=ZeroTouchStatus.ATTENTION,
+                goal_id=proposal["goal_id"], target_type=proposal.get("target_type"), target_id=proposal.get("target_id"),
+                completion_reason=execution["error_code"], human_attention_required=True,
+            ))
+        result = execution["result"]
+        action = self.next_action()
+        requires_attention = action["action_type"] == NextActionType.EXTERNAL_ACTION_REQUIRED.value
+        return self._finish_zero_touch(ZeroTouchRun(
+            run_id=run_id, started_at=started, completed_at=datetime.now(timezone.utc),
+            status=ZeroTouchStatus.ATTENTION if requires_attention else ZeroTouchStatus.COMPLETE,
+            goal_id=proposal["goal_id"], target_type=proposal.get("target_type"), target_id=proposal.get("target_id"),
+            action_type="GOAL_TO_TRUSTED_EXECUTION", outcome=result.get("outcome"),
+            completion_reason=action["reason"] if requires_attention else "TRUSTED_GOAL_EXECUTED",
+            human_attention_required=requires_attention,
+        ))
+
+    def continue_zero_touch(self) -> dict[str, Any]:
+        """Close the current policy-approved next action as one bounded run."""
+        started = datetime.now(timezone.utc)
+        run_id = uuid4().hex
+        action = self.next_action()
+        result = self.continue_autonomously()
+        if result.get("error_code"):
+            return self._finish_zero_touch(ZeroTouchRun(
+                run_id=run_id, started_at=started, completed_at=datetime.now(timezone.utc), status=ZeroTouchStatus.ATTENTION,
+                target_id=action.get("target_id"), action_type=action["action_type"],
+                completion_reason=result["error_code"], human_attention_required=True,
+            ))
+        completed = result["result"]
+        return self._finish_zero_touch(ZeroTouchRun(
+            run_id=run_id, started_at=started, completed_at=datetime.now(timezone.utc), status=ZeroTouchStatus.COMPLETE,
+            target_id=action.get("target_id"), action_type=action["action_type"],
+            outcome=completed.get("outcome") or completed.get("status"), completion_reason="TRUSTED_NEXT_ACTION_EXECUTED",
+        ))
+
+    def _finish_zero_touch(self, result: ZeroTouchRun) -> dict[str, Any]:
+        payload = result.model_dump(mode="json")
+        self.data["zero_touch_runs"].append(payload)
+        event_type = AuditEventType.ZERO_TOUCH_COMPLETE if result.status == ZeroTouchStatus.COMPLETE else AuditEventType.ZERO_TOUCH_ATTENTION
+        message = f"Zero-Touch {result.status.value.lower()}: {result.completion_reason}"
+        self._event("ZERO_TOUCH", event_type, message, details=payload)
+        self._save()
+        return payload
 
     def git_completion_candidates(self) -> list[dict[str, Any]]:
         service = GitCompletionService()

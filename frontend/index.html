@@ -32,11 +32,12 @@
         <div><p class="eyebrow">RECOMMENDED NEXT ACTION</p><h2 id="next-action-summary">Checking trusted continuation…</h2><p id="next-action-reason" class="muted compact">The policy uses only configured capability and recorded trusted state.</p></div>
         <p id="next-action-policy" class="muted compact" aria-live="polite">Awaiting policy result.</p>
         <button id="continue-autonomously" type="button" disabled>Continue autonomously</button>
+        <button id="continue-zero-touch" class="secondary" type="button" disabled>Close trusted next action</button>
       </section>
       <section class="goal-control" aria-label="Change direction">
-        <div><p class="eyebrow">CHANGE DIRECTION</p><h2>Use a bounded Goal only when direction changes</h2><p class="muted compact">Normal continuation uses the recommended trusted action above.</p></div>
+        <div><p class="eyebrow">ZERO-TOUCH START / CHANGE DIRECTION</p><h2>Start one bounded trusted flow from a Goal</h2><p class="muted compact">Normal continuation uses the recommended action above; a Goal intentionally changes direction.</p></div>
         <label for="goal-input">Goal</label><input id="goal-input" maxlength="280" placeholder="Run the trusted LocalLLM process consistency experiment" autocomplete="off">
-        <button id="propose-goal" type="button">Propose trusted plan</button><button id="execute-goal" class="secondary" type="button" disabled>Execute proposed plan</button>
+        <button id="start-zero-touch" type="button">Start zero-touch flow</button><button id="propose-goal" class="secondary" type="button">Propose trusted plan</button><button id="execute-goal" class="secondary" type="button" disabled>Execute proposed plan</button>
         <p id="goal-plan-status" class="muted compact" aria-live="polite">No direction change requested.</p>
       </section>
       <section class="goal-control" aria-label="Automated Git completion">
@@ -58,6 +59,9 @@
       <section class="two-col">
         <article><div class="section-heading"><div><p class="eyebrow">CODEX ROLE ACTIVITY</p><h2>Governed calls</h2></div></div><ul id="roles" class="key-values"></ul></article>
         <article><div class="section-heading"><div><p class="eyebrow">TOKEN USAGE</p><h2>Day totals</h2></div></div><ul id="tokens" class="key-values"></ul></article>
+      </section>
+      <section class="two-col">
+        <article><div class="section-heading"><div><p class="eyebrow">ZERO-TOUCH RESULT</p><h2>Latest bounded control loop</h2></div></div><ul id="zero-touch-evidence" class="key-values"><li>Awaiting a trusted flow.</li></ul></article>
       </section>
       <section class="two-col">
         <article><div class="section-heading"><div><p class="eyebrow">TASK QUEUE</p><h2>Trusted configured tasks</h2></div></div><ol id="task-queue" class="queue"><li>Awaiting a Day plan.</li></ol></article>

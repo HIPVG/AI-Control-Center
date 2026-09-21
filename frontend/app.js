@@ -7,6 +7,18 @@ let configuredExperiments = [];
 let goalPlans = [];
 let gitCandidates = [];
 
+function renderZeroTouch(runs, action) {
+  const latest = runs.at(-1); const continueButton = byId("continue-zero-touch");
+  continueButton.disabled = !["RUN_TRUSTED_EXPERIMENT", "COMPLETE_VERIFIED_WORK"].includes(action?.action_type);
+  byId("zero-touch-evidence").replaceChildren(...(latest ? [
+    keyValue("Final status", latest.status),
+    keyValue("Action", latest.action_type ?? latest.target_type ?? "policy rejected before execution"),
+    keyValue("Outcome", latest.outcome ?? "unavailable"),
+    keyValue("Completion", latest.completion_reason),
+    keyValue("Human attention", latest.human_attention_required ? "required" : "none"),
+  ] : [keyValue("Status", "Awaiting a trusted flow")]));
+}
+
 function renderGitCompletion(candidates, completions) {
   gitCandidates = candidates;
   const candidate = candidates[0]; const latest = completions.at(-1);
@@ -158,7 +170,7 @@ function render(status) {
     return row;
   }));
   const taskIds = new Set((day.queue ?? []).map((item) => item.task_id));
-  const events = (status.timeline ?? []).filter((event) => event.event_type?.startsWith("DAY_") || event.event_type?.startsWith("NEXT_ACTION_") || event.event_type?.startsWith("GIT_") || event.event_type === "DAILY_OPERATION_AUTOSTART" || taskIds.has(event.task_id)).slice(-24);
+  const events = (status.timeline ?? []).filter((event) => event.event_type?.startsWith("DAY_") || event.event_type?.startsWith("NEXT_ACTION_") || event.event_type?.startsWith("GIT_") || event.event_type?.startsWith("ZERO_TOUCH_") || event.event_type === "DAILY_OPERATION_AUTOSTART" || taskIds.has(event.task_id)).slice(-24);
   byId("timeline").replaceChildren(...(events.length ? events : [{ message: "Awaiting autonomous workflow event." }]).map((event) => {
     const timestamp = event.timestamp ? `${new Date(event.timestamp).toLocaleTimeString()}  ` : "";
     return node("li", `${timestamp}${event.message}`);
@@ -166,20 +178,41 @@ function render(status) {
 }
 
 async function refresh() {
-  const [statusResponse, plansResponse, experimentsResponse, healthResponse, goalsResponse, nextActionResponse, candidatesResponse, completionsResponse] = await Promise.all([fetch("/api/status"), fetch("/api/day/plans"), fetch("/api/experiments"), fetch("/api/operation/health"), fetch("/api/goals"), fetch("/api/next-action"), fetch("/api/git/candidates"), fetch("/api/git/completions")]);
-  if (!statusResponse.ok || !plansResponse.ok || !experimentsResponse.ok || !healthResponse.ok || !goalsResponse.ok || !nextActionResponse.ok || !candidatesResponse.ok || !completionsResponse.ok) throw new Error("Unable to load Control Center state.");
+  const [statusResponse, plansResponse, experimentsResponse, healthResponse, goalsResponse, nextActionResponse, candidatesResponse, completionsResponse, zeroTouchResponse] = await Promise.all([fetch("/api/status"), fetch("/api/day/plans"), fetch("/api/experiments"), fetch("/api/operation/health"), fetch("/api/goals"), fetch("/api/next-action"), fetch("/api/git/candidates"), fetch("/api/git/completions"), fetch("/api/zero-touch")]);
+  if (!statusResponse.ok || !plansResponse.ok || !experimentsResponse.ok || !healthResponse.ok || !goalsResponse.ok || !nextActionResponse.ok || !candidatesResponse.ok || !completionsResponse.ok || !zeroTouchResponse.ok) throw new Error("Unable to load Control Center state.");
   renderPlans(await plansResponse.json());
   configuredExperiments = await experimentsResponse.json();
   byId("run-experiment").disabled = configuredExperiments.length === 0;
-  render(await statusResponse.json());
+  const status = await statusResponse.json();
+  render(status);
   renderHealth(await healthResponse.json());
   renderGoalPlans(await goalsResponse.json());
   renderNextAction(await nextActionResponse.json());
   renderGitCompletion(await candidatesResponse.json(), await completionsResponse.json());
+  renderZeroTouch(await zeroTouchResponse.json(), status.next_action);
 }
 
 byId("refresh").addEventListener("click", () => refresh().catch((error) => { byId("operation-status").textContent = error.message; }));
 byId("plan-selector").addEventListener("change", updateContinuousControl);
+byId("start-zero-touch").addEventListener("click", async () => {
+  const goal = byId("goal-input").value.trim(); const button = byId("start-zero-touch");
+  if (!goal) { byId("goal-plan-status").textContent = "Enter a bounded goal to start the trusted flow."; return; }
+  button.disabled = true; byId("operation-status").textContent = "Planning and executing the bounded trusted flow…";
+  try {
+    const response = await fetch("/api/zero-touch/start", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ goal }) }); const result = await response.json();
+    if (!response.ok) throw new Error("Zero-Touch start was rejected.");
+    await refresh(); byId("operation-status").textContent = `Zero-Touch ${result.status}: ${result.completion_reason}.`;
+  } catch (error) { byId("operation-status").textContent = error.message; }
+  finally { button.disabled = false; }
+});
+byId("continue-zero-touch").addEventListener("click", async () => {
+  const button = byId("continue-zero-touch"); button.disabled = true;
+  try {
+    const response = await fetch("/api/zero-touch/continue", { method: "POST" }); const result = await response.json();
+    if (!response.ok) throw new Error("Trusted next action was unavailable.");
+    await refresh(); byId("operation-status").textContent = `Zero-Touch ${result.status}: ${result.completion_reason}.`;
+  } catch (error) { byId("operation-status").textContent = error.message; }
+});
 byId("complete-verified-work").addEventListener("click", async () => {
   const candidate = gitCandidates[0]; const button = byId("complete-verified-work");
   if (!candidate) return;
