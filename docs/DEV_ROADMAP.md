@@ -103,5 +103,8 @@ M23 retry implementation is ready for external validation:
 
 The first M23 external attempt found a launcher working-directory defect: a
 Scheduled Task starts PowerShell outside the repository root, so Uvicorn could
-not import `backend.app`. The retry implementation resolves the root from the
-launcher path and records bounded startup codes for browser/log inspection.
+not import `backend.app`. The first retry then exposed multiple `python.exe`
+candidates being returned as an array at the launch boundary. The next retry
+resolves the root from the launcher path, deterministically selects one verified
+Python 3.12 executable, and records bounded startup codes/reason/type fields
+for browser/log inspection.

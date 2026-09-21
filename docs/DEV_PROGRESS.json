@@ -38,7 +38,7 @@
     "uncached_input_tokens": 18454,
     "output_tokens": 82
   },
-  "updated_at": "2026-09-22T04:48:00+09:00",
+  "updated_at": "2026-09-22T05:16:00+09:00",
   "real_codex_core_continuous_validation": "PASSED",
   "continuous_runtime_evidence": {
     "start_progress_percent": 33.33,
@@ -91,6 +91,7 @@
   ],
   "m23_test_result": "160 passed, 3 warnings",
   "m23_initial_external_result": "FAILED_CWD_DEPENDENCY",
-  "m23_retry_fix": "START_SCRIPT_RESOLVES_OWN_ROOT_AND_EMITS_BOUNDED_STARTUP_CODES",
+  "m23_retry_fix": "START_SCRIPT_RESOLVES_OWN_ROOT_SELECTS_ONE_VERIFIED_PYTHON_312_AND_EMITS_BOUNDED_STARTUP_CODES",
+  "m23_second_external_result": "FAILED_AMBIGUOUS_PYTHON_COMMAND",
   "m23_external_validation": "RETRY_READY"
 }

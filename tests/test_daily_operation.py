@@ -51,20 +51,32 @@ def test_startup_diagnostics_expose_only_allow_listed_bounded_codes(tmp_path: Pa
     log.parent.mkdir()
     log.write_text(
         "2026-09-22T00:00:00.0000000Z | REPOSITORY_ROOT_READY\n"
-        "2026-09-22T00:00:01.0000000Z | UVICORN_LAUNCHED | port=8000\n"
-        "2026-09-22T00:00:02.0000000Z | SECRET=must-not-render\n",
+        "2026-09-22T00:00:01.0000000Z | PYTHON_RESOLVED | version=3.12\n"
+        "2026-09-22T00:00:02.0000000Z | LAUNCH_EXCEPTION | reason=PYTHON_INVOCATION_FAILED type=RuntimeException\n"
+        "2026-09-22T00:00:03.0000000Z | UVICORN_LAUNCHED | port=8000\n"
+        "2026-09-22T00:00:04.0000000Z | LAUNCH_EXCEPTION | reason=api_key=must-not-render type=secret\n"
+        "2026-09-22T00:00:05.0000000Z | SECRET=must-not-render\n",
         encoding="utf-8",
     )
     diagnostics = DailyOperationService(tmp_path, platform_name="nt").startup_diagnostics()
-    assert diagnostics == [{"code": "REPOSITORY_ROOT_READY"}, {"code": "UVICORN_LAUNCHED", "value": 8000}]
+    assert diagnostics == [
+        {"code": "REPOSITORY_ROOT_READY"},
+        {"code": "PYTHON_RESOLVED", "version": "3.12"},
+        {"code": "LAUNCH_EXCEPTION", "reason": "PYTHON_INVOCATION_FAILED", "exception_type": "RuntimeException"},
+        {"code": "UVICORN_LAUNCHED", "value": 8000},
+        {"code": "LAUNCH_EXCEPTION"},
+    ]
 
 
 def test_production_launcher_is_cwd_independent_and_writes_bounded_startup_codes():
     launcher = Path("scripts/start.ps1").read_text(encoding="utf-8")
     assert "$RepositoryRoot = Split-Path -Parent $PSScriptRoot" in launcher
     assert "Set-Location -LiteralPath $RepositoryRoot" in launcher
-    assert "Get-Command python -CommandType Application" in launcher
-    assert "& $python.Path -m uvicorn" in launcher
+    assert "Get-Command python.exe -CommandType Application -All" in launcher
+    assert "$PythonPath = $null" in launcher
+    assert "& $PythonPath -m uvicorn" in launcher
+    assert "WindowsApps" in launcher
+    assert "PYTHON_312_UNAVAILABLE" in launcher
+    assert "reason=PYTHON_INVOCATION_FAILED type=$exceptionType" in launcher
     assert "REPOSITORY_ROOT_READY" in launcher
-    assert "PYTHON_UNAVAILABLE" in launcher
     assert "UVICORN_LAUNCHED" in launcher

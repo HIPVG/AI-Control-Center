@@ -13,7 +13,8 @@ function renderHealth(health) {
     : "Automatic startup requires Windows.";
   const latestDiagnostic = autostart.startup_diagnostics?.at(-1);
   if (latestDiagnostic) {
-    byId("autostart-status").textContent += ` Latest startup: ${latestDiagnostic.code}${latestDiagnostic.value !== undefined ? ` (${latestDiagnostic.value})` : ""}.`;
+    const detail = [latestDiagnostic.version, latestDiagnostic.value, latestDiagnostic.reason, latestDiagnostic.exception_type].filter((value) => value !== undefined).join(" · ");
+    byId("autostart-status").textContent += ` Latest startup: ${latestDiagnostic.code}${detail ? ` (${detail})` : ""}.`;
   }
   const button = byId("enable-autostart");
   button.disabled = !autostart.supported || Boolean(autostart.enabled);

@@ -36,11 +36,15 @@ Automatic start is opt-in and user-local. The implementation:
 
 The production launcher resolves its own repository root from `$PSScriptRoot`
 before importing `backend.app`; it therefore does not depend on the Scheduled
-Task caller's working directory. It writes at most 40 short lifecycle records
-to `logs/startup.log`. Dashboard health exposes only the last allow-listed
-startup codes (for example `REPOSITORY_ROOT_READY`, `PYTHON_UNAVAILABLE`,
-`UVICORN_LAUNCHED`, or `UVICORN_EXITED`), never a command, absolute path,
-environment value, exception text, prompt, or secret.
+Task caller's working directory. It discovers Python applications in PATH,
+excludes the WindowsApps execution alias, probes candidates deterministically,
+and selects exactly one Python 3.12 executable. It writes at most 40 short
+lifecycle records to `logs/startup.log`. Dashboard health exposes only the last
+allow-listed startup codes (for example `REPOSITORY_ROOT_READY`,
+`PYTHON_312_UNAVAILABLE`, `UVICORN_LAUNCHED`, or `UVICORN_EXITED`). A launch
+exception reports only the fixed reason category and allow-listed exception
+type, never a command, absolute path, environment value, exception text,
+prompt, or secret.
 
 It does not install software, open a network listener beyond the existing
 loopback server, elevate privileges, register a system-wide service, or start a

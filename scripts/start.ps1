@@ -25,18 +25,44 @@ try {
     Set-Location -LiteralPath $RepositoryRoot
     Write-StartupDiagnostic 'REPOSITORY_ROOT_READY'
 
-    $python = Get-Command python -CommandType Application -ErrorAction SilentlyContinue
-    if (-not $python) {
-        Write-StartupDiagnostic 'PYTHON_UNAVAILABLE'
+    $pythonCandidates = @(
+        Get-Command python.exe -CommandType Application -All -ErrorAction SilentlyContinue |
+            Where-Object { $_.Path -and $_.Path -notmatch '\\WindowsApps\\' } |
+            ForEach-Object { $_.Path } |
+            Select-Object -Unique
+    )
+    $PythonPath = $null
+    foreach ($candidate in $pythonCandidates) {
+        try {
+            $version = @(& $candidate -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>$null)[-1]
+            if ($LASTEXITCODE -eq 0 -and $version -eq '3.12') {
+                $PythonPath = $candidate
+                break
+            }
+        } catch {
+            # Try the next discovered application; never render the error text.
+        }
+    }
+    if (-not $PythonPath) {
+        Write-StartupDiagnostic 'PYTHON_312_UNAVAILABLE'
         exit 1
     }
-    Write-StartupDiagnostic 'PYTHON_RESOLVED'
+    Write-StartupDiagnostic 'PYTHON_RESOLVED' 'version=3.12'
     Write-StartupDiagnostic 'UVICORN_LAUNCHED' "port=$Port"
-    & $python.Path -m uvicorn backend.app:app --host 127.0.0.1 --port $Port
-    $exitCode = $LASTEXITCODE
-    Write-StartupDiagnostic 'UVICORN_EXITED' "exit_code=$exitCode"
-    exit $exitCode
+    try {
+        & $PythonPath -m uvicorn backend.app:app --host 127.0.0.1 --port $Port
+        $exitCode = $LASTEXITCODE
+        Write-StartupDiagnostic 'UVICORN_EXITED' "exit_code=$exitCode"
+        exit $exitCode
+    } catch {
+        $exceptionType = $_.Exception.GetType().Name
+        if ($exceptionType -notmatch '^[A-Za-z][A-Za-z0-9_]{0,63}$') { $exceptionType = 'UNKNOWN_EXCEPTION' }
+        Write-StartupDiagnostic 'LAUNCH_EXCEPTION' "reason=PYTHON_INVOCATION_FAILED type=$exceptionType"
+        exit 1
+    }
 } catch {
-    Write-StartupDiagnostic 'LAUNCH_EXCEPTION'
+    $exceptionType = $_.Exception.GetType().Name
+    if ($exceptionType -notmatch '^[A-Za-z][A-Za-z0-9_]{0,63}$') { $exceptionType = 'UNKNOWN_EXCEPTION' }
+    Write-StartupDiagnostic 'LAUNCH_EXCEPTION' "reason=STARTUP_INITIALIZATION_FAILED type=$exceptionType"
     exit 1
 }

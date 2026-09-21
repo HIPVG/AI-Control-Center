@@ -13,7 +13,12 @@ TASK_NAME = "AI Control Center"
 STARTUP_LOG_NAME = "startup.log"
 STARTUP_CODES = {
     "REPOSITORY_ROOT_UNAVAILABLE", "REPOSITORY_ROOT_READY", "PYTHON_UNAVAILABLE",
-    "PYTHON_RESOLVED", "UVICORN_LAUNCHED", "UVICORN_EXITED", "LAUNCH_EXCEPTION",
+    "PYTHON_312_UNAVAILABLE", "PYTHON_RESOLVED", "UVICORN_LAUNCHED", "UVICORN_EXITED", "LAUNCH_EXCEPTION",
+}
+STARTUP_REASONS = {"PYTHON_INVOCATION_FAILED", "STARTUP_INITIALIZATION_FAILED"}
+STARTUP_EXCEPTION_TYPES = {
+    "ApplicationFailedException", "CommandNotFoundException", "IOException",
+    "RuntimeException", "UnauthorizedAccessException", "UNKNOWN_EXCEPTION",
 }
 
 
@@ -58,12 +63,20 @@ class DailyOperationService:
             return []
         diagnostics: list[dict[str, object]] = []
         for line in lines:
-            match = re.fullmatch(r"[^|]{1,40}\s+\|\s+([A-Z_]+)(?:\s+\|\s+(?:port|exit_code)=(\d{1,5}))?", line.strip())
+            match = re.fullmatch(r"[^|]{1,40}\s+\|\s+([A-Z_]+)(?:\s+\|\s+(.{1,160}))?", line.strip())
             if not match or match.group(1) not in STARTUP_CODES:
                 continue
             item: dict[str, object] = {"code": match.group(1)}
-            if match.group(2) is not None:
-                item["value"] = int(match.group(2))
+            details = match.group(2) or ""
+            for key, value in re.findall(r"(port|exit_code|version|reason|type)=([^\s]+)", details):
+                if key in {"port", "exit_code"} and value.isdigit() and len(value) <= 5:
+                    item["value"] = int(value)
+                elif key == "version" and value == "3.12":
+                    item["version"] = value
+                elif key == "reason" and value in STARTUP_REASONS:
+                    item["reason"] = value
+                elif key == "type" and value in STARTUP_EXCEPTION_TYPES:
+                    item["exception_type"] = value
             diagnostics.append(item)
         return diagnostics
 

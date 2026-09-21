@@ -8,7 +8,7 @@ from backend.models.runtime import RuntimeConfig
 
 class StubDailyOperation:
     def autostart_status(self):
-        return {"supported": True, "enabled": False, "task_name": "AI Control Center", "state": "NOT_ENABLED", "startup_diagnostics": [{"code": "REPOSITORY_ROOT_READY"}]}
+        return {"supported": True, "enabled": False, "task_name": "AI Control Center", "state": "NOT_ENABLED", "startup_diagnostics": [{"code": "LAUNCH_EXCEPTION", "reason": "PYTHON_INVOCATION_FAILED", "exception_type": "RuntimeException"}]}
 
     def enable_autostart(self):
         return {"supported": True, "enabled": True, "task_name": "AI Control Center", "state": "ENABLED", "action": "ENABLED", "startup_diagnostics": [{"code": "UVICORN_LAUNCHED", "value": 8000}]}
