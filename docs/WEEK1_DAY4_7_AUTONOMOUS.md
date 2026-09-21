@@ -1,3 +1,5 @@
+> SUPERSEDED for current sequencing. See `docs/LOCALLLM_DAY1_14_AUTONOMOUS.md` and LocalLLM-Lab `docs/runbooks/work-plan-day1-14.md`.
+
 # Week 1 Day 4-7 Autonomous Execution
 
 ## Purpose
