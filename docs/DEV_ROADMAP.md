@@ -29,8 +29,8 @@ branch. Status is tracked in `docs/DEV_PROGRESS.json`.
 | M21 | Exception-driven escalation | M20 | auto-resolve/retry/replan routine failure classes; human only for true authority/external boundaries | BATCH_WITH_M22_EXTERNAL_VALIDATION | COMPLETE |
 | M22 | Real LocalLLM experiment integration | M21 implementation | run an existing trusted LocalLLM-Lab experiment through Control Center, preserve experiment-vs-code semantics, capture artifacts/telemetry | ESCALATION_AND_REAL_LOCAL_LLM_VALIDATION | COMPLETE |
 | M23 | PowerShell-free daily operation | M18, M22 | auto-start/service behavior and dashboard start/resume/stop/health controls | ZERO_COMMAND_DAILY_OPERATION_VALIDATION | COMPLETE |
-| M24 | Goal-to-Plan | M21, M22 | bounded goal intake → Codex plan → deterministic policy validation → execution | GOAL_TO_PLAN_EXTERNAL_VALIDATION | HUMAN_GATE |
-| M25 | Self-repair and bounded replan | M21, M24 | classify failure → retry/repair/review/replan automatically within limits | AUTONOMOUS_RECOVERY_VALIDATION | ROADMAP |
+| M24 | Goal-to-Plan | M21, M22 | bounded goal intake → Codex plan → deterministic policy validation → execution | GOAL_TO_PLAN_EXTERNAL_VALIDATION | COMPLETE |
+| M25 | Self-repair and bounded replan | M21, M24 | classify failure → retry/repair/review/replan automatically within limits | AUTONOMOUS_RECOVERY_VALIDATION | IN_PROGRESS |
 | M26 | Automated Git completion | M25 | verified work can commit/push agent branch and prepare PR; no automatic main merge | AUTO_GIT_PR_VALIDATION | ROADMAP |
 | M27 | Zero-Touch Control Loop | M20–M26 | one goal/start → complete or genuine escalation, with no routine relay/PowerShell | ZERO_TOUCH_EXTERNAL_VALIDATION | ROADMAP |
 
@@ -125,3 +125,13 @@ M24 implementation is ready for external validation. A browser goal is bounded,
 digest-audited, policy-validated, and mapped only to the configured trusted
 LocalLLM experiment. Proposal and execution are separate actions; no goal can
 grant new authority or alter experiment configuration.
+
+
+External M24 Goal-to-Plan validation passed on 2026-09-22:
+- bounded goal "Run the trusted LocalLLM process consistency experiment" was accepted;
+- proposal status was PROPOSED with TRUSTED_LOCAL_LLM_EXPERIMENT_MATCH;
+- executing the proposed plan ran the configured trusted LocalLLM experiment;
+- the LocalLLM result was recorded and Builder remained false;
+- a forbidden authority-expanding goal requesting model download was rejected before execution.
+
+This closes M24 and advances development to M25 Self-repair and bounded replan.
