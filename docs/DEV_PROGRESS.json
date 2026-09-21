@@ -1,6 +1,6 @@
 {
   "roadmap_version": 4,
-  "current_milestone": "M27_ZERO_TOUCH_CONTROL_LOOP",
+  "current_milestone": "M28_JAPANESE_DASHBOARD_UX_POLISH",
   "completed_milestones": [
     "M0",
     "M1",
@@ -27,10 +27,11 @@
     "M23",
     "M24",
     "M25",
-    "M26"
+    "M26",
+    "M27"
   ],
   "blocked_milestones": [],
-  "human_gate": "ZERO_TOUCH_EXTERNAL_VALIDATION",
+  "human_gate": "JAPANESE_UI_AND_RUNTIME_READINESS_VALIDATION",
   "latest_test_result": "176 passed, 3 warnings",
   "latest_commit": "6e690463b28bd586e9151653b237844d217cc4bc",
   "remote_push_state": "pushed",
@@ -42,7 +43,7 @@
     "uncached_input_tokens": 18454,
     "output_tokens": 82
   },
-  "updated_at": "2026-09-22T07:20:00+09:00",
+  "updated_at": "2026-09-22T07:40:00+09:00",
   "real_codex_core_continuous_validation": "PASSED",
   "continuous_runtime_evidence": {
     "start_progress_percent": 33.33,
@@ -62,7 +63,7 @@
     "architect_output_tokens": 236,
     "day_total_tokens": 55580
   },
-  "next_milestone_after_current": "M28_JAPANESE_DASHBOARD_UX_POLISH",
+  "next_milestone_after_current": null,
   "real_local_llm_integration_doc": "docs/REAL_LOCAL_LLM_INTEGRATION.md",
   "m21_implementation": "READY_FOR_BATCH_VALIDATION",
   "m21_validation_batched_with": "M22",
@@ -155,12 +156,18 @@
     }
   },
   "final_milestone": "M28_JAPANESE_DASHBOARD_UX_POLISH",
-  "m28_status": "ROADMAP",
+  "m28_status": "IN_PROGRESS",
   "m28_scope": [
     "JAPANESE_DASHBOARD_LABELS",
     "JAPANESE_USER_FACING_MESSAGES",
     "REMOVE_OR_DEMOTE_REDUNDANT_ROUTINE_CONTROLS",
     "MAKE_ZERO_TOUCH_PATH_PRIMARY",
+    "OLLAMA_PREFLIGHT",
+    "START_APPROVED_LOCAL_OLLAMA_IF_INSTALLED_BUT_NOT_RUNNING",
+    "BOUNDED_RUNTIME_START_WAIT",
+    "EXTERNAL_ACTION_IF_RUNTIME_START_FAILS",
+    "NO_RUNTIME_OR_MODEL_INSTALL",
+    "NO_CLOUD_FALLBACK",
     "PRESERVE_DIAGNOSTIC_AND_AUTHORITY_BOUNDARY_ACCESS",
     "PRESERVE_ENGLISH_API_ENUM_AUDIT_IDENTIFIERS"
   ],
@@ -182,5 +189,14 @@
   "m28_ui_cleanup_policy": "REMOVE_OR_DEMOTE_CONTROLS_SUPERSEDED_BY_ZERO_TOUCH_AFTER_M27_VALIDATION",
   "m27_implementation": "READY_FOR_EXTERNAL_VALIDATION",
   "m27_run_contract": "docs/ZERO_TOUCH_RUN.md",
-  "m27_initial_target": "local_llm_process_consistency_smoke"
+  "m27_initial_target": "local_llm_process_consistency_smoke",
+  "m27_external_validation": "PASSED",
+  "m27_runtime_evidence": {
+    "final_status": "COMPLETE",
+    "outcome": "RESULT_RECORDED",
+    "human_attention": "none",
+    "initial_runtime_block": "ENGINE_UNAVAILABLE",
+    "retry_after_ollama_start": "PASSED"
+  },
+  "m28_runtime_readiness_policy": "TRUSTED_LOCAL_RUNTIME_ONLY_NO_INSTALL_NO_CLOUD_FALLBACK"
 }
