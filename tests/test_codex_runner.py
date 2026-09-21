@@ -32,6 +32,19 @@ def test_jsonl_usage_parsing_uses_reported_values_only():
     assert parsed.token_usage == TokenUsage(input_tokens=12, cached_input_tokens=3, output_tokens=4, available=True)
 
 
+def test_utf8_jsonl_records_japanese_events_and_token_usage():
+    parsed = CodexRunner.parse_jsonl(
+        '{"type":"thread.started","message":"開始"}\n'
+        '{"type":"turn.completed","usage":{"input_tokens":12,"cached_input_tokens":3,"output_tokens":4}}'
+    )
+    assert parsed.output_line_count == 2
+    assert parsed.event_count == 2
+    assert parsed.malformed_lines == 0
+    assert parsed.thread_started
+    assert parsed.turn_completed
+    assert parsed.token_usage.output_tokens == 4
+
+
 def test_malformed_jsonl_is_reported_without_raising(monkeypatch, tmp_path):
     monkeypatch.setattr(
         "backend.runners.codex.subprocess.run",
@@ -41,6 +54,31 @@ def test_malformed_jsonl_is_reported_without_raising(monkeypatch, tmp_path):
     run = workspace.create_run()
     result = RealCodexRunner(real_config()).run_smoke(run, workspace.result_path(run))
     assert result.error_code == "CODEX_OUTPUT_INVALID"
+
+
+def test_malformed_jsonl_keeps_bounded_invalid_line_diagnostics():
+    parsed = CodexRunner.parse_jsonl("not-json\n" + ("x" * 300) + "\n{\"type\":\"thread.started\"}")
+    assert parsed.output_line_count == 3
+    assert parsed.event_count == 1
+    assert parsed.malformed_lines == 2
+    assert parsed.invalid_line_summary == "not-json"
+
+
+def test_nonzero_exit_keeps_utf8_stderr_and_exit_code(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        "backend.runners.codex.subprocess.run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            args[0], 7, stdout='{"type":"thread.started"}\nnot-json', stderr="エラー: 中断"
+        ),
+    )
+    workspace = SmokeWorkspace(tmp_path / "smoke")
+    run = workspace.create_run()
+    result = RealCodexRunner(real_config()).run_smoke(run, workspace.result_path(run))
+    assert result.exit_code == 7
+    assert result.stderr == "エラー: 中断"
+    assert result.diagnostics.stdout_line_count == 2
+    assert result.diagnostics.invalid_json_lines == 1
+    assert result.diagnostics.event_types == ["thread.started"]
 
 
 def test_executable_not_found_is_structured_error(tmp_path):

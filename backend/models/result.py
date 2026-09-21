@@ -26,7 +26,10 @@ class ProcessDiagnostics(BaseModel):
     exit_code: int | None = None
     timed_out: bool = False
     stdin_closed: bool = False
+    stdout_line_count: int = Field(default=0, ge=0)
     stdout_event_count: int = Field(default=0, ge=0)
+    invalid_json_lines: int = Field(default=0, ge=0)
+    invalid_line_summary: str | None = None
     event_types: list[str] = Field(default_factory=list)
     thread_started: bool = False
     turn_started: bool = False

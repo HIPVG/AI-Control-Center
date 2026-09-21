@@ -15,11 +15,14 @@ from backend.models.runtime import CodexRuntimeConfig
 SMOKE_FILENAME = "smoke.txt"
 SMOKE_CONTENT = "AI Control Center Codex smoke test PASS"
 MAX_CAPTURE_CHARS = 2000
+MAX_INVALID_LINE_CHARS = 200
 
 
 class JsonlParseResult(BaseModel):
+    output_line_count: int = 0
     event_count: int = 0
     malformed_lines: int = 0
+    invalid_line_summary: str | None = None
     token_usage: TokenUsage = Field(default_factory=TokenUsage)
     event_types: list[str] = Field(default_factory=list)
     thread_started: bool = False
@@ -82,7 +85,7 @@ class CodexRunner:
 
     @classmethod
     def parse_jsonl(cls, raw_jsonl: str) -> JsonlParseResult:
-        parsed = JsonlParseResult()
+        parsed = JsonlParseResult(output_line_count=len(raw_jsonl.splitlines()))
         latest_usage = TokenUsage()
         for line in raw_jsonl.splitlines():
             if not line.strip():
@@ -91,6 +94,8 @@ class CodexRunner:
                 payload = json.loads(line)
             except json.JSONDecodeError:
                 parsed.malformed_lines += 1
+                if parsed.invalid_line_summary is None:
+                    parsed.invalid_line_summary = line[:MAX_INVALID_LINE_CHARS]
                 continue
             parsed.event_count += 1
             if isinstance(payload, dict) and isinstance(payload.get("type"), str):
@@ -311,7 +316,10 @@ class RealCodexRunner(CodexRunner):
             exit_code=exit_code,
             timed_out=timed_out,
             stdin_closed=True,
+            stdout_line_count=parsed.output_line_count if parsed else 0,
             stdout_event_count=parsed.event_count if parsed else 0,
+            invalid_json_lines=parsed.malformed_lines if parsed else 0,
+            invalid_line_summary=parsed.invalid_line_summary if parsed else None,
             event_types=parsed.event_types if parsed else [],
             thread_started=parsed.thread_started if parsed else False,
             turn_started=parsed.turn_started if parsed else False,
