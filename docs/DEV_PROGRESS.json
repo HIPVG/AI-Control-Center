@@ -242,5 +242,17 @@
     "NO_CLOUD_FALLBACK"
   ],
   "m29_implementation": "READY_FOR_EXTERNAL_VALIDATION",
-  "m29_control_contract": "docs/WEEK1_DAY4_7_CONTROL.md"
+  "m29_control_contract": "docs/WEEK1_DAY4_7_CONTROL.md",
+  "m29_external_validation": "PARTIAL_PASS_TYPED_STOP",
+  "m29_day4_observed": {
+    "status": "EXTERNAL_ACTION_REQUIRED",
+    "reason_code": "CROSS_FAMILY_RUNNER_NOT_CONFIGURED",
+    "authority_expansion": false
+  },
+  "m29_day4_followup": {
+    "existing_runner": "LocalLLM-Lab/scripts/run_experiment.py",
+    "reuse_existing_runner": true,
+    "cross_family_models_status": "DESIGN_ONLY_UNREVIEWED_RUNTIME_NAME_MISSING",
+    "expected_boundary_after_adapter": "APPROVED_CROSS_FAMILY_RUNTIME_MISSING_OR_EQUIVALENT"
+  }
 }
