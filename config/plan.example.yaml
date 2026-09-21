@@ -1,0 +1,12 @@
+plan:
+  name: Week 1 Validation
+  week: 1
+  days:
+    0: { title: Environment Setup }
+    1: { title: Baseline }
+    2: { title: Instruction Adaptability }
+    3: { title: Process Consistency }
+    4: { title: Information Capacity }
+    5: { title: Model Comparison }
+    6: { title: Integrated Scenario }
+    7: { title: Review }

@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "EvaluationResult",
+  "type": "object",
+  "required": ["decision"],
+  "properties": {
+    "decision": {"enum": ["PASS", "REPAIR", "HUMAN_REVIEW"]},
+    "score": {"type": "object", "additionalProperties": {"type": "number"}},
+    "blocking_issues": {"type": "array", "items": {"type": "string"}},
+    "repair_instruction": {"type": ["string", "null"]}
+  }
+}

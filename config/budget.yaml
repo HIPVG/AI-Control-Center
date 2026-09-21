@@ -1,0 +1,9 @@
+codex:
+  daily_input_tokens: 300000
+  daily_output_tokens: 50000
+  task_input_tokens: 40000
+  task_output_tokens: 10000
+  max_retry: 2
+evaluator:
+  daily_input_tokens: 150000
+  daily_output_tokens: 20000

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AI Control Center</title>
+    <link rel="stylesheet" href="/static/style.css">
+  </head>
+  <body>
+    <main>
+      <header>
+        <div><p class="eyebrow">AI CONTROL CENTER</p><h1>Week <span id="week">–</span></h1><p>Calendar Day <span id="calendar-day">–</span> · <strong>Validation Day <span id="validation-day">–</span> / 7</strong></p></div>
+        <button id="run-mock">Run mock workflow</button>
+      </header>
+      <section class="progress-grid" aria-label="Progress">
+        <article><h2>Overall Progress</h2><strong id="overall-progress">–%</strong><div class="meter"><i id="overall-meter"></i></div><small>Plan/task completion</small></article>
+        <article><h2>Day Progress</h2><strong id="day-progress">–%</strong><div class="meter accent"><i id="day-meter"></i></div><small>Validation-day completion</small></article>
+      </section>
+      <section class="cards">
+        <article class="current"><p class="eyebrow">CURRENT TASK</p><h2 id="task-title">Loading…</h2><p>Task Progress <strong id="task-progress">–</strong></p><p>Retry <strong id="retry">–</strong></p><p>State <span class="state" id="state">–</span></p></article>
+        <article><p class="eyebrow">CODEX TOKEN USAGE</p><h2 id="token-total">–</h2><dl><div><dt>Input</dt><dd id="token-input">–</dd></div><div><dt>Cached</dt><dd id="token-cached">–</dd></div><div><dt>Output</dt><dd id="token-output">–</dd></div><div><dt>Budget</dt><dd id="budget-percent">–</dd></div></dl></article>
+        <article><p class="eyebrow">DAILY RESULTS</p><div class="summary"><span>PASS <b id="pass-count">–</b></span><span>FAIL <b id="fail-count">–</b></span><span>REVIEW <b id="review-count">–</b></span></div></article>
+      </section>
+      <section class="two-col">
+        <article><h2>Agent Activity</h2><ul id="agents" class="activity"></ul></article>
+        <article><h2>Evaluation Metrics</h2><ul id="metrics" class="metrics"></ul></article>
+      </section>
+      <section><h2>Validation Day Progress</h2><div id="days" class="days"></div></section>
+      <section class="details"><nav aria-label="Detail areas"><button>Timeline</button><button>Codex</button><button>Evaluation</button><button>Tests</button><button>Diff</button><button>Tokens</button><button>Git</button></nav><article><h2>Audit Timeline</h2><ol id="timeline" class="timeline"><li>Awaiting workflow event.</li></ol></article></section>
+    </main>
+    <script src="/static/app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,4 @@
+projects:
+  example_project:
+    path: C:\\Example-Project
+    default_branch: main
