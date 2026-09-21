@@ -49,13 +49,22 @@ class TokenBudgetManager:
     def record(self, usage: TokenUsage, *, retry_count: int) -> BudgetDecision:
         decision = self.check(usage, retry_count=retry_count)
         if decision == BudgetDecision.ALLOWED:
-            self.day_usage = TokenUsage(
-                input_tokens=self.day_usage.input_tokens + usage.input_tokens,
-                cached_input_tokens=self.day_usage.cached_input_tokens + usage.cached_input_tokens,
-                output_tokens=self.day_usage.output_tokens + usage.output_tokens,
-                available=self.day_usage.available or usage.available,
-            )
+            self._add_usage(usage)
         return decision
+
+    def record_actual(self, usage: TokenUsage, *, retry_count: int) -> BudgetDecision:
+        """Record observed usage without retroactively invalidating completed work."""
+        decision = self.check(usage, retry_count=retry_count)
+        self._add_usage(usage)
+        return decision
+
+    def _add_usage(self, usage: TokenUsage) -> None:
+        self.day_usage = TokenUsage(
+            input_tokens=self.day_usage.input_tokens + usage.input_tokens,
+            cached_input_tokens=self.day_usage.cached_input_tokens + usage.cached_input_tokens,
+            output_tokens=self.day_usage.output_tokens + usage.output_tokens,
+            available=self.day_usage.available or usage.available,
+        )
 
     def usage_view(self) -> dict[str, int | float]:
         budget = self.config.codex

@@ -272,12 +272,14 @@ class ControlCenterEngine:
             self._save()
             return result.model_dump(mode="json")
 
-        recorded = self.budgets.record(execution.token_usage, retry_count=0)
+        recorded = self.budgets.record_actual(execution.token_usage, retry_count=0)
         if recorded != BudgetDecision.ALLOWED:
-            result = SmokeRunResult(status="failed", mode=mode, smoke_path=relative_path, execution=execution, error_code=recorded.value)
-            self._event(task_id, AuditEventType.SMOKE_REJECTED, f"Real Codex smoke usage rejected by {recorded.value}.", details=result.model_dump(mode="json"))
-            self._save()
-            return result.model_dump(mode="json")
+            self._event(
+                task_id,
+                AuditEventType.TOKEN_BUDGET_WARNING,
+                f"Real Codex smoke completed over the configured budget: {recorded.value}.",
+                details={"budget_decision": recorded.value, "token_usage": execution.token_usage.model_dump()},
+            )
 
         acceptance_error = self.smoke_workspace.acceptance_error(target)
         accepted = acceptance_error is None

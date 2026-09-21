@@ -1,11 +1,21 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class TokenUsage(BaseModel):
+    """Reported usage preserves gross input while exposing cache-adjusted input."""
+
     input_tokens: int = Field(default=0, ge=0)
     cached_input_tokens: int = Field(default=0, ge=0)
+    gross_input_tokens: int = Field(default=0, ge=0)
+    uncached_input_tokens: int = Field(default=0, ge=0)
     output_tokens: int = Field(default=0, ge=0)
     available: bool = False
+
+    @model_validator(mode="after")
+    def derive_input_breakdown(self) -> "TokenUsage":
+        self.gross_input_tokens = self.input_tokens
+        self.uncached_input_tokens = max(self.input_tokens - self.cached_input_tokens, 0)
+        return self
 
     @property
     def total_tokens(self) -> int:

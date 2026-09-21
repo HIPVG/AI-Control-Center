@@ -35,6 +35,14 @@ def test_jsonl_usage_parsing_uses_reported_values_only():
     assert parsed.token_usage == TokenUsage(input_tokens=12, cached_input_tokens=3, output_tokens=4, available=True)
 
 
+def test_token_usage_tracks_gross_cached_and_uncached_input():
+    usage = TokenUsage(input_tokens=10, cached_input_tokens=4, output_tokens=2, available=True)
+    assert usage.gross_input_tokens == 10
+    assert usage.cached_input_tokens == 4
+    assert usage.uncached_input_tokens == 6
+    assert TokenUsage(input_tokens=3, cached_input_tokens=8).uncached_input_tokens == 0
+
+
 def test_utf8_jsonl_records_japanese_events_and_token_usage():
     parsed = CodexRunner.parse_jsonl(
         '{"type":"thread.started","message":"開始"}\n'
@@ -278,6 +286,12 @@ def test_smoke_acceptance_is_deterministic(tmp_path):
     target.write_text(SMOKE_CONTENT, encoding="utf-8")
     assert workspace.accepts(target)
     target.write_text(f"{SMOKE_CONTENT}\n", encoding="utf-8")
+    assert workspace.accepts(target)
+    target.write_bytes(f"{SMOKE_CONTENT}\r\n".encode("utf-8"))
+    assert workspace.accepts(target)
+    target.write_text(f"{SMOKE_CONTENT}\n\n", encoding="utf-8")
+    assert not workspace.accepts(target)
+    target.write_text(f" {SMOKE_CONTENT}", encoding="utf-8")
     assert not workspace.accepts(target)
 
 
@@ -320,6 +334,30 @@ def test_real_smoke_records_actual_reported_usage(tmp_path):
     assert result["status"] == "completed"
     assert result["deterministic_passed"]
     assert engine.status()["token_usage"]["input_tokens"] == 7
+
+
+def test_completed_smoke_records_post_run_overage_without_rewriting_pass(tmp_path):
+    class OverageWriter:
+        def run_smoke(self, smoke_directory, target):
+            target.write_text(f"{SMOKE_CONTENT}\n", encoding="utf-8")
+            return ExecutionResult(
+                status="completed",
+                test_result="pending",
+                summary="completed with warning",
+                stderr="recoverable warning",
+                token_usage=TokenUsage(input_tokens=50, cached_input_tokens=40, output_tokens=3, available=True),
+            )
+
+    runtime = RuntimeConfig(codex=real_config())
+    engine = ControlCenterEngine(runtime_config=runtime, smoke_root=tmp_path / "smoke", real_runner=OverageWriter())
+    engine.budgets = TokenBudgetManager(BudgetConfig(codex=CodexBudget(task_input_tokens=10, task_output_tokens=10)))
+    result = engine.run_codex_smoke()
+    assert result["status"] == "completed"
+    assert result["deterministic_passed"]
+    assert engine.status()["token_usage"]["input_tokens"] == 50
+    assert engine.status()["token_usage"]["uncached_input_tokens"] == 10
+    assert engine.timeline[-2].event_type.value == "TOKEN_BUDGET_WARNING"
+    assert result["execution"]["stderr"] == "recoverable warning"
 
 
 class NoResultWriter:

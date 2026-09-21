@@ -3,11 +3,12 @@ from fastapi.testclient import TestClient
 
 import backend.app as control_app
 from backend.orchestrator.engine import ControlCenterEngine
+from backend.models.runtime import RuntimeConfig
 
 
 @pytest.fixture
 def client(monkeypatch):
-    monkeypatch.setattr(control_app, "engine", ControlCenterEngine())
+    monkeypatch.setattr(control_app, "engine", ControlCenterEngine(runtime_config=RuntimeConfig()))
     return TestClient(control_app.app)
 
 

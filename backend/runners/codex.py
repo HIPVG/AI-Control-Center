@@ -62,7 +62,12 @@ class SmokeWorkspace:
         if not resolved_target.is_file():
             return "SMOKE_RESULT_MISSING"
         try:
-            return None if resolved_target.read_text(encoding="utf-8") == SMOKE_CONTENT else "SMOKE_CONTENT_MISMATCH"
+            content = resolved_target.read_text(encoding="utf-8")
+            if content.endswith("\r\n"):
+                content = content[:-2]
+            elif content.endswith("\n"):
+                content = content[:-1]
+            return None if content == SMOKE_CONTENT else "SMOKE_CONTENT_MISMATCH"
         except (OSError, UnicodeError):
             return "SMOKE_CONTENT_MISMATCH"
 
@@ -162,7 +167,7 @@ class RealCodexRunner(CodexRunner):
         self.config = config
 
     def run_smoke(self, smoke_directory: Path, target: Path) -> ExecutionResult:
-        prompt = f"Create {target.name} in the current working directory containing exactly this text and no newline: {SMOKE_CONTENT}"
+        prompt = f"Create {target.name} in the current working directory containing exactly this text: {SMOKE_CONTENT}"
         return self._run_isolated_file_change(smoke_directory, target, prompt)
 
     def run_isolated_file_change(self, working_directory: Path, target: Path, expected_content: str) -> ExecutionResult:
