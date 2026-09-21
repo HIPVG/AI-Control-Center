@@ -11,6 +11,10 @@ The older `docs/week1-runbook.md` is historical/component guidance and MUST NOT
 drive current autonomous sequencing when it conflicts with the source-of-truth
 map.
 
+## Research-director priority
+
+Execution is governed by `docs/RESEARCH_DIRECTOR_POLICY.md`. The objective is decision-relevant LocalLLM evidence, not strict Day consumption or automation completeness. The Day sequence is the default evidence plan, but non-critical work may be deferred when a higher-information experiment can proceed safely.
+
 ## Resume rule
 
 Do not assume a Day number from chat history.
@@ -113,6 +117,69 @@ Initial execution of a Day's already-defined local experiment is authorized when
 A harness failure is not a model-quality result.
 A model-quality finding is not automatically a code defect.
 
+## Authority review resolution
+
+The current `DAY1_14_BATCH_AUTHORITY_REVIEW` is resolved by the following authority decisions.
+
+### Day 1–3 repository reconciliation and baseline freeze
+
+Generated artifacts, telemetry, teacher results, datasets, model files, and caches remain local/ignored and must not be staged, deleted, reset, or cleaned.
+
+For uncommitted source/config/schema/tests/docs:
+- inspect and classify the diff against the current Git source of truth;
+- preserve the coherent current LocalLLM architecture work on an `agent/` checkpoint branch;
+- require full deterministic tests, diff safety checks, and secret/path hygiene before commit/push;
+- never overwrite or force-reset local work;
+- freeze the resulting tested checkpoint commit as the experiment baseline.
+
+Routine merge/reconciliation/harness defects are automatically repairable. Human review is required only if two incompatible implementations remain equally plausible after tests and authoritative docs cannot resolve them.
+
+### Approved local model-role mapping
+
+For internal LocalLLM-Lab research only, existing installed local runtimes may be reused according to the current architecture/handoff roles:
+
+- `phi4:14b`: primary Phi-4-class Semantic Abstractor / Compact Plan Reasoner, and bounded explanation/trade-off work when the tracked configuration assigns that role;
+- `qwen3-14b-q4:latest`: high-recall / Novelty Scout or comparison role when the tracked configuration assigns it;
+- `gemma3:12b`: Critic role where the tracked configuration assigns it;
+- `qwen3-8b-q4:latest`: baseline/smoke role, not promoted to the primary architecture without evidence.
+
+This is internal experimental approval, not customer eligibility or production approval. Do not substitute other installed models merely because they are available.
+
+### Teacher evidence policy
+
+Existing frozen teacher packets are approved for reuse when local integrity/provenance and schema compatibility checks pass.
+
+If a required teacher packet is missing or incompatible:
+- do not generate new cloud teacher evidence;
+- record the teacher comparison as unavailable/incomplete;
+- continue with independent local experiments and deterministic evaluation;
+- revisit cloud generation only if the final decision materially depends on it.
+
+Missing teacher evidence is therefore not, by itself, a stop condition for the Day 1–14 program.
+
+### Day 8–10 runner/config approval
+
+Existing tracked LocalLLM-Lab runners and fixed configurations that implement Novelty Scout, explanation/trade-off, and performance work are approved for reuse when:
+- they match the current architecture version;
+- deterministic config/schema/tests pass;
+- only already-installed approved local runtimes are used.
+
+Internal runner/config drift is automatically repairable. No separate human gate is required.
+
+### Day 11 product configuration
+
+Day 11 must produce an evidence-based candidate tier matrix and deployment implications. It must not force a final commercial tier choice.
+
+The current working hypothesis may treat 12–16 GB as the standard-tier candidate and larger hardware as an upper/escalation candidate only when evidence supports it. Final product selection is deferred to Day 14.
+
+Therefore Day 11 is advisory and must not stop the program.
+
+### Day 14
+
+Day 14 should automatically produce the sprint review, architecture conclusion candidates, remaining gaps, and any evidence-based 30B / 24 GB GPU business case.
+
+The single planned human decision is then `DAY14_FINAL_DECISION_REVIEW`.
+
 ## Batch human-gate policy
 
 Do not stop for one blocker at a time.
@@ -158,7 +225,6 @@ more runtime on it merely to satisfy the obsolete runbook.
 
 ## Human gate
 
-`DAY1_14_BATCH_AUTHORITY_REVIEW`
+`DAY14_FINAL_DECISION_REVIEW`
 
-Only use this gate after the one-pass blocker sweep and automatic resolution of
-all routine/internal blockers.
+The previous batch authority review is resolved by the authority decisions above. Continue autonomously through all decision-relevant work that can proceed under those rules. If an unexpected genuine external blocker appears, continue independent work and batch it into the final review unless it blocks every remaining high-information path.
