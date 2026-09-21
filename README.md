@@ -8,6 +8,7 @@ The project separates planning, deterministic checks, Codex implementation, auto
 
 - Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - Agent rules: [AGENTS.md](AGENTS.md)
+- Model / reasoning routing: [docs/MODEL_ROUTING.md](docs/MODEL_ROUTING.md)
 - Initial Codex implementation prompt: [prompts/CODEX_BOOTSTRAP.md](prompts/CODEX_BOOTSTRAP.md)
 
 ## Core operating principle

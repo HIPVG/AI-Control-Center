@@ -936,3 +936,31 @@ Human                = Decide
 ```
 
 AI Control Center exists to govern who may do what, with what context, within what budget, and with what evidence.
+
+
+---
+
+## 19. Model and Reasoning Routing
+
+AI Control Center follows a **Smallest Sufficient Intelligence** policy.
+
+Deterministic First remains the highest-priority rule. When an AI/Codex call is required, a dedicated **ModelRouter** selects an approved logical execution profile based on role, task complexity, failure history, context size, remaining budget, and plan policy.
+
+Routine work must not default to high reasoning.
+
+Initial operating guidance:
+
+- simple work → economical profile
+- normal implementation → standard profile
+- architecture / difficult debugging → deep profile
+- repeated reasoning failure → bounded escalation or HUMAN_REVIEW
+
+For the current Codex profile family, the intended starting mapping is economical = Terra/Low, standard = Terra/Medium, and deep = Terra/High. These names are configuration and must not be hard-coded into orchestration logic.
+
+Retries do not automatically increase reasoning effort. Infrastructure, environment, permission, configuration, and Scope Guard failures must not trigger model escalation.
+
+Model selection never expands authority: the selected profile cannot override deterministic tests, Scope Guard, allowed files, retry limits, budgets, acceptance criteria, or Human Review.
+
+Detailed policy:
+
+- [Model and Reasoning Routing Policy](MODEL_ROUTING.md)
