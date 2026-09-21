@@ -1,6 +1,6 @@
 {
   "roadmap_version": 4,
-  "current_milestone": "M26_AUTOMATED_GIT_COMPLETION",
+  "current_milestone": "M27_ZERO_TOUCH_CONTROL_LOOP",
   "completed_milestones": [
     "M0",
     "M1",
@@ -26,10 +26,11 @@
     "M22",
     "M23",
     "M24",
-    "M25"
+    "M25",
+    "M26"
   ],
   "blocked_milestones": [],
-  "human_gate": "AUTO_GIT_PR_VALIDATION",
+  "human_gate": "ZERO_TOUCH_EXTERNAL_VALIDATION",
   "latest_test_result": "172 passed, 3 warnings",
   "latest_commit": "afa6eca80c849924a487cd09c79662eed773d7fb",
   "remote_push_state": "pushed",
@@ -41,7 +42,7 @@
     "uncached_input_tokens": 18454,
     "output_tokens": 82
   },
-  "updated_at": "2026-09-22T07:00:00+09:00",
+  "updated_at": "2026-09-22T07:20:00+09:00",
   "real_codex_core_continuous_validation": "PASSED",
   "continuous_runtime_evidence": {
     "start_progress_percent": 33.33,
@@ -61,7 +62,7 @@
     "architect_output_tokens": 236,
     "day_total_tokens": 55580
   },
-  "next_milestone_after_current": "M27_ZERO_TOUCH_CONTROL_LOOP",
+  "next_milestone_after_current": "M28_JAPANESE_DASHBOARD_UX_POLISH",
   "real_local_llm_integration_doc": "docs/REAL_LOCAL_LLM_INTEGRATION.md",
   "m21_implementation": "READY_FOR_BATCH_VALIDATION",
   "m21_validation_batched_with": "M22",
@@ -162,5 +163,17 @@
   ],
   "m26_implementation": "READY_FOR_EXTERNAL_VALIDATION",
   "m26_policy_doc": "docs/AUTOMATED_GIT_COMPLETION.md",
-  "m26_validation": "ISOLATED_LOCAL_BARE_REMOTE_ONLY"
+  "m26_validation": "ISOLATED_LOCAL_BARE_REMOTE_ONLY",
+  "m26_external_validation": "PASSED",
+  "m26_runtime_evidence": {
+    "status": "PR_READY",
+    "commit_sha": "a6e4547174e7e6dc5a421f22170c31a0db8d1dcb3",
+    "remote_branch": "agent/m26-validation-a709ec83",
+    "base_branch_unchanged": true,
+    "pr_compare": "main...agent/m26-validation-a709ec83",
+    "validation_only": true,
+    "pr_created": false,
+    "main_merged": false,
+    "main_pushed": false
+  }
 }
