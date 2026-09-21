@@ -12,9 +12,10 @@ def client(monkeypatch):
 
 
 def test_required_endpoints_are_available(client):
-    for path in ("/api/status", "/api/plan", "/api/tasks", "/api/timeline", "/api/token-usage"):
+    for path in ("/api/status", "/api/plan", "/api/tasks", "/api/timeline", "/api/token-usage", "/api/runtime"):
         assert client.get(path).status_code == 200
     assert client.post("/api/run/mock").status_code == 200
+    assert client.post("/api/run/codex-smoke").json()["error_code"] == "REAL_MODE_REQUIRED"
     assert client.get("/").status_code == 200
 
 

@@ -5,6 +5,7 @@ class TokenUsage(BaseModel):
     input_tokens: int = Field(default=0, ge=0)
     cached_input_tokens: int = Field(default=0, ge=0)
     output_tokens: int = Field(default=0, ge=0)
+    available: bool = False
 
     @property
     def total_tokens(self) -> int:
@@ -25,3 +26,6 @@ class ExecutionResult(BaseModel):
     test_result: str
     summary: str
     token_usage: TokenUsage = Field(default_factory=TokenUsage)
+    exit_code: int | None = None
+    error_code: str | None = None
+    stderr: str | None = None

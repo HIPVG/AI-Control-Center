@@ -6,6 +6,7 @@ function render(status) {
   byId("week").textContent = status.week;
   byId("calendar-day").textContent = status.calendar_day;
   byId("validation-day").textContent = status.validation_day;
+  byId("codex-mode").textContent = status.runtime.codex.mode.toUpperCase();
   byId("overall-progress").textContent = percent(status.overall_progress);
   byId("day-progress").textContent = percent(status.day_progress);
   byId("overall-meter").style.width = percent(status.overall_progress);

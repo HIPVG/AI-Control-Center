@@ -53,6 +53,7 @@ class TokenBudgetManager:
                 input_tokens=self.day_usage.input_tokens + usage.input_tokens,
                 cached_input_tokens=self.day_usage.cached_input_tokens + usage.cached_input_tokens,
                 output_tokens=self.day_usage.output_tokens + usage.output_tokens,
+                available=self.day_usage.available or usage.available,
             )
         return decision
 

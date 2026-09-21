@@ -67,3 +67,15 @@ def test_legacy_completed_task_backfills_progress_with_audit_evidence():
     status = ControlCenterEngine(state_store=LegacyStore()).status()
     assert (status["overall_progress"], status["day_progress"]) == (62, 67)
     assert status["timeline"][-1]["details"]["migration"] == "v0.1 progress tracking backfill"
+
+
+def test_legacy_mock_token_usage_is_reconciled_with_audit_evidence():
+    class LegacyTokenStore(LegacyStore):
+        def load(self):
+            data = super().load()
+            data["token_usage"] = {"input_tokens": 1200, "cached_input_tokens": 200, "output_tokens": 350}
+            return data
+
+    status = ControlCenterEngine(state_store=LegacyTokenStore()).status()
+    assert status["token_usage"]["input_tokens"] == 0
+    assert status["timeline"][-1]["event_type"] == "TOKEN_USAGE_RECONCILED"

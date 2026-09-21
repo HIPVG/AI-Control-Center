@@ -1,0 +1,4 @@
+codex:
+  mode: mock
+  executable: codex
+  timeout_seconds: 300

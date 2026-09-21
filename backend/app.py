@@ -44,6 +44,16 @@ def token_usage() -> dict:
     return engine.budgets.usage_view()
 
 
+@app.get("/api/runtime")
+def runtime() -> dict:
+    return engine.runtime_view()
+
+
 @app.post("/api/run/mock")
 def run_mock() -> dict:
     return engine.run_mock()
+
+
+@app.post("/api/run/codex-smoke")
+def run_codex_smoke() -> dict:
+    return engine.run_codex_smoke()

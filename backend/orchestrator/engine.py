@@ -10,10 +10,12 @@ from backend.control.context_broker import ContextBroker
 from backend.control.scope_guard import ScopeGuard
 from backend.control.token_budget import BudgetDecision, TokenBudgetManager, load_budget_config
 from backend.models.audit import AuditEvent, AuditEventType
+from backend.models.result import TokenUsage
+from backend.models.runtime import CodexMode, RuntimeConfig, SmokeRunResult, load_runtime_config
 from backend.models.state import RunState, WorkflowState
 from backend.orchestrator.state_machine import StateManager
 from backend.orchestrator.progress import calculate_progress
-from backend.runners.codex import MockCodexRunner
+from backend.runners.codex import MockCodexRunner, RealCodexRunner, SmokeWorkspace
 from backend.runners.pytest_runner import PytestRunner
 
 
@@ -37,10 +39,21 @@ class JsonStateStore:
 
 
 class ControlCenterEngine:
-    def __init__(self, state_store: StateStore | None = None, config_path: Path | None = None) -> None:
+    def __init__(
+        self,
+        state_store: StateStore | None = None,
+        config_path: Path | None = None,
+        runtime_config: RuntimeConfig | None = None,
+        smoke_root: Path | None = None,
+        real_runner: RealCodexRunner | None = None,
+    ) -> None:
         self.store = state_store
         self.state_manager = StateManager()
         self.budgets = TokenBudgetManager(load_budget_config(config_path) if config_path else None)
+        project_root = Path(__file__).resolve().parents[2]
+        self.runtime = runtime_config or load_runtime_config(project_root / "config" / "runtime.yaml")
+        self.smoke_workspace = SmokeWorkspace(smoke_root or project_root / "state" / "smoke")
+        self.real_runner = real_runner or RealCodexRunner(self.runtime.codex)
         self.timeline: list[AuditEvent] = []
         self._load()
 
@@ -57,6 +70,7 @@ class ControlCenterEngine:
                 "day": {"completed": 63, "total": 100},
             },
             "progress_tracking_version": 1,
+            "token_usage_tracking_version": 1,
             "task_start_completed": {"PC-014": 18},
             "task_progress": calculate_progress(task_completed, task_total),
             "current_task": {"task_id": "PC-014", "title": "Evidence Grounding", "completed": task_completed, "total": task_total, "retry": 0, "max_retry": 2},
@@ -75,12 +89,13 @@ class ControlCenterEngine:
         self.data = {**self._defaults(), **saved}
         self.state_manager = StateManager(RunState.model_validate(saved.get("run_state", {})))
         self.timeline = [self._load_event(event) for event in saved.get("timeline", [])]
-        if self._migrate_legacy_progress(saved):
-            self._save()
         usage = saved.get("token_usage")
         if usage:
-            from backend.models.result import TokenUsage
             self.budgets.day_usage = TokenUsage.model_validate(usage)
+        migrated = self._migrate_legacy_progress(saved)
+        reconciled = self._reconcile_legacy_mock_usage(saved)
+        if migrated or reconciled:
+            self._save()
 
     def _save(self) -> None:
         if self.store:
@@ -158,6 +173,23 @@ class ControlCenterEngine:
         )
         return True
 
+    def _reconcile_legacy_mock_usage(self, saved: dict[str, Any]) -> bool:
+        """Remove only v0.1's fabricated mock counts, retaining a structured audit record."""
+        if "token_usage_tracking_version" in saved:
+            return False
+        self.data["token_usage_tracking_version"] = 1
+        if self.budgets.day_usage.total_tokens == 0 or any(event.event_type == AuditEventType.SMOKE_ACCEPTED for event in self.timeline):
+            return True
+        previous = self.budgets.day_usage.model_dump()
+        self.budgets.day_usage = TokenUsage()
+        self._event(
+            "SYSTEM",
+            AuditEventType.TOKEN_USAGE_RECONCILED,
+            "Legacy fabricated mock token usage was reset to zero.",
+            details={"previous": previous, "current": self.budgets.day_usage.model_dump(), "migration": "v0.1 mock token reconciliation"},
+        )
+        return True
+
     def _complete_task_progress(self, task_id: str) -> None:
         task = self.data["current_task"]
         previous = {
@@ -193,8 +225,54 @@ class ControlCenterEngine:
             **self.data,
             "run_state": self.state_manager.current.model_dump(mode="json"),
             "token_usage": self.budgets.usage_view(),
+            "runtime": self.runtime.model_dump(mode="json"),
             "timeline": [event.model_dump(mode="json") for event in self.timeline],
         }
+
+    def runtime_view(self) -> dict[str, Any]:
+        return self.runtime.model_dump(mode="json")
+
+    def run_codex_smoke(self) -> dict[str, Any]:
+        task_id = "CODEX-SMOKE"
+        mode = self.runtime.codex.mode
+        if mode != CodexMode.REAL:
+            result = SmokeRunResult(status="rejected", mode=mode, error_code="REAL_MODE_REQUIRED")
+            self._event(task_id, AuditEventType.SMOKE_REJECTED, "Real Codex smoke rejected because runtime mode is mock.", details=result.model_dump(mode="json"))
+            self._save()
+            return result.model_dump(mode="json")
+
+        budget_decision = self.budgets.check(TokenUsage(), retry_count=0)
+        if budget_decision != BudgetDecision.ALLOWED:
+            result = SmokeRunResult(status="rejected", mode=mode, error_code=budget_decision.value)
+            self._event(task_id, AuditEventType.SMOKE_REJECTED, f"Real Codex smoke blocked by {budget_decision.value}.", details=result.model_dump(mode="json"))
+            self._save()
+            return result.model_dump(mode="json")
+
+        smoke_directory = self.smoke_workspace.create_run()
+        target = self.smoke_workspace.result_path(smoke_directory)
+        relative_path = str(target.relative_to(self.smoke_workspace.root))
+        self._event(task_id, AuditEventType.SMOKE_STARTED, "Real Codex smoke started in an isolated workspace.", details={"smoke_path": relative_path, "mode": mode.value})
+        execution = self.real_runner.run_smoke(smoke_directory, target)
+        self._event(task_id, AuditEventType.SMOKE_RESULT, execution.summary, details={"status": execution.status, "error_code": execution.error_code, "exit_code": execution.exit_code, "token_usage": execution.token_usage.model_dump()})
+        if execution.status != "completed":
+            result = SmokeRunResult(status="failed", mode=mode, smoke_path=relative_path, execution=execution, error_code=execution.error_code)
+            self._save()
+            return result.model_dump(mode="json")
+
+        recorded = self.budgets.record(execution.token_usage, retry_count=0)
+        if recorded != BudgetDecision.ALLOWED:
+            result = SmokeRunResult(status="failed", mode=mode, smoke_path=relative_path, execution=execution, error_code=recorded.value)
+            self._event(task_id, AuditEventType.SMOKE_REJECTED, f"Real Codex smoke usage rejected by {recorded.value}.", details=result.model_dump(mode="json"))
+            self._save()
+            return result.model_dump(mode="json")
+
+        accepted = self.smoke_workspace.accepts(target)
+        execution.test_result = "pass" if accepted else "fail"
+        result = SmokeRunResult(status="completed" if accepted else "failed", mode=mode, smoke_path=relative_path, deterministic_passed=accepted, execution=execution, error_code=None if accepted else "SMOKE_ACCEPTANCE_FAILED")
+        event_type = AuditEventType.SMOKE_ACCEPTED if accepted else AuditEventType.SMOKE_REJECTED
+        self._event(task_id, event_type, "Real Codex smoke deterministic acceptance passed." if accepted else "Real Codex smoke deterministic acceptance failed.", details=result.model_dump(mode="json"))
+        self._save()
+        return result.model_dump(mode="json")
 
     def run_mock(self) -> dict[str, Any]:
         task_id = self.data["current_task"]["task_id"]

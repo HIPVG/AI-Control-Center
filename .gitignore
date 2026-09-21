@@ -3,6 +3,7 @@ __pycache__/
 .pytest_cache/
 .venv/
 state/*.json
+state/smoke/
 logs/*
 !state/.gitkeep
 !logs/.gitkeep
