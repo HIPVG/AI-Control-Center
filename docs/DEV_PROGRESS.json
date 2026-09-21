@@ -1,6 +1,6 @@
 {
   "roadmap_version": 4,
-  "current_milestone": "M24_GOAL_TO_PLAN",
+  "current_milestone": "M25_SELF_REPAIR_AND_BOUNDED_REPLAN",
   "completed_milestones": [
     "M0",
     "M1",
@@ -24,10 +24,11 @@
     "M20",
     "M21",
     "M22",
-    "M23"
+    "M23",
+    "M24"
   ],
   "blocked_milestones": [],
-  "human_gate": "GOAL_TO_PLAN_EXTERNAL_VALIDATION",
+  "human_gate": "AUTONOMOUS_RECOVERY_VALIDATION",
   "latest_test_result": "163 passed, 3 warnings",
   "latest_commit": "f466661",
   "remote_push_state": "pushed",
@@ -39,7 +40,7 @@
     "uncached_input_tokens": 18454,
     "output_tokens": 82
   },
-  "updated_at": "2026-09-22T06:00:00+09:00",
+  "updated_at": "2026-09-22T06:20:00+09:00",
   "real_codex_core_continuous_validation": "PASSED",
   "continuous_runtime_evidence": {
     "start_progress_percent": 33.33,
@@ -59,7 +60,7 @@
     "architect_output_tokens": 236,
     "day_total_tokens": 55580
   },
-  "next_milestone_after_current": "M25_SELF_REPAIR_AND_BOUNDED_REPLAN",
+  "next_milestone_after_current": "M26_AUTOMATED_GIT_COMPLETION",
   "real_local_llm_integration_doc": "docs/REAL_LOCAL_LLM_INTEGRATION.md",
   "m21_implementation": "READY_FOR_BATCH_VALIDATION",
   "m21_validation_batched_with": "M22",
@@ -99,5 +100,14 @@
   "m23_autostart_registration_backlog": "DASHBOARD_ENABLE_AUTOSTART_NOT_RELIABLE_ON_THIS_MACHINE",
   "m24_implementation": "READY_FOR_EXTERNAL_VALIDATION",
   "m24_goal_target": "local_llm_process_consistency_smoke",
-  "m24_policy": "BOUNDED_GOAL_TO_TRUSTED_EXPERIMENT_ONLY"
+  "m24_policy": "BOUNDED_GOAL_TO_TRUSTED_EXPERIMENT_ONLY",
+  "m24_external_validation": "PASSED",
+  "m24_runtime_evidence": {
+    "accepted_goal": "Run the trusted LocalLLM process consistency experiment",
+    "proposal_status": "PROPOSED",
+    "policy_reason": "TRUSTED_LOCAL_LLM_EXPERIMENT_MATCH",
+    "execution": "TRUSTED_LOCAL_LLM_EXPERIMENT",
+    "builder_invoked": false,
+    "forbidden_goal_rejected_before_execution": true
+  }
 }
