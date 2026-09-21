@@ -6,10 +6,12 @@ definitions from the browser.
 
 ## Safety model
 
-- The Architect selects only an eligible configured queue item.
+- Codex Architect selects only an eligible configured queue item through a
+  read-only structured CLI call in an isolated role workspace.
 - The existing task executor remains responsible for deterministic prechecks,
   worktrees, Scope Guard, Codex execution, and postchecks.
-- Deterministic tasks never invoke the semantic evaluator.
+- Deterministic tasks never invoke an independent evaluator. Semantic review
+  requires the explicit trusted task policy `independent_evaluator_required`.
 - Semantic tasks receive only a bounded structured result and configured metric
   names. A `REPAIR` decision is bounded by the plan's repair-loop limit.
 - Architect, evaluator, and Codex call counts are persisted and guarded. Role
@@ -21,8 +23,15 @@ definitions from the browser.
 
 ## Providers
 
+`codex` is the normal core provider: Architect, Builder, and optional First
+Reviewer are separate roles sharing the hardened Codex CLI foundation. Architect
+and Reviewer use `read-only`, `--json`, and an explicit output schema in a
+managed role workspace; Builder alone receives `workspace-write` in an isolated
+task worktree. Normal Codex-Core Day plans require no `OPENAI_API_KEY`.
+
 `mock` providers are deterministic and used by tests; their diagnostics report
-`provider: mock` and no executed model. `openai` providers are opt-in and use
+`provider: mock` and no executed model. `openai` providers are optional
+independent providers and use
 the official Python SDK when `OPENAI_API_KEY` is set. The trusted ModelRouter
 resolves the concrete configured OpenAI model, reasoning effort, timeout, and
 maximum output from `config/model_profiles.yaml`; provider settings cannot
@@ -55,7 +64,9 @@ Pre-call provider budget gates stop safely; a usage value reported after a
 successful provider response records a warning rather than rewriting completed
 work. Day and overall progress are calculated from terminal queue tasks.
 
-`week1-day3-local-llm-v2` is the first three-task LocalLLM validation plan.
+`week1-day3-local-llm-v2` and `week1-day3-local-llm-v3-codex-core` are
+three-task Codex-Core validation plans. The latter is the explicit external
+Codex-Core validation plan. The historical one-task
 The completed historical one-task `week1-day3-local-llm` plan remains unchanged.
 `week1-day3-local-llm-real-architect` is opt-in and fails with a typed provider
 configuration error until credentials and a trusted profile mapping are configured.

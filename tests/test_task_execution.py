@@ -90,7 +90,7 @@ def test_configured_real_task_loads_and_metadata_is_safe():
     assert registry.get("PC-001-A").project_id == "local_llm_lab"
     metadata = registry.metadata()
     assert [item["task_id"] for item in metadata] == ["PC-001-A", "PC-001-C", "PC-002-A"]
-    assert all(set(item) == {"task_id", "project_id", "title", "task_type", "evaluator_type"} for item in metadata)
+    assert all(set(item) == {"task_id", "project_id", "title", "task_type", "evaluator_type", "independent_evaluator_required"} for item in metadata)
     assert all(item["project_id"] == "local_llm_lab" and item["evaluator_type"] == "deterministic" for item in metadata)
 
 

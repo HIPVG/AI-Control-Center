@@ -3,15 +3,20 @@
 import json
 import os
 import re
+from pathlib import Path
 from time import monotonic
 from typing import Any, Callable, Protocol
 
 from pydantic import BaseModel
 
-from backend.models.day import ArchitectDecision, ArchitectProviderOutput, EvaluatorProviderOutput, SemanticEvaluation
+from backend.models.day import (
+    ArchitectDecision, ArchitectProviderOutput, CodexReview, EvaluatorProviderOutput,
+    ReviewerProviderOutput, SemanticEvaluation,
+)
 from backend.models.model_routing import ProviderExecutionConfig
 from backend.models.orchestration import ProviderSettings
 from backend.models.result import TokenUsage
+from backend.runners.codex import RealCodexRunner, StructuredCodexResult
 
 
 class ProviderConfigurationError(RuntimeError):
@@ -47,6 +52,106 @@ class MockDayArchitect:
         return ArchitectDecision(
             decision="RUN_TASK" if task_id else "DAY_COMPLETE", task_id=task_id,
             reason="first trusted eligible queue item", diagnostics={"provider": "mock", "execution": execution.model_dump(mode="json")},
+        )
+
+
+class MockCodexArchitectProvider:
+    """Test/runtime-mock stand-in preserving the Codex Core provider identity."""
+
+    def choose(self, request: dict[str, Any], execution: ProviderExecutionConfig) -> ArchitectDecision:
+        eligible = request.get("eligible_tasks", [])
+        task_id = eligible[0]["task_id"] if eligible else None
+        return ArchitectDecision(
+            decision="RUN_TASK" if task_id else "DAY_COMPLETE", task_id=task_id,
+            reason="first trusted eligible queue item", diagnostics={
+                "provider": "codex", "execution_mode": "mock", "role": "architect",
+                "execution": execution.model_dump(mode="json"),
+            },
+        )
+
+
+class CodexArchitectProvider:
+    """Read-only Codex Architect constrained to a trusted Day queue."""
+
+    def __init__(self, runner: RealCodexRunner, workspace_root: Path) -> None:
+        self.runner, self.workspace_root = runner, workspace_root.resolve()
+
+    def choose(self, request: dict[str, Any], execution: ProviderExecutionConfig) -> ArchitectDecision:
+        result = self.runner.run_readonly_structured(
+            self._workspace("architect"), self._prompt(request), self._write_schema("architect", ArchitectProviderOutput),
+        )
+        if result.status != "completed" or not result.output_text:
+            raise _codex_role_error("ARCHITECT", result)
+        try:
+            output = ArchitectProviderOutput.model_validate(json.loads(result.output_text))
+        except (json.JSONDecodeError, ValueError) as exc:
+            raise ProviderRequestError(
+                "CODEX_ARCHITECT_OUTPUT_INVALID", "Codex Architect returned invalid structured output.",
+                diagnostics={"provider_error_type": type(exc).__name__, "request_stage": "structured_output"},
+            ) from exc
+        _validate_architect_selection(output, request)
+        return ArchitectDecision.model_validate({
+            **output.model_dump(), "token_usage": result.token_usage,
+            "diagnostics": self._diagnostics(result, execution, "architect"),
+        })
+
+    def _workspace(self, role: str) -> Path:
+        workspace = (self.workspace_root / role).resolve()
+        workspace.mkdir(parents=True, exist_ok=True)
+        return workspace
+
+    def _write_schema(self, role: str, output_type: type[BaseModel]) -> Path:
+        workspace = self._workspace(role)
+        schema = strict_provider_schema(output_type)
+        path = workspace / "output-schema.json"
+        path.write_text(json.dumps(schema, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+        return path
+
+    @staticmethod
+    def _prompt(request: dict[str, Any]) -> str:
+        return (
+            "You are the read-only Codex Architect for a governed Day plan. "
+            "Return only JSON matching the supplied schema. Select only one configured eligible task ID, "
+            "or return DAY_COMPLETE/STOP_DAY when justified. Do not inspect files, run commands, modify files, "
+            "change budgets, commands, acceptance criteria, retry limits, or allowed files.\n"
+            "Trusted bounded orchestration context follows:\n"
+            + json.dumps(request, ensure_ascii=False, separators=(",", ":"))
+        )
+
+    @staticmethod
+    def _diagnostics(result: StructuredCodexResult, execution: ProviderExecutionConfig, role: str) -> dict[str, object]:
+        return {
+            "provider": "codex", "role": role, "execution": execution.model_dump(mode="json"),
+            "duration_ms": result.duration_ms, "outcome": result.status,
+            "thread_started": bool(result.diagnostics and result.diagnostics.thread_started),
+            "turn_completed": bool(result.diagnostics and result.diagnostics.turn_completed),
+        }
+
+
+class CodexReviewerProvider(CodexArchitectProvider):
+    """Optional, read-only first reviewer. It is not an independent evaluator."""
+
+    def review(self, request: dict[str, Any], execution: ProviderExecutionConfig) -> CodexReview:
+        result = self.runner.run_readonly_structured(
+            self._workspace("reviewer"), self._review_prompt(request), self._write_schema("reviewer", ReviewerProviderOutput),
+        )
+        if result.status != "completed" or not result.output_text:
+            raise _codex_role_error("REVIEWER", result)
+        try:
+            output = ReviewerProviderOutput.model_validate(json.loads(result.output_text))
+        except (json.JSONDecodeError, ValueError) as exc:
+            raise ProviderRequestError("CODEX_REVIEWER_OUTPUT_INVALID", "Codex Reviewer returned invalid structured output.", diagnostics={"provider_error_type": type(exc).__name__, "request_stage": "structured_output"}) from exc
+        return CodexReview.model_validate({
+            **output.model_dump(), "token_usage": result.token_usage,
+            "diagnostics": self._diagnostics(result, execution, "reviewer"),
+        })
+
+    @staticmethod
+    def _review_prompt(request: dict[str, Any]) -> str:
+        return (
+            "You are a read-only Codex first reviewer. Return only JSON matching the supplied schema. "
+            "Inspect only the bounded evidence below. Do not run commands, modify files, or grant any authority.\n"
+            + json.dumps(request, ensure_ascii=False, separators=(",", ":"))
         )
 
 
@@ -270,3 +375,38 @@ def _sanitize_openai_error(exc: Exception, *, stage: str) -> ProviderRequestErro
         redacted = re.sub(r"(?i)bearer\s+\S+", "Bearer [redacted]", raw_message)
         diagnostics["safe_message"] = re.sub(r"(?i)(api[_-]?key\s*[=:]\s*)\S+", r"\1[redacted]", redacted)
     return ProviderRequestError(code, message, diagnostics=diagnostics)
+
+
+def _validate_architect_selection(output: ArchitectProviderOutput, request: dict[str, Any]) -> None:
+    eligible = {
+        item.get("task_id") for item in request.get("eligible_tasks", [])
+        if isinstance(item, dict) and isinstance(item.get("task_id"), str)
+    }
+    if output.decision in {"RUN_TASK", "SKIP_TASK", "HUMAN_REVIEW"} and output.task_id not in eligible:
+        raise ProviderRequestError(
+            "CODEX_ARCHITECT_TASK_NOT_ELIGIBLE", "Codex Architect selected a task outside the trusted eligible queue.",
+            diagnostics={"provider_error_type": "ArchitectSelection", "request_stage": "structured_output"},
+        )
+    if output.decision in {"STOP_DAY", "DAY_COMPLETE"} and output.task_id is not None:
+        raise ProviderRequestError(
+            "CODEX_ARCHITECT_OUTPUT_INVALID", "Codex Architect returned a task ID for a terminal Day decision.",
+            diagnostics={"provider_error_type": "ArchitectSelection", "request_stage": "structured_output"},
+        )
+
+
+def _codex_role_error(role: str, result: StructuredCodexResult) -> ProviderRequestError:
+    diagnostics = {
+        "provider_error_type": result.error_code or "CodexRoleFailure",
+        "request_stage": "codex_exec",
+        "duration_ms": result.duration_ms,
+    }
+    if result.diagnostics:
+        diagnostics.update({
+            "exit_code": result.diagnostics.exit_code,
+            "thread_started": result.diagnostics.thread_started,
+            "turn_started": result.diagnostics.turn_started,
+            "turn_completed": result.diagnostics.turn_completed,
+        })
+    return ProviderRequestError(
+        f"CODEX_{role}_{result.error_code or 'FAILED'}", result.safe_message or f"Codex {role.title()} failed.", diagnostics=diagnostics,
+    )

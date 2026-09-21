@@ -7,7 +7,10 @@ from typing import Any, Callable, Protocol
 from uuid import uuid4
 
 from backend.agents.architect import MockArchitect
-from backend.agents.day_providers import MockDayArchitect, MockSemanticEvaluator, OpenAIDayArchitect, OpenAISemanticEvaluator
+from backend.agents.day_providers import (
+    CodexArchitectProvider, CodexReviewerProvider, MockCodexArchitectProvider,
+    MockDayArchitect, MockSemanticEvaluator, OpenAIDayArchitect, OpenAISemanticEvaluator,
+)
 from backend.agents.evaluator import MockEvaluator
 from backend.agents.triage import MockTriage, TriageDecision
 from backend.control.context_broker import ContextBroker
@@ -85,11 +88,20 @@ class ControlCenterEngine:
         self.worktree_root = (worktree_root or project_root / "state" / "worktrees").resolve()
         self.smoke_workspace = SmokeWorkspace(smoke_root or project_root / "state" / "smoke")
         self.real_runner = real_runner or RealCodexRunner(self.runtime.codex)
+        role_workspace = project_root / "state" / "codex-roles"
+        self.codex_architect = (
+            CodexArchitectProvider(self.real_runner, role_workspace)
+            if self.runtime.codex.mode == CodexMode.REAL else MockCodexArchitectProvider()
+        )
+        self.codex_reviewer = CodexReviewerProvider(self.real_runner, role_workspace)
         self.timeline: list[AuditEvent] = []
         self._load()
         self.day_runner = DayRunner(
             self.plans, self.tasks, self._run_day_task,
-            architects={"mock": MockDayArchitect(), "openai": OpenAIDayArchitect(self.orchestration.orchestration.architect)},
+            architects={
+                "mock": MockDayArchitect(), "codex": self.codex_architect,
+                "openai": OpenAIDayArchitect(self.orchestration.orchestration.architect),
+            },
             evaluators={"mock": MockSemanticEvaluator(), "openai": OpenAISemanticEvaluator(self.orchestration.orchestration.evaluator)},
             provider_budgets={
                 "architect": self.orchestration.orchestration.architect_budget,

@@ -22,5 +22,13 @@ branch. Status is tracked in `docs/DEV_PROGRESS.json`.
 | M14 | External validation checklist | M6 | concise proven/remaining checklist | no | COMPLETE |
 | M15 | UI-readiness API data | M4 | Day state exposes task, routing, tokens, review queue | no | COMPLETE |
 | M16 | Real provider structured-output compatibility | M2, M6 | strict DTO schema, request shape, output mapping, sanitized error tests | no | COMPLETE |
+| M17 | Codex Core architecture | M0, M1, M4 | read-only structured Codex Architect/Reviewer roles, API-independent default plan, role telemetry tests | CODEX_ARCHITECT_SINGLE_STEP_VALIDATION | COMPLETE |
+| M18 | Dashboard v2 | M17 external validation | consume Day queue, role calls, routing, tokens, review, timeline | no | ROADMAP |
 
 M10 is deliberately non-blocking: a real semantic task must not be invented.
+
+Codex Core is the normal execution architecture. OpenAI Architect and Evaluator
+adapters are retained as explicit optional independent providers. Session reuse
+is deliberately deferred: current one-call-per-role/task execution preserves
+reproducibility and audit boundaries until measured cache savings justify a
+bounded, resettable session policy.

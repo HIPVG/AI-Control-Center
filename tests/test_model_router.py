@@ -42,7 +42,7 @@ def test_complexity_and_role_defaults_choose_lowest_sufficient_profile():
     assert selected.select(request(complexity=TaskComplexity.SIMPLE)).profile_id == "economical"
     assert selected.select(request(complexity=TaskComplexity.NORMAL)).profile_id == "standard"
     assert selected.select(request(complexity=TaskComplexity.COMPLEX)).profile_id == "deep"
-    assert selected.select(request(role=RoutingRole.ARCHITECT, complexity=TaskComplexity.SIMPLE)).profile_id == "standard"
+    assert selected.select(request(role=RoutingRole.ARCHITECT, complexity=TaskComplexity.SIMPLE)).profile_id == "economical"
     assert selected.select(request(role=RoutingRole.EVALUATOR, complexity=TaskComplexity.SIMPLE)).profile_id == "economical"
     assert selected.select(request(role=RoutingRole.EVALUATOR, complexity=TaskComplexity.NORMAL)).profile_id == "standard"
 

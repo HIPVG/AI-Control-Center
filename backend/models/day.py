@@ -90,12 +90,33 @@ class EvaluatorProviderOutput(BaseModel):
     metrics: list[EvaluatorMetricProviderOutput]
 
 
+class CodexReview(BaseModel):
+    """Non-independent first-pass review; Python still controls repair authority."""
+
+    decision: Literal["REPAIR", "HUMAN_REVIEW", "NOT_REQUIRED"]
+    reason: str = Field(min_length=1, max_length=1000)
+    repair_instruction: str | None = None
+    token_usage: TokenUsage = Field(default_factory=TokenUsage)
+    diagnostics: dict[str, object] = Field(default_factory=dict)
+
+
+class ReviewerProviderOutput(BaseModel):
+    """Strict Codex first-review output without runtime metadata."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    decision: Literal["REPAIR", "HUMAN_REVIEW", "NOT_REQUIRED"]
+    reason: str
+    repair_instruction: str | None
+
+
 class DayPlan(BaseModel):
     plan_id: str = Field(min_length=1, max_length=120)
     title: str = Field(min_length=1, max_length=300)
     task_ids: list[str] = Field(min_length=1)
     architect_provider: str = "mock"
     evaluator_provider: str = "mock"
+    reviewer_provider: str = "none"
     single_step_default: bool = True
     continuous_mode_supported: bool = True
     validation_day: int = Field(default=3, ge=0, le=365)

@@ -77,7 +77,7 @@ class ModelRouter:
 
     def _preferred_profile(self, request: RoutingRequest) -> tuple[str, int, str | None]:
         if request.role == RoutingRole.ARCHITECT:
-            base = "standard"
+            base = "economical" if request.task_complexity == TaskComplexity.SIMPLE else "standard"
         elif request.role == RoutingRole.EVALUATOR:
             base = "economical" if request.task_complexity == TaskComplexity.SIMPLE else "standard"
         else:

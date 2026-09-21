@@ -49,7 +49,7 @@ def test_model_router_single_step_day_is_auditable_without_external_execution(mo
     assert body["evaluator_calls"] == 0
     assert [decision["role"] for decision in body["model_routing_decisions"]] == ["architect"]
     assert body["current_task"]["task_id"] == "PC-001-C"
-    assert body["current_routing"]["provider"] == "mock"
+    assert body["current_routing"]["provider"] == "codex"
     assert "human_review_queue" in TestClient(control_app.app).get("/api/day/status").json()
     assert any(event.event_type.value == "DAY_MODEL_ROUTING" for event in engine.timeline)
     assert any(event.event_type.value == "DAY_DETERMINISTIC_NO_AI" for event in engine.timeline)

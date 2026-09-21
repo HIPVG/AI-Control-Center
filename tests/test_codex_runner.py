@@ -150,6 +150,34 @@ def test_real_smoke_uses_workspace_write_with_controlled_process_arguments(monke
     assert result.token_usage.available
 
 
+def test_readonly_structured_role_uses_schema_and_extracts_only_agent_message(monkeypatch, tmp_path):
+    captured = {}
+
+    def completed(command, **kwargs):
+        captured["command"] = command
+        return subprocess.CompletedProcess(
+            command, 0,
+            stdout=(
+                '{"type":"thread.started"}\n'
+                '{"type":"turn.started"}\n'
+                '{"type":"item.completed","item":{"type":"agent_message","text":"{\\"decision\\":\\"DAY_COMPLETE\\"}"}}\n'
+                '{"type":"turn.completed","usage":{"input_tokens":9,"cached_input_tokens":2,"output_tokens":1}}'
+            ), stderr="",
+        )
+
+    monkeypatch.setattr("backend.runners.codex.subprocess.run", completed)
+    workspace = tmp_path / "role"
+    workspace.mkdir()
+    schema = workspace / "output-schema.json"
+    schema.write_text('{"type":"object"}', encoding="utf-8")
+    result = RealCodexRunner(real_config()).run_readonly_structured(workspace, "choose", schema)
+    assert result.status == "completed"
+    assert result.output_text == '{"decision":"DAY_COMPLETE"}'
+    assert captured["command"][1:8] == ["exec", "--sandbox", "read-only", "--skip-git-repo-check", "--json", "--output-schema", str(schema)]
+    assert result.diagnostics.turn_completed
+    assert result.token_usage.uncached_input_tokens == 7
+
+
 def test_isolated_file_change_uses_only_direct_child_target(monkeypatch, tmp_path):
     monkeypatch.setattr(
         "backend.runners.codex.subprocess.run",

@@ -39,6 +39,7 @@ class ConfiguredTask(BaseModel):
     max_retry: int = Field(default=1, ge=0, le=20)
     requires_codex: bool = True
     evaluator_type: Literal["deterministic", "semantic"] = "deterministic"
+    independent_evaluator_required: bool = False
     evaluation_metrics: list[str] = Field(default_factory=list)
     context_max_characters: int = Field(default=16000, ge=1, le=100000)
 
@@ -74,6 +75,7 @@ class TaskRegistry(BaseModel):
                 "title": task.title,
                 "task_type": task.task_type.value,
                 "evaluator_type": task.evaluator_type,
+                "independent_evaluator_required": task.independent_evaluator_required,
             }
             for task in self.tasks.values()
         ]

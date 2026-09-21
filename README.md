@@ -2,7 +2,13 @@
 
 Local Windows-first control plane for AI-assisted engineering workflows.
 
-The project separates planning, deterministic checks, Codex implementation, automated testing, independent evaluation, token governance, Git safety, and human approval.
+The default runtime is **Codex Core**: a read-only Codex Architect selects a
+trusted configured task, Codex Builder works only after deterministic failure
+triage, and an optional read-only Codex First Reviewer handles bounded,
+inconclusive repair evidence. Python remains authoritative for deterministic
+facts, state transitions, budgets, retries, Scope Guard, Git Guard, and task
+authority. OpenAI providers are optional independent providers, never a normal
+startup requirement.
 
 ## Start here
 
@@ -15,11 +21,11 @@ The project separates planning, deterministic checks, Codex implementation, auto
 ## Core operating principle
 
 ```text
-ChatGPT / Architect = Think and structure
-Codex               = Build
-Python / tests      = Determine objective facts
-Git                  = Record
-Human                = Decide
+Codex Core           = Architect, Builder, First Review
+Python / tests        = Determine objective facts and enforce authority
+OpenAI / other providers = Optional independent evaluation
+Git                   = Record
+Human                 = Decide exceptions and final approval
 ```
 
 The first implementation milestone is v0.1: a local FastAPI + HTML/JavaScript dashboard with mock orchestration, state management, token accounting, progress display, and safety guards.
@@ -33,17 +39,19 @@ Use the project launchers on `127.0.0.1:8000`:
 ```
 
 For a non-reloading production-style server, use `& C:\AI-Control-Center\scripts\start.ps1`.
-The mock Day plan can then be run one deterministic task at a time:
+The default Codex-Core Day plan can then be run one trusted task at a time. In
+the tracked mock runtime this safely simulates the Codex Architect; production
+Codex validation uses the same plan with `runtime.local.yaml` set to `real`:
 
 ```powershell
-Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/api/day/start/week1-day3-local-llm-v2?mode=single-step | ConvertTo-Json -Depth 20
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/api/day/start/week1-day3-local-llm-v3-codex-core?mode=single-step | ConvertTo-Json -Depth 20
 ```
 
 `config/model_profiles.yaml` defines the logical reasoning profiles and their
-concrete provider mappings. Real providers remain opt-in through
-`OPENAI_API_KEY`; the Router, not provider configuration, selects the actual
-model and reasoning effort. No credential or network call is made during normal
-mock validation.
+concrete provider mappings. Codex Core maps simple/normal/complex work to
+economical/standard/deep (Low/Medium/High); the Router, not a provider, selects
+the profile. OpenAI remains opt-in through `OPENAI_API_KEY`; no API key or
+network call is needed for normal Codex-Core validation.
 
 ## Local runtime overrides
 

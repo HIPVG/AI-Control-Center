@@ -15,17 +15,15 @@ Primary goals:
 The target operating model is:
 
 ```text
-Plan
+Configured Day Plan
   ↓
-Deterministic pre-check
+Python deterministic gate
   ↓
-Codex only when needed
+Codex Core: Architect → Builder → optional First Review
   ↓
-Automated tests
+Python verification, Scope/Budget/Git guards
   ↓
-Independent evaluation
-  ↓
-Bounded repair loop
+Independent evaluation only when trusted policy requires it
   ↓
 Human approval
 ```
@@ -58,17 +56,16 @@ Deterministic Check
 
 The system separates responsibilities into distinct roles.
 
-#### Architect
+#### Codex Architect
 
 Responsibilities:
 
-- decompose goals into tasks
-- define acceptance criteria
-- define allowed file scope
-- decide whether Codex is required
-- create structured work orders
+- select only from trusted, already-configured eligible task IDs
+- return a small structured decision using bounded Day context
 
-The Architect must not modify source code.
+The Architect runs through the Codex CLI in a read-only isolated role workspace.
+It must not inspect target source, modify source code, define tasks, change
+commands, acceptance criteria, budgets, retries, or allowed file scope.
 
 #### Codex Builder
 
@@ -89,7 +86,14 @@ Codex must not:
 - push directly to `main`
 - make final acceptance decisions
 
-#### Evaluator
+#### Codex First Reviewer
+
+This optional read-only Codex role examines only bounded failed-check evidence
+or a bounded diff. It may classify a repair as appropriate or provide concise
+guidance, but is not independent and never grants repair authority. Its default
+call count is zero.
+
+#### Independent Evaluator
 
 Responsibilities:
 
@@ -101,7 +105,9 @@ Responsibilities:
   - `REPAIR`
   - `HUMAN_REVIEW`
 
-The Evaluator must not modify code.
+The Independent Evaluator must not modify code. It is an opt-in provider for
+high-risk, regulated, explicitly configured, or persistently ambiguous work;
+it is not a normal deterministic-task requirement.
 
 #### Human
 
@@ -175,7 +181,7 @@ Examples:
         └────────────────────┼────────────────────┘
                              │
                   ┌──────────▼──────────┐
-                  │     Architect       │
+                  │  Codex Architect    │
                   └──────────┬──────────┘
                              │ WorkOrder
                              ▼
@@ -187,7 +193,7 @@ Examples:
                              ▼
                   ┌─────────────────────┐
                   │    Codex Builder    │
-                  │    codex exec       │
+                  │  worktree write     │
                   └──────────┬──────────┘
                              │
                              ▼
@@ -197,6 +203,7 @@ Examples:
                              │
                              ▼
                   ┌─────────────────────┐
+                  │ Optional Independent│
                   │      Evaluator      │
                   └──────────┬──────────┘
                        PASS / REPAIR /
@@ -364,10 +371,10 @@ Model downgrade is not the first optimization lever.
 
 ## 7. Codex Execution Strategy
 
-Default policy:
+Codex Core default policy:
 
 ```text
-1 WorkOrder = 1 Codex execution
+1 bounded role call = 1 Codex execution
 ```
 
 Do not use a long-lived Codex session by default.
@@ -382,7 +389,16 @@ Benefits:
 
 A retry may reuse narrowly scoped context for the same task, but unrelated tasks should not share conversational history.
 
-The Codex runner should isolate command construction in one component and eventually support:
+The common Codex runner isolates command construction. Role policies are
+different: Architect and First Reviewer use an isolated read-only workspace,
+bounded context, `--json`, and an explicit output schema; Builder uses a
+task-only worktree with `workspace-write`, Scope Guard, and deterministic
+postcheck. Codex sessions are deliberately not reused by default: one bounded
+execution per role/task is reproducible, auditable, and prevents unrelated
+context carry-over. Day-level session reuse is deferred until measured cache
+benefit justifies its bounded lifecycle and reset rules.
+
+The runner supports:
 
 ```powershell
 codex exec --json
@@ -928,11 +944,11 @@ Tests must run without Codex and without an OpenAI API key.
 The system must preserve this division of responsibility:
 
 ```text
-ChatGPT / Architect = Think and structure
-Codex               = Build
-Python / tests      = Determine objective facts
-Git                  = Record
-Human                = Decide
+Codex Core           = Architect, Builder, First Review
+Python / tests        = Deterministic facts and all execution authority
+Optional independent provider = High-risk semantic judgement only
+Git                   = Record
+Human                 = Exception and final authority
 ```
 
 AI Control Center exists to govern who may do what, with what context, within what budget, and with what evidence.

@@ -110,29 +110,36 @@ ModelRouter does not:
 
 ## Role Defaults
 
-### Architect
+### Codex Architect
 
-Default: standard.
+Codex Core default: standard / Medium for normal Day selection. Tiny simple
+selection may use economical / Low. The Architect receives bounded queue state
+only and uses a read-only structured Codex execution; it cannot turn profile
+selection into planning or execution authority.
 
 Use deep only when replanning is genuinely complex, multiple tasks interact, previous reasoning failed, or failure classification remains ambiguous.
 
 Architect may report task complexity, but trusted routing policy makes the final profile decision.
 
-### Evaluator
+### Codex Builder
+
+Normal implementation: standard / Medium. Complex debugging and architecture:
+deep / High. Builder remains behind deterministic failure triage and worktree,
+Scope Guard, postcheck, and retry controls.
+
+### Codex First Reviewer
+
+Default: no call. When a trusted policy requests a bounded first review after
+inconclusive deterministic evidence, use economical or standard. This role is
+not an independent evaluator and cannot approve acceptance.
+
+### Independent Evaluator
 
 Default: economical or standard.
 
 Use deep only for ambiguous semantic evaluation where a lower profile is insufficient.
 
 Deterministic tasks should not invoke Evaluator at all.
-
-### Codex Builder
-
-Recommended defaults:
-
-- economical: tiny, narrow edit with clear acceptance criteria
-- standard: normal implementation or routine repair
-- deep: architecture, refactoring, difficult root-cause analysis
 
 ### Fault / Repair Flow
 
@@ -234,7 +241,8 @@ Deterministic Gate
    ↓
 ModelRouter
    ↓
-Architect / Evaluator / Codex
+Codex Architect / Codex Builder / optional Codex First Reviewer /
+optional Independent Evaluator
    ↓
 Result
    ↓

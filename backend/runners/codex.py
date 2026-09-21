@@ -3,6 +3,7 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
+from time import monotonic
 from typing import Any
 from uuid import uuid4
 
@@ -31,6 +32,19 @@ class JsonlParseResult(BaseModel):
     turn_completed: bool = False
     turn_failed: bool = False
     error_event: bool = False
+    final_output: str | None = None
+
+
+class StructuredCodexResult(BaseModel):
+    """Bounded read-only Codex role result; raw JSONL is never persisted."""
+
+    status: str
+    output_text: str | None = None
+    token_usage: TokenUsage = Field(default_factory=TokenUsage)
+    diagnostics: ProcessDiagnostics | None = None
+    error_code: str | None = None
+    safe_message: str | None = None
+    duration_ms: float = Field(default=0, ge=0)
 
 
 class SmokeWorkspace:
@@ -115,11 +129,23 @@ class CodexRunner:
                 parsed.error_event = parsed.error_event or event_type == "error"
                 if event_type in {"turn.failed", "error"} and parsed.first_error_event is None:
                     parsed.first_error_event = str(payload.get("message") or payload.get("error") or event_type)[:MAX_INVALID_LINE_CHARS]
+                message = cls._agent_message_text(payload)
+                if message is not None:
+                    parsed.final_output = message
             usage = cls._usage_from_payload(payload)
             if usage.available:
                 latest_usage = usage
         parsed.token_usage = latest_usage
         return parsed
+
+    @staticmethod
+    def _agent_message_text(payload: dict[str, Any]) -> str | None:
+        """Extract only the final agent message from known Codex JSONL events."""
+        item = payload.get("item")
+        if not isinstance(item, dict) or item.get("type") != "agent_message":
+            return None
+        text = item.get("text")
+        return text if isinstance(text, str) else None
 
     @staticmethod
     def _usage_from_payload(payload: Any) -> TokenUsage:
@@ -181,6 +207,49 @@ class RealCodexRunner(CodexRunner):
     def run_worktree_task(self, working_directory: Path, prompt: str) -> ExecutionResult:
         """Run a bounded task prompt in an already-created Git worktree."""
         return self._run_command(working_directory, prompt, skip_git_repo_check=False, changed_file=None)
+
+    def run_readonly_structured(self, working_directory: Path, prompt: str, schema_path: Path) -> StructuredCodexResult:
+        """Execute one read-only Codex role call with an explicit JSON schema."""
+        started = monotonic()
+        workspace = working_directory.resolve()
+        schema = schema_path.resolve()
+        try:
+            schema.relative_to(workspace)
+        except ValueError:
+            return StructuredCodexResult(status="failed", error_code="CODEX_SCHEMA_OUTSIDE_ROLE_WORKSPACE", safe_message="Codex role schema must remain in its isolated workspace.")
+        if not workspace.is_dir() or not schema.is_file():
+            return StructuredCodexResult(status="failed", error_code="CODEX_ROLE_WORKSPACE_INVALID", safe_message="Codex role workspace or schema is unavailable.")
+        executable_path, command = self.build_structured_readonly_command(prompt, schema)
+        codex_home, codex_sqlite_home = self.resolve_codex_home(), self.resolve_codex_sqlite_home()
+        if codex_home is None or codex_sqlite_home is None:
+            code = "CODEX_HOME_NOT_FOUND" if codex_home is None else "CODEX_SQLITE_HOME_NOT_FOUND"
+            return StructuredCodexResult(
+                status="failed", error_code=code, safe_message="Configured Codex runtime directory was not found.",
+                diagnostics=self._diagnostics(command, workspace, executable_path=executable_path),
+                duration_ms=round((monotonic() - started) * 1000, 2),
+            )
+        try:
+            completed = subprocess.run(
+                command, cwd=workspace, capture_output=True, text=True, encoding="utf-8", errors="replace",
+                timeout=self.config.timeout_seconds, check=False, shell=False, stdin=subprocess.DEVNULL,
+                env=self._process_environment(codex_home, codex_sqlite_home),
+            )
+        except FileNotFoundError:
+            return StructuredCodexResult(status="failed", error_code="CODEX_NOT_FOUND", safe_message="Configured Codex executable was not found.", duration_ms=round((monotonic() - started) * 1000, 2))
+        except subprocess.TimeoutExpired as exc:
+            return StructuredCodexResult(
+                status="failed", error_code="CODEX_TIMEOUT", safe_message="Codex role execution timed out.",
+                diagnostics=self._diagnostics(command, workspace, executable_path=executable_path, timed_out=True, stderr=exc.stderr),
+                duration_ms=round((monotonic() - started) * 1000, 2),
+            )
+        parsed = self.parse_jsonl(completed.stdout)
+        diagnostics = self._diagnostics(command, workspace, executable_path=executable_path, exit_code=completed.returncode, parsed=parsed, stderr=completed.stderr)
+        duration = round((monotonic() - started) * 1000, 2)
+        if completed.returncode != 0 or parsed.turn_failed or parsed.error_event or not parsed.turn_completed:
+            return StructuredCodexResult(status="failed", error_code="CODEX_ROLE_FAILED", safe_message="Codex role did not complete successfully.", token_usage=parsed.token_usage, diagnostics=diagnostics, duration_ms=duration)
+        if not parsed.final_output:
+            return StructuredCodexResult(status="failed", error_code="CODEX_STRUCTURED_OUTPUT_MISSING", safe_message="Codex role returned no structured output.", token_usage=parsed.token_usage, diagnostics=diagnostics, duration_ms=duration)
+        return StructuredCodexResult(status="completed", output_text=parsed.final_output, token_usage=parsed.token_usage, diagnostics=diagnostics, duration_ms=duration)
 
     def _run_isolated_file_change(self, working_directory: Path, target: Path, prompt: str) -> ExecutionResult:
         smoke_directory = working_directory.resolve()
@@ -318,6 +387,19 @@ class RealCodexRunner(CodexRunner):
         if Path(executable).suffix.lower() in {".cmd", ".bat"}:
             # A Windows command shim cannot be launched reliably with
             # CreateProcess. Invoke cmd explicitly while retaining shell=False.
+            command_processor = os.environ.get("COMSPEC", r"C:\Windows\System32\cmd.exe")
+            return executable_path, [command_processor, "/d", "/s", "/c", subprocess.list2cmdline(arguments)]
+        return executable_path, arguments
+
+    def build_structured_readonly_command(self, prompt: str, schema_path: Path) -> tuple[str | None, list[str]]:
+        """Build the non-interactive, read-only command used by Architect/Reviewer."""
+        executable_path = self.resolve_executable()
+        executable = executable_path or self.config.executable
+        arguments = [
+            executable, "exec", "--sandbox", "read-only", "--skip-git-repo-check", "--json",
+            "--output-schema", str(schema_path), prompt,
+        ]
+        if Path(executable).suffix.lower() in {".cmd", ".bat"}:
             command_processor = os.environ.get("COMSPEC", r"C:\Windows\System32\cmd.exe")
             return executable_path, [command_processor, "/d", "/s", "/c", subprocess.list2cmdline(arguments)]
         return executable_path, arguments

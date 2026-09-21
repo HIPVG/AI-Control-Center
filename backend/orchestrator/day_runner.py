@@ -198,11 +198,11 @@ class DayRunner:
         final = result.get("final_result")
         if final == "COMPLETE_NO_CHANGE":
             item.state, item.final_result = QueueTaskState.COMPLETE_NO_CHANGE, final
-        elif final == "COMPLETE" and task.evaluator_type == "deterministic":
-            item.state, item.final_result = QueueTaskState.PASS, final
-        elif final == "COMPLETE" and task.evaluator_type == "semantic":
+        elif final == "COMPLETE" and task.independent_evaluator_required:
             self._evaluate_semantic(plan, item, task, result)
             return
+        elif final == "COMPLETE":
+            item.state, item.final_result = QueueTaskState.PASS, final
         elif final == "HUMAN_REVIEW":
             self._human_review(item.task_id, result.get("human_review_reason") or result.get("error_code") or "TASK_REQUIRES_REVIEW", result=result, routing=codex_routes[-1] if codex_routes else None, failure_type=result.get("error_code") or "task_execution")
             return

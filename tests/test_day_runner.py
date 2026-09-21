@@ -23,7 +23,7 @@ from backend.orchestrator.day_runner import DayRunner
 
 
 def configured_task(task_id: str, *, semantic: bool = False, requires_codex: bool = False) -> ConfiguredTask:
-    return ConfiguredTask(task_id=task_id, project_id="test", title=task_id, task_type=TaskType.CODE_FIX, precheck=TaskCommand(argv=["python", "-c", "pass"]), postcheck=TaskCommand(argv=["python", "-c", "pass"]), allowed_files=["src/example.py"], context_files=["src/example.py"], requires_codex=requires_codex, evaluator_type="semantic" if semantic else "deterministic", evaluation_metrics=["groundedness"] if semantic else [])
+    return ConfiguredTask(task_id=task_id, project_id="test", title=task_id, task_type=TaskType.CODE_FIX, precheck=TaskCommand(argv=["python", "-c", "pass"]), postcheck=TaskCommand(argv=["python", "-c", "pass"]), allowed_files=["src/example.py"], context_files=["src/example.py"], requires_codex=requires_codex, evaluator_type="semantic" if semantic else "deterministic", independent_evaluator_required=semantic, evaluation_metrics=["groundedness"] if semantic else [])
 
 
 def make_runner(tasks, execute, *, plan_kwargs=None, evaluators=None, provider_budgets=None, persisted=None, saved=None):
