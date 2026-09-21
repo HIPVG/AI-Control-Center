@@ -32,8 +32,8 @@ branch. Status is tracked in `docs/DEV_PROGRESS.json`.
 | M24 | Goal-to-Plan | M21, M22 | bounded goal intake → Codex plan → deterministic policy validation → execution | GOAL_TO_PLAN_EXTERNAL_VALIDATION | COMPLETE |
 | M25 | Self-repair, bounded replan, and autonomous next action | M21, M24 | recover/replan failures within limits and continue the obvious trusted success path without another typed Goal | AUTONOMOUS_RECOVERY_AND_CONTINUE_VALIDATION | COMPLETE |
 | M26 | Automated Git completion | M25 | verified work can commit/push agent branch and prepare PR; no automatic main merge | AUTO_GIT_PR_VALIDATION | COMPLETE |
-| M27 | Zero-Touch Control Loop | M20–M26 | one goal/start → complete or genuine escalation, with no routine relay/PowerShell | ZERO_TOUCH_EXTERNAL_VALIDATION | IN_PROGRESS |
-| M28 | Japanese Dashboard / UX simplification | M27 | localize Dashboard labels/messages, remove routine-use controls made redundant by Zero-Touch operation, and preserve English API/state/audit identifiers | JAPANESE_UI_EXTERNAL_VALIDATION | ROADMAP |
+| M27 | Zero-Touch Control Loop | M20–M26 | one goal/start → complete or genuine escalation, with no routine relay/PowerShell | ZERO_TOUCH_EXTERNAL_VALIDATION | COMPLETE |
+| M28 | Japanese Dashboard / UX simplification + runtime readiness | M27 | localize Dashboard, remove redundant controls, and make approved local runtime dependencies such as Ollama preflight/startup part of normal Zero-Touch readiness while preserving English API/state/audit identifiers | JAPANESE_UI_AND_RUNTIME_READINESS_VALIDATION | IN_PROGRESS |
 
 M10 is deliberately non-blocking: a real semantic task must not be invented.
 
@@ -212,3 +212,31 @@ M27 implementation is ready for external validation:
   completion policies are reused unchanged rather than bypassed;
 - the Dashboard renders the latest Zero-Touch terminal status and exposes a
   bounded close-next-action path without browser-supplied authority.
+
+
+External M27 Zero-Touch validation passed on 2026-09-22:
+- a bounded LocalLLM goal completed through the Zero-Touch flow;
+- final status: COMPLETE;
+- outcome: RESULT_RECORDED;
+- human attention: none;
+- LocalLLM execution remained on the trusted configured path.
+
+The first attempt exposed Ollama not running and correctly stopped as ATTENTION with
+engine_unavailable. After Ollama was started, the same bounded flow completed.
+This validates the M27 control loop while also exposing a remaining daily-operation
+friction point: approved local runtime readiness should be automated.
+
+This closes M27 and advances development to M28.
+
+
+M28 runtime-readiness scope:
+- preflight approved local dependencies before Zero-Touch execution;
+- if the configured Ollama runtime is installed but not running, start only that
+  already-approved local runtime through a fixed trusted mechanism, wait within
+  a bounded timeout, then continue;
+- never download/install a model or runtime, never enable cloud fallback, and
+  never accept browser-supplied executable paths or commands;
+- if the approved runtime cannot be started, surface EXTERNAL_ACTION_REQUIRED;
+- keep runtime readiness visible in the simplified Japanese Dashboard;
+- remove or demote manual controls made redundant by automatic readiness and
+  Zero-Touch operation.
