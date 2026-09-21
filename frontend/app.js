@@ -116,7 +116,7 @@ function render(status) {
     return row;
   }));
   const taskIds = new Set((day.queue ?? []).map((item) => item.task_id));
-  const events = (status.timeline ?? []).filter((event) => event.event_type?.startsWith("DAY_") || taskIds.has(event.task_id)).slice(-24);
+  const events = (status.timeline ?? []).filter((event) => event.event_type?.startsWith("DAY_") || event.event_type === "DAILY_OPERATION_AUTOSTART" || taskIds.has(event.task_id)).slice(-24);
   byId("timeline").replaceChildren(...(events.length ? events : [{ message: "Awaiting autonomous workflow event." }]).map((event) => {
     const timestamp = event.timestamp ? `${new Date(event.timestamp).toLocaleTimeString()}  ` : "";
     return node("li", `${timestamp}${event.message}`);

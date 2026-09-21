@@ -61,6 +61,7 @@ def test_dashboard_v2_uses_only_configured_day_plan_api_contracts(client):
     assert 'fetch("/api/day/stop"' in script
     assert "/api/operation/health" in script
     assert "/api/operation/autostart/enable" in script
+    assert "DAILY_OPERATION_AUTOSTART" in script
     assert "continuous_mode_supported" in script
     assert "/api/experiments" in script
     assert "/api/validation/escalation/" in script
