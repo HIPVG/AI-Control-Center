@@ -240,3 +240,14 @@ M28 runtime-readiness scope:
 - keep runtime readiness visible in the simplified Japanese Dashboard;
 - remove or demote manual controls made redundant by automatic readiness and
   Zero-Touch operation.
+
+M28 implementation is ready for external validation:
+- Japanese Dashboard copy makes Recommended next action / Zero-Touch operation
+  primary, while detailed manual Day, validation, and Git controls are demoted
+  to a closed diagnostic section;
+- before a trusted LocalLLM execution, the server checks the fixed approved
+  Ollama runtime and, only when it is installed but unavailable, starts its
+  fixed local service and waits within the bounded policy;
+- readiness is shown as bounded Japanese Dashboard evidence; failure produces
+  `EXTERNAL_ACTION_REQUIRED` without installation, model download, cloud
+  fallback, browser-supplied command/path, experiment retry, or Builder work.

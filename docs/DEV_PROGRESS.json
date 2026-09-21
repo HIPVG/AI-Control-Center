@@ -32,7 +32,7 @@
   ],
   "blocked_milestones": [],
   "human_gate": "JAPANESE_UI_AND_RUNTIME_READINESS_VALIDATION",
-  "latest_test_result": "176 passed, 3 warnings",
+  "latest_test_result": "181 passed, 3 warnings",
   "latest_commit": "6e690463b28bd586e9151653b237844d217cc4bc",
   "remote_push_state": "pushed",
   "safe_semantic_task_found": false,
@@ -156,7 +156,7 @@
     }
   },
   "final_milestone": "M28_JAPANESE_DASHBOARD_UX_POLISH",
-  "m28_status": "IN_PROGRESS",
+  "m28_status": "READY_FOR_EXTERNAL_VALIDATION",
   "m28_scope": [
     "JAPANESE_DASHBOARD_LABELS",
     "JAPANESE_USER_FACING_MESSAGES",
@@ -198,5 +198,13 @@
     "initial_runtime_block": "ENGINE_UNAVAILABLE",
     "retry_after_ollama_start": "PASSED"
   },
-  "m28_runtime_readiness_policy": "TRUSTED_LOCAL_RUNTIME_ONLY_NO_INSTALL_NO_CLOUD_FALLBACK"
+  "m28_runtime_readiness_policy": "TRUSTED_LOCAL_RUNTIME_ONLY_NO_INSTALL_NO_CLOUD_FALLBACK",
+  "m28_implementation": "READY_FOR_EXTERNAL_VALIDATION",
+  "m28_human_gate": "JAPANESE_UI_AND_RUNTIME_READINESS_VALIDATION",
+  "m28_validation_steps": [
+    "Open the Dashboard and confirm Japanese Zero-Touch-first controls.",
+    "Run one bounded trusted LocalLLM goal with Ollama already running; confirm READY or STARTED and completion.",
+    "Stop Ollama, repeat the trusted goal, and confirm automatic bounded startup then completion.",
+    "If startup is intentionally unavailable, confirm EXTERNAL_ACTION_REQUIRED with no cloud fallback or Builder invocation."
+  ]
 }

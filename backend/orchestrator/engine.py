@@ -25,8 +25,10 @@ from backend.control.experiments import load_experiments
 from backend.control.goal_policy import propose_goal
 from backend.control.next_action import recommend_next_action
 from backend.control.git_completion import GitCompletionService
+from backend.control.local_runtime import ApprovedLocalRuntimeService
 from backend.models.goal import GoalPlan, GoalPlanStatus
 from backend.models.experiment import ExperimentOutcome, ExperimentRun
+from backend.models.local_runtime import LocalRuntimeReadinessState
 from backend.models.next_action import NextActionType
 from backend.models.git_completion import GitCompletionCandidate, GitCompletionResult, GitCompletionStatus
 from backend.models.zero_touch import ZeroTouchRun, ZeroTouchStatus
@@ -83,6 +85,7 @@ class ControlCenterEngine:
         fault_registry: FaultRegistry | None = None,
         worktree_root: Path | None = None,
         plan_registry: Any | None = None,
+        local_runtime_service: ApprovedLocalRuntimeService | None = None,
     ) -> None:
         self.store = state_store
         self.state_manager = StateManager()
@@ -99,6 +102,7 @@ class ControlCenterEngine:
         self.discoveries = discovery_registry or load_discovery_registry(project_root / "config" / "discovery.yaml")
         self.faults = fault_registry or load_fault_registry(project_root / "config" / "faults.yaml")
         self.experiments = load_experiments(project_root / "config" / "experiments.yaml")
+        self.local_runtime_service = local_runtime_service or ApprovedLocalRuntimeService()
         self.worktree_root = (worktree_root or project_root / "state" / "worktrees").resolve()
         self.smoke_workspace = SmokeWorkspace(smoke_root or project_root / "state" / "smoke")
         self.real_runner = real_runner or RealCodexRunner(self.runtime.codex)
@@ -165,6 +169,7 @@ class ControlCenterEngine:
             "escalation_validations": [],
             "git_completions": [],
             "zero_touch_runs": [],
+            "runtime_readiness": None,
             "task_start_completed": {"PC-014": 18},
             "task_progress": calculate_progress(task_completed, task_total),
             "current_task": {"task_id": "PC-014", "title": "Evidence Grounding", "completed": task_completed, "total": task_total, "retry": 0, "max_retry": 2},
@@ -325,10 +330,33 @@ class ControlCenterEngine:
             "next_action": self.next_action(),
             "git_completion_candidates": self.git_completion_candidates(),
             "zero_touch": self.zero_touch_runs(),
+            "runtime_readiness": self.data.get("runtime_readiness"),
         }
 
     def runtime_view(self) -> dict[str, Any]:
         return self.runtime.model_dump(mode="json")
+
+    def runtime_readiness(self) -> dict[str, Any] | None:
+        """Return the last bounded, server-owned readiness result."""
+        return self.data.get("runtime_readiness")
+
+    def _preflight_local_runtime(self) -> dict[str, Any]:
+        """Prepare the fixed approved runtime immediately before local execution."""
+        result = self.local_runtime_service.readiness()
+        payload = result.model_dump(mode="json")
+        self.data["runtime_readiness"] = payload
+        event_type = {
+            LocalRuntimeReadinessState.READY: AuditEventType.LOCAL_RUNTIME_PREFLIGHT,
+            LocalRuntimeReadinessState.STARTED: AuditEventType.LOCAL_RUNTIME_STARTED,
+            LocalRuntimeReadinessState.EXTERNAL_ACTION_REQUIRED: AuditEventType.LOCAL_RUNTIME_EXTERNAL_ACTION,
+        }[result.state]
+        self._event(
+            "LOCAL_RUNTIME", event_type,
+            f"Approved local runtime {result.runtime_id}: {result.state.value} ({result.reason_code}).",
+            details=payload,
+        )
+        self._save()
+        return payload
 
     def record_autostart_enabled(self) -> None:
         """Persist the explicit local automatic-start choice without OS details."""
@@ -362,6 +390,9 @@ class ControlCenterEngine:
         if action["action_type"] == NextActionType.COMPLETE_VERIFIED_WORK.value:
             result = self.complete_verified_work(action["target_id"])
         elif action["action_type"] == NextActionType.RUN_TRUSTED_EXPERIMENT.value:
+            readiness = self._preflight_local_runtime()
+            if readiness["state"] == LocalRuntimeReadinessState.EXTERNAL_ACTION_REQUIRED.value:
+                return {"error_code": "EXTERNAL_ACTION_REQUIRED", "next_action": action, "runtime_readiness": readiness}
             result = self.run_experiment(action["target_id"])
         else:
             return {"error_code": "NEXT_ACTION_REQUIRES_ATTENTION", "next_action": action}
@@ -388,6 +419,14 @@ class ControlCenterEngine:
             return self._finish_zero_touch(ZeroTouchRun(
                 run_id=run_id, started_at=started, completed_at=datetime.now(timezone.utc), status=ZeroTouchStatus.ATTENTION,
                 goal_id=proposal["goal_id"], completion_reason=proposal["policy_reason"], human_attention_required=True,
+            ))
+        readiness = self._preflight_local_runtime()
+        if readiness["state"] == LocalRuntimeReadinessState.EXTERNAL_ACTION_REQUIRED.value:
+            return self._finish_zero_touch(ZeroTouchRun(
+                run_id=run_id, started_at=started, completed_at=datetime.now(timezone.utc), status=ZeroTouchStatus.ATTENTION,
+                goal_id=proposal["goal_id"], target_type=proposal.get("target_type"), target_id=proposal.get("target_id"),
+                action_type=NextActionType.EXTERNAL_ACTION_REQUIRED.value,
+                completion_reason=readiness["reason_code"], human_attention_required=True,
             ))
         execution = self.execute_goal(proposal["goal_id"])
         if execution.get("error_code"):

@@ -33,10 +33,14 @@ candidate still takes priority and may be closed through the trusted Git path.
 The control loop reuses, rather than replaces, existing controls:
 
 1. Goal policy limits initial direction to configured capabilities.
-2. Trusted execution records deterministic/experiment evidence.
-3. DayRunner retains bounded retry and Architect replan behavior.
-4. Next-action policy chooses only a configured experiment or verified work.
-5. Git completion revalidates scope and `agent/` branch before commit/push/PR
+2. Before a trusted LocalLLM execution, fixed approved-runtime readiness checks
+   either confirm/start the already-installed Ollama runtime within a bounded
+   wait or stop with `EXTERNAL_ACTION_REQUIRED`; see
+   [Local Runtime Readiness](LOCAL_RUNTIME_READINESS.md).
+3. Trusted execution records deterministic/experiment evidence.
+4. DayRunner retains bounded retry and Architect replan behavior.
+5. Next-action policy chooses only a configured experiment or verified work.
+6. Git completion revalidates scope and `agent/` branch before commit/push/PR
    preparation; it never creates a PR or merges/pushes `main`.
 
 The initial M27 real target is the configured LocalLLM experiment. Its

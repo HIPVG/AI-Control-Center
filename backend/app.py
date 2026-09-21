@@ -55,6 +55,11 @@ def runtime() -> dict:
     return engine.runtime_view()
 
 
+@app.get("/api/runtime/readiness")
+def runtime_readiness() -> dict | None:
+    return engine.runtime_readiness()
+
+
 @app.get("/api/operation/health")
 def operation_health() -> dict:
     return {

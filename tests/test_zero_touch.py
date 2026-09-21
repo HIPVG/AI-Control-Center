@@ -4,6 +4,7 @@ import subprocess
 from backend.control.projects import ConfiguredProject, ProjectRegistry
 from backend.models.experiment import TrustedExperiment
 from backend.models.runtime import RuntimeConfig
+from backend.models.local_runtime import LocalRuntimeReadiness, LocalRuntimeReadinessState
 from backend.orchestrator.engine import ControlCenterEngine
 
 
@@ -11,7 +12,11 @@ def zero_touch_engine(tmp_path):
     runner = tmp_path / "scripts" / "run_process_consistency_smoke.py"
     runner.parent.mkdir()
     runner.write_text("# trusted runner", encoding="utf-8")
-    engine = ControlCenterEngine(runtime_config=RuntimeConfig(), project_registry=ProjectRegistry(projects={"local_llm_lab": ConfiguredProject(name="LocalLLM-Lab", path=tmp_path, default_branch="main")}))
+    class ReadyRuntime:
+        def readiness(self):
+            return LocalRuntimeReadiness(state=LocalRuntimeReadinessState.READY, reason_code="OLLAMA_READY", attempts=0)
+
+    engine = ControlCenterEngine(runtime_config=RuntimeConfig(), project_registry=ProjectRegistry(projects={"local_llm_lab": ConfiguredProject(name="LocalLLM-Lab", path=tmp_path, default_branch="main")}), local_runtime_service=ReadyRuntime())
     engine.experiments = {"local_llm_process_consistency_smoke": TrustedExperiment(experiment_id="local_llm_process_consistency_smoke", project_id="local_llm_lab", runner="scripts/run_process_consistency_smoke.py", model="qwen3-8b-q4:latest", cases=["PC-001-A"], output_root="results/process-consistency")}
     return engine
 

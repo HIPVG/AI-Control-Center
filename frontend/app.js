@@ -11,12 +11,12 @@ function renderZeroTouch(runs, action) {
   const latest = runs.at(-1); const continueButton = byId("continue-zero-touch");
   continueButton.disabled = !["RUN_TRUSTED_EXPERIMENT", "COMPLETE_VERIFIED_WORK"].includes(action?.action_type);
   byId("zero-touch-evidence").replaceChildren(...(latest ? [
-    keyValue("Final status", latest.status),
-    keyValue("Action", latest.action_type ?? latest.target_type ?? "policy rejected before execution"),
-    keyValue("Outcome", latest.outcome ?? "unavailable"),
-    keyValue("Completion", latest.completion_reason),
-    keyValue("Human attention", latest.human_attention_required ? "required" : "none"),
-  ] : [keyValue("Status", "Awaiting a trusted flow")]));
+    keyValue("最終状態", latest.status),
+    keyValue("操作", latest.action_type ?? latest.target_type ?? "実行前にポリシーで拒否"),
+    keyValue("結果", latest.outcome ?? "利用不可"),
+    keyValue("完了理由", latest.completion_reason),
+    keyValue("人の対応", latest.human_attention_required ? "必要" : "なし"),
+  ] : [keyValue("状態", "信頼できるフローを待機中")]));
 }
 
 function renderGitCompletion(candidates, completions) {
@@ -41,8 +41,8 @@ function renderHealth(health) {
   const autostart = health.autostart ?? {};
   byId("server-health").textContent = health.server_state ?? "UNAVAILABLE";
   byId("autostart-status").textContent = autostart.supported
-    ? (autostart.enabled ? "Automatic startup is enabled for this Windows user." : "Automatic startup is not enabled.")
-    : "Automatic startup requires Windows.";
+    ? (autostart.enabled ? "この Windows ユーザーの自動起動は有効です。" : "自動起動は有効ではありません。")
+    : "自動起動には Windows が必要です。";
   const latestDiagnostic = autostart.startup_diagnostics?.at(-1);
   if (latestDiagnostic) {
     const detail = [latestDiagnostic.version, latestDiagnostic.value, latestDiagnostic.reason, latestDiagnostic.exception_type].filter((value) => value !== undefined).join(" · ");
@@ -50,7 +50,19 @@ function renderHealth(health) {
   }
   const button = byId("enable-autostart");
   button.disabled = !autostart.supported || Boolean(autostart.enabled);
-  button.textContent = autostart.enabled ? "Automatic startup enabled" : "Enable automatic startup";
+  button.textContent = autostart.enabled ? "自動起動は有効です" : "自動起動を有効化";
+}
+
+function renderRuntimeReadiness(readiness) {
+  const title = byId("runtime-readiness-title"); const detail = byId("runtime-readiness-detail");
+  if (!readiness) { title.textContent = "Ollama の準備状態は未確認です"; detail.textContent = "自律フローの開始時に、承認済みのローカル環境を自動確認します。"; return; }
+  const labels = {
+    READY: ["Ollama は準備完了です", "承認済みのローカル Ollama は実行中です。"],
+    STARTED: ["Ollama を起動して準備完了です", "Control Center が承認済みの Ollama を起動し、確認しました。"],
+    EXTERNAL_ACTION_REQUIRED: ["Ollama の外部対応が必要です", "承認済みのローカル Ollama を準備できませんでした。インストールやモデル取得は自動では行いません。"],
+  };
+  const value = labels[readiness.state] ?? ["実行環境の状態を確認できません", "次の自律フロー開始時に再確認します。"];
+  title.textContent = value[0]; detail.textContent = `${value[1]} (${readiness.reason_code})`;
 }
 
 function renderGoalPlans(plans) {
@@ -63,9 +75,9 @@ function renderGoalPlans(plans) {
 
 function renderNextAction(action) {
   const continueButton = byId("continue-autonomously");
-  byId("next-action-summary").textContent = action?.summary ?? "No trusted continuation is available.";
-  byId("next-action-reason").textContent = action?.reason ?? "Awaiting trusted state.";
-  byId("next-action-policy").textContent = `Policy: ${action?.policy_result ?? "UNKNOWN"}. Reasoning required: ${action?.reasoning_required ? "yes" : "no"}.`;
+  byId("next-action-summary").textContent = action?.summary ?? "信頼できる継続操作はありません。";
+  byId("next-action-reason").textContent = action?.reason ?? "信頼できる状態を確認しています。";
+  byId("next-action-policy").textContent = `ポリシー: ${action?.policy_result ?? "UNKNOWN"}。推論が必要: ${action?.reasoning_required ? "はい" : "いいえ"}。`;
   continueButton.disabled = action?.action_type !== "RUN_TRUSTED_EXPERIMENT" || Boolean(action?.human_attention_required);
 }
 
@@ -128,14 +140,14 @@ function render(status) {
   byId("route-model").textContent = routing?.model ? `${routing.model} / ${routing.reasoning_effort ?? "–"}` : "–";
   byId("route-context").textContent = routing ? `${compactNumber(routing.context_size)} chars` : "–";
   byId("route-reason").textContent = routing?.selection_reason ?? "A route is recorded before each AI/Codex call.";
-  byId("review-status").textContent = review ? "Action required" : "None";
-  byId("review-detail").textContent = review ? `${review.task_id}: ${review.reason}` : "No blocking review item.";
+  byId("review-status").textContent = review ? "対応が必要" : "なし";
+  byId("review-detail").textContent = review ? `${review.task_id}: ${review.reason}` : "ブロックする確認項目はありません。";
   byId("roles").replaceChildren(
-    keyValue("Architect", `${compactNumber(day.architect_calls)} call(s)`),
-    keyValue("Builder", `${compactNumber(day.codex_calls)} call(s)`),
-    keyValue("Independent evaluator", `${compactNumber(day.evaluator_calls)} call(s)`),
-    keyValue("AI calls avoided", `${day.deterministic_zero_usage_task_ids?.length ?? 0} deterministic task(s)`),
-    keyValue("Auto recovery", `${compactNumber(day.auto_provider_retries)} retry / ${compactNumber(day.auto_replans)} replan`),
+    keyValue("Architect", `${compactNumber(day.architect_calls)} 回`),
+    keyValue("Builder", `${compactNumber(day.codex_calls)} 回`),
+    keyValue("独立 Evaluator", `${compactNumber(day.evaluator_calls)} 回`),
+    keyValue("AI 呼び出しを回避", `${day.deterministic_zero_usage_task_ids?.length ?? 0} 件の決定的タスク`),
+    keyValue("自動回復", `${compactNumber(day.auto_provider_retries)} 回の再試行 / ${compactNumber(day.auto_replans)} 回の再計画`),
   );
   byId("tokens").replaceChildren(
     keyValue("Architect input", compactNumber(tokens.architect?.gross_input_tokens ?? tokens.architect?.input_tokens)),
@@ -178,14 +190,15 @@ function render(status) {
 }
 
 async function refresh() {
-  const [statusResponse, plansResponse, experimentsResponse, healthResponse, goalsResponse, nextActionResponse, candidatesResponse, completionsResponse, zeroTouchResponse] = await Promise.all([fetch("/api/status"), fetch("/api/day/plans"), fetch("/api/experiments"), fetch("/api/operation/health"), fetch("/api/goals"), fetch("/api/next-action"), fetch("/api/git/candidates"), fetch("/api/git/completions"), fetch("/api/zero-touch")]);
-  if (!statusResponse.ok || !plansResponse.ok || !experimentsResponse.ok || !healthResponse.ok || !goalsResponse.ok || !nextActionResponse.ok || !candidatesResponse.ok || !completionsResponse.ok || !zeroTouchResponse.ok) throw new Error("Unable to load Control Center state.");
+  const [statusResponse, plansResponse, experimentsResponse, healthResponse, goalsResponse, nextActionResponse, candidatesResponse, completionsResponse, zeroTouchResponse, readinessResponse] = await Promise.all([fetch("/api/status"), fetch("/api/day/plans"), fetch("/api/experiments"), fetch("/api/operation/health"), fetch("/api/goals"), fetch("/api/next-action"), fetch("/api/git/candidates"), fetch("/api/git/completions"), fetch("/api/zero-touch"), fetch("/api/runtime/readiness")]);
+  if (!statusResponse.ok || !plansResponse.ok || !experimentsResponse.ok || !healthResponse.ok || !goalsResponse.ok || !nextActionResponse.ok || !candidatesResponse.ok || !completionsResponse.ok || !zeroTouchResponse.ok || !readinessResponse.ok) throw new Error("Control Center の状態を取得できません。");
   renderPlans(await plansResponse.json());
   configuredExperiments = await experimentsResponse.json();
   byId("run-experiment").disabled = configuredExperiments.length === 0;
   const status = await statusResponse.json();
   render(status);
   renderHealth(await healthResponse.json());
+  renderRuntimeReadiness(await readinessResponse.json());
   renderGoalPlans(await goalsResponse.json());
   renderNextAction(await nextActionResponse.json());
   renderGitCompletion(await candidatesResponse.json(), await completionsResponse.json());

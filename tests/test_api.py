@@ -22,7 +22,7 @@ def client(monkeypatch):
 
 
 def test_required_endpoints_are_available(client):
-    for path in ("/api/status", "/api/plan", "/api/tasks", "/api/timeline", "/api/token-usage", "/api/runtime", "/api/operation/health", "/api/day/plans", "/api/day/status", "/api/experiments", "/api/goals", "/api/next-action", "/api/git/candidates", "/api/git/completions", "/api/zero-touch"):
+    for path in ("/api/status", "/api/plan", "/api/tasks", "/api/timeline", "/api/token-usage", "/api/runtime", "/api/runtime/readiness", "/api/operation/health", "/api/day/plans", "/api/day/status", "/api/experiments", "/api/goals", "/api/next-action", "/api/git/candidates", "/api/git/completions", "/api/zero-touch"):
         assert client.get(path).status_code == 200
     assert client.post("/api/run/mock").status_code == 200
     assert client.post("/api/run/codex-smoke").json()["error_code"] == "REAL_MODE_REQUIRED"
@@ -65,6 +65,10 @@ def test_dashboard_v2_uses_only_configured_day_plan_api_contracts(client):
     assert 'id="start-zero-touch"' in html
     assert 'id="continue-zero-touch"' in html
     assert 'id="zero-touch-evidence"' in html
+    assert 'id="runtime-readiness-title"' in html
+    assert 'id="runtime-readiness-detail"' in html
+    assert "診断・詳細操作" in html
+    assert "自律運用センター" in html
     assert 'id="validation-evidence"' in html
     assert 'id="experiment-evidence"' in html
     assert "/api/day/start/" in script
@@ -77,6 +81,8 @@ def test_dashboard_v2_uses_only_configured_day_plan_api_contracts(client):
     assert 'fetch("/api/zero-touch")' in script
     assert 'fetch("/api/zero-touch/start"' in script
     assert 'fetch("/api/zero-touch/continue"' in script
+    assert 'fetch("/api/runtime/readiness")' in script
+    assert "renderRuntimeReadiness" in script
     assert "/execute" in script
     assert "/api/day/resume?mode=continuous" in script
     assert 'fetch("/api/day/stop"' in script
