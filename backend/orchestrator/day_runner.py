@@ -5,7 +5,7 @@ from backend.agents.day_providers import DayArchitect, DayEvaluator, MockDayArch
 from backend.control.tasks import ConfiguredTask, TaskRegistry
 from backend.control.model_router import ModelRouter, accumulate_profile_usage
 from backend.models.day import DayExecutionMode, DayPlan, DayPlanRegistry, DayRunSnapshot, DayRunState, HumanReviewItem, QueueTaskState, QueuedTask
-from backend.models.model_routing import FailureType, RoutingDecision, RoutingPolicy, RoutingRequest, RoutingRole, TaskComplexity
+from backend.models.model_routing import FailureType, ProviderExecutionConfig, RoutingDecision, RoutingPolicy, RoutingRequest, RoutingRole, TaskComplexity
 from backend.models.orchestration import ProviderBudget
 from backend.models.result import TokenUsage
 
@@ -101,6 +101,7 @@ class DayRunner:
         routing = self._select_profile(
             plan, RoutingRole.ARCHITECT, task_type="day_planning", complexity=TaskComplexity.NORMAL,
             previous_attempt_count=0, previous_failure_type=None, context_size=len(self.snapshot.queue),
+            execution_provider=plan.architect_provider,
         )
         if routing is None:
             return
@@ -110,7 +111,7 @@ class DayRunner:
             return
         self.snapshot.architect_calls += 1
         try:
-            decision = architect.choose(self._architect_request(plan, routing))
+            decision = architect.choose(self._architect_request(plan, routing), ProviderExecutionConfig.from_routing_decision(routing))
         except RuntimeError as exc:
             self._human_review("SYSTEM", f"ARCHITECT_PROVIDER_ERROR:{type(exc).__name__}")
             return
@@ -158,6 +159,7 @@ class DayRunner:
                 plan, RoutingRole.CODEX, task_type=task.task_type.value, complexity=task_complexity,
                 previous_attempt_count=max(item.attempts - 1, 0) + retry_number,
                 previous_failure_type=previous_failure_type, context_size=context_size,
+                execution_provider="codex",
             )
             if routing is not None:
                 codex_routes.append(routing)
@@ -214,6 +216,7 @@ class DayRunner:
             plan, RoutingRole.EVALUATOR, task_type=task.task_type.value,
             complexity=TaskComplexity.NORMAL, previous_attempt_count=item.repair_loops,
             previous_failure_type=None, context_size=len(str(self._bounded_result(result))),
+            execution_provider=plan.evaluator_provider,
         )
         if routing is None:
             return
@@ -224,7 +227,7 @@ class DayRunner:
         self.snapshot.evaluator_calls += 1
         item.evaluator_invoked = True
         try:
-            evaluation = evaluator.evaluate(self._evaluator_request(task, item, result, routing))
+            evaluation = evaluator.evaluate(self._evaluator_request(task, item, result, routing), ProviderExecutionConfig.from_routing_decision(routing))
         except RuntimeError as exc:
             self._human_review(item.task_id, f"EVALUATOR_PROVIDER_ERROR:{type(exc).__name__}", result=result)
             return
@@ -280,6 +283,7 @@ class DayRunner:
         previous_attempt_count: int,
         previous_failure_type: FailureType | None,
         context_size: int,
+        execution_provider: str,
     ) -> RoutingDecision | None:
         if self.model_router is None:
             # Direct unit-test construction may omit the control component; the
@@ -287,7 +291,7 @@ class DayRunner:
             # not select a profile or grant any additional authority.
             return RoutingDecision(
                 outcome="SELECTED", role=role, selection_reason="router not configured for direct test runner",
-                context_size=context_size,
+                provider=execution_provider, context_size=context_size,
             )
         role_budget = self.provider_budgets.get(role.value)
         role_usage = self.snapshot.token_usage.get(role.value, TokenUsage())
@@ -299,7 +303,7 @@ class DayRunner:
         day_input_budget = sum(budget.daily_input_tokens for budget in self.provider_budgets.values())
         day_output_budget = sum(budget.daily_output_tokens for budget in self.provider_budgets.values())
         decision = self.model_router.select(RoutingRequest(
-            role=role, task_type=task_type, task_complexity=complexity,
+            role=role, execution_provider=execution_provider, task_type=task_type, task_complexity=complexity,
             previous_attempt_count=previous_attempt_count, previous_failure_type=previous_failure_type,
             context_size=context_size, remaining_role_input_tokens=remaining_role_input,
             remaining_role_output_tokens=remaining_role_output,

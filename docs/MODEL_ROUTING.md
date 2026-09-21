@@ -35,7 +35,8 @@ Initial policy:
 | complex | deep | architecture changes, difficult debugging, multi-component reasoning |
 | critical / repeated reasoning failure | escalated approved profile or HUMAN_REVIEW | exceptional cases only |
 
-Initial profile mapping may be:
+Logical profiles contain policy and budget estimates. Concrete execution settings
+are provider mappings in the same trusted configuration. For example:
 
 ```yaml
 model_profiles:
@@ -48,6 +49,10 @@ model_profiles:
     provider: codex
     model: terra
     reasoning_effort: medium
+    provider_profiles:
+      openai:
+        model: gpt-5.6-terra
+        reasoning_effort: medium
 
   deep:
     provider: codex
@@ -55,7 +60,11 @@ model_profiles:
     reasoning_effort: high
 ```
 
-These provider/model identifiers are configuration, not architecture constants.
+The Router resolves the configured provider mapping before an AI call. The
+resulting decision is the concrete provider/model/reasoning/timeout/output
+configuration actually supplied to that provider; an Architect or Evaluator
+cannot override it. `mock` has no concrete model and reports `provider: mock`.
+These identifiers are configuration, not architecture constants.
 
 Stable logical profile IDs should be used in orchestration code.
 

@@ -21,11 +21,14 @@ definitions from the browser.
 
 ## Providers
 
-`mock` providers are deterministic and used by tests. `openai` providers use
-the official Python SDK and are opt-in: `OPENAI_API_KEY` plus a configured
-model in `config/orchestration.yaml` are required. They use the Responses API,
-`store: false`, a strict JSON schema, a 30-second default timeout, and at most
-one transient retry. Startup never creates an OpenAI client or performs a call.
+`mock` providers are deterministic and used by tests; their diagnostics report
+`provider: mock` and no executed model. `openai` providers are opt-in and use
+the official Python SDK when `OPENAI_API_KEY` is set. The trusted ModelRouter
+resolves the concrete configured OpenAI model, reasoning effort, timeout, and
+maximum output from `config/model_profiles.yaml`; provider settings cannot
+override that selection. They use the Responses API, `store: false`, a strict
+JSON schema, and at most one transient retry. Startup never creates an OpenAI
+client or performs a call.
 
 Provider requests contain only trusted compact task/queue metadata, bounded
 task evidence, and configured rubric fields. Provider diagnostics retain model,
@@ -49,23 +52,22 @@ work. Day and overall progress are calculated from terminal queue tasks.
 `week1-day3-local-llm-v2` is the first three-task LocalLLM validation plan.
 The completed historical one-task `week1-day3-local-llm` plan remains unchanged.
 `week1-day3-local-llm-real-architect` is opt-in and fails with a typed provider
-configuration error until credentials and a model are explicitly configured.
+configuration error until credentials and a trusted profile mapping are configured.
 `week1-day3-local-llm-v2-real-architect` is the equivalent three-task variant.
 For a normal PowerShell production session, set `OPENAI_API_KEY`,
-`AI_CONTROL_CENTER_ARCHITECT_PROVIDER=openai`, and
-`AI_CONTROL_CENTER_ARCHITECT_MODEL` before starting `scripts/start.ps1`.
-Evaluator overrides use the corresponding `..._EVALUATOR_PROVIDER` and
-`..._EVALUATOR_MODEL` names. These values are read at startup and are never
-persisted as diagnostics or state.
+`AI_CONTROL_CENTER_ARCHITECT_PROVIDER=openai` before starting
+`scripts/start.ps1`. Evaluator overrides use the corresponding
+`..._EVALUATOR_PROVIDER` name. Concrete model routing stays in
+`config/model_profiles.yaml` and is persisted as bounded diagnostics/state.
 
 ## Model routing boundary
 
 `config/model_profiles.yaml` holds stable logical profiles (`economical`,
-`standard`, `deep`). The router consumes trusted plan policy and remaining
-budgets, but cannot alter task scope, commands, acceptance criteria, retries,
-or budgets. The current Codex CLI runner does not receive guessed model or
-reasoning flags: profile selection is audited while provider-specific transport
-mapping remains explicitly configured and opt-in.
+`standard`, `deep`) and provider-specific concrete execution mappings. The
+router consumes trusted plan policy and remaining budgets, but cannot alter task
+scope, commands, acceptance criteria, retries, or budgets. The current Codex
+CLI runner does not receive guessed model or reasoning flags: it retains its
+explicit configuration while its selected profile is audited.
 
 ## Semantic task discovery
 

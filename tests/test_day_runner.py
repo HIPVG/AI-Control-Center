@@ -2,12 +2,13 @@ from pathlib import Path
 
 import pytest
 
-from backend.agents.day_providers import MockSemanticEvaluator, OpenAIDayArchitect, OpenAISemanticEvaluator, ProviderConfigurationError, ProviderTimeoutError
+from backend.agents.day_providers import MockDayArchitect, MockSemanticEvaluator, OpenAIDayArchitect, OpenAISemanticEvaluator, ProviderConfigurationError, ProviderTimeoutError
 from backend.control.plans import load_plan_registry
 from backend.control.orchestration import load_orchestration_config
 from backend.control.tasks import ConfiguredTask, TaskCommand, TaskRegistry
 from backend.models.day import DayExecutionMode, DayPlan, DayPlanRegistry, DayRunSnapshot, DayRunState, QueuedTask, SemanticEvaluation
 from backend.models.orchestration import ProviderBudget, ProviderSettings
+from backend.models.model_routing import ProviderExecutionConfig
 from backend.models.runtime import CodexAttemptResult
 from backend.models.task import TaskType
 from backend.orchestrator.day_runner import DayRunner
@@ -43,6 +44,15 @@ def test_provider_environment_overrides_are_explicit_and_do_not_require_credenti
     config = load_orchestration_config(Path("config/orchestration.yaml"))
     assert config.orchestration.architect.provider == "openai"
     assert config.orchestration.architect.model == "configured-test-model"
+
+
+def test_mock_provider_diagnostics_report_mock_without_a_model():
+    execution = ProviderExecutionConfig(provider="mock")
+    architect = MockDayArchitect().choose({"eligible_tasks": [{"task_id": "A"}]}, execution)
+    evaluator = MockSemanticEvaluator().evaluate({"task_id": "A", "rubric": {"metrics": []}}, execution)
+    assert architect.diagnostics["provider"] == evaluator.diagnostics["provider"] == "mock"
+    assert architect.diagnostics["execution"]["model"] is None
+    assert evaluator.diagnostics["execution"]["model"] is None
 
 
 def test_single_step_pauses_after_first_task_then_completes_final_task_with_progress():
@@ -86,8 +96,9 @@ def test_semantic_evaluator_is_called_only_after_deterministic_success_and_repai
     requests = []
 
     class Evaluator:
-        def evaluate(self, request):
+        def evaluate(self, request, execution):
             requests.append(request)
+            assert execution.provider == "mock"
             return SemanticEvaluation(decision="REPAIR" if len(requests) == 1 else "PASS", reason="repair", repair_instruction="Fix the bounded semantic issue.", metrics={"groundedness": 5.0})
 
     executions = []
@@ -107,7 +118,7 @@ def test_evaluator_cannot_override_deterministic_postcheck_failure():
     called = []
 
     class Evaluator:
-        def evaluate(self, request):
+        def evaluate(self, request, execution):
             called.append(request)
             return SemanticEvaluation(decision="PASS")
 
@@ -121,7 +132,7 @@ def test_provider_budget_precheck_stops_and_post_run_overage_warns_without_rewri
     assert stopped.start("mock-day")["stop_reason"] == "ARCHITECT_BUDGET_GUARD"
 
     class Architect:
-        def choose(self, request):
+        def choose(self, request, execution):
             from backend.models.day import ArchitectDecision
             from backend.models.result import TokenUsage
             return ArchitectDecision(task_id="A", reason="test", token_usage=TokenUsage(input_tokens=10, output_tokens=1, available=True))
@@ -153,29 +164,39 @@ class FakeClient:
 def test_openai_architect_and_evaluator_build_structured_sdk_requests_parse_usage_and_retry(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     architect_responses = FakeResponses([type("APITimeout", (Exception,), {})(), {"output_text": '{"decision":"RUN_TASK","task_id":"A","reason":"ok","priority":1}', "usage": {"input_tokens": 12, "input_tokens_details": {"cached_tokens": 3}, "output_tokens": 4}}])
-    settings = ProviderSettings(provider="openai", model="test-model", max_transient_retries=1)
-    architect = OpenAIDayArchitect(settings, client_factory=lambda **kwargs: FakeClient(architect_responses))
-    decision = architect.choose({"plan_id": "p", "eligible_tasks": [{"task_id": "A"}]})
+    settings = ProviderSettings(provider="openai", model="ignored-test-model", max_transient_retries=1)
+    execution = ProviderExecutionConfig(profile_id="standard", provider="openai", model="gpt-5.6-terra", reasoning_effort="medium", timeout_seconds=123, max_output_tokens=456)
+    client_options = []
+    architect = OpenAIDayArchitect(settings, client_factory=lambda **kwargs: client_options.append(kwargs) or FakeClient(architect_responses))
+    decision = architect.choose({"plan_id": "p", "eligible_tasks": [{"task_id": "A"}]}, execution)
     assert decision.task_id == "A"
     assert decision.token_usage.cached_input_tokens == 3
     assert len(architect_responses.calls) == 2
     assert architect_responses.calls[0]["store"] is False
     assert "json_schema" == architect_responses.calls[0]["text"]["format"]["type"]
+    assert architect_responses.calls[0]["model"] == "gpt-5.6-terra"
+    assert architect_responses.calls[0]["reasoning"] == {"effort": "medium"}
+    assert architect_responses.calls[0]["max_output_tokens"] == 456
+    assert client_options == [{"api_key": "test-key", "timeout": 123, "max_retries": 0}]
+    assert decision.diagnostics["model"] == "gpt-5.6-terra"
+    assert decision.diagnostics["timeout_seconds"] == 123
 
     evaluator_responses = FakeResponses([{"output_text": '{"decision":"PASS","reason":"ok","metrics":{"groundedness":4.8},"blocking_issues":[],"repair_instruction":null}', "usage": {"input_tokens": 8, "output_tokens": 2}}])
-    evaluation = OpenAISemanticEvaluator(settings, client_factory=lambda **kwargs: FakeClient(evaluator_responses)).evaluate({"task_id": "S", "rubric": {"metrics": ["groundedness"]}})
+    evaluation = OpenAISemanticEvaluator(settings, client_factory=lambda **kwargs: FakeClient(evaluator_responses)).evaluate({"task_id": "S", "rubric": {"metrics": ["groundedness"]}}, execution)
     assert evaluation.decision == "PASS"
     assert evaluation.metrics["groundedness"] == 4.8
+    assert evaluation.diagnostics["reasoning_effort"] == "medium"
 
 
 def test_openai_provider_fails_closed_without_credentials_and_exposes_typed_timeout(monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    execution = ProviderExecutionConfig(provider="openai", model="gpt-5.6-terra", reasoning_effort="medium", timeout_seconds=30, max_output_tokens=100)
     with pytest.raises(ProviderConfigurationError):
-        OpenAIDayArchitect(ProviderSettings(provider="openai", model="test")).choose({"eligible_tasks": []})
+        OpenAIDayArchitect(ProviderSettings(provider="openai", model="test")).choose({"eligible_tasks": []}, execution)
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     responses = FakeResponses([type("APITimeout", (Exception,), {})()])
     with pytest.raises(ProviderTimeoutError):
-        OpenAIDayArchitect(ProviderSettings(provider="openai", model="test", max_transient_retries=0), client_factory=lambda **kwargs: FakeClient(responses)).choose({"eligible_tasks": []})
+        OpenAIDayArchitect(ProviderSettings(provider="openai", model="test", max_transient_retries=0), client_factory=lambda **kwargs: FakeClient(responses)).choose({"eligible_tasks": []}, execution)
 
 
 def test_interrupted_state_pauses_and_persists_meaningful_transitions():

@@ -36,6 +36,40 @@ class ModelProfile(BaseModel):
     max_output_tokens: int = Field(default=4000, ge=0)
     estimated_input_tokens: int = Field(default=0, ge=0)
     estimated_output_tokens: int = Field(default=0, ge=0)
+    provider_profiles: dict[str, "ProviderProfile"] = Field(default_factory=dict)
+
+
+class ProviderProfile(BaseModel):
+    """Trusted concrete transport settings for one provider and logical profile."""
+
+    model: str = Field(min_length=1, max_length=160)
+    reasoning_effort: str = Field(min_length=1, max_length=40)
+    timeout_seconds: int = Field(default=30, ge=1, le=900)
+    max_output_tokens: int = Field(default=4000, ge=0)
+
+
+class ProviderExecutionConfig(BaseModel):
+    """Bounded provider input derived solely from a Router decision."""
+
+    profile_id: str | None = None
+    provider: str = Field(min_length=1, max_length=80)
+    model: str | None = Field(default=None, max_length=160)
+    reasoning_effort: str | None = Field(default=None, max_length=40)
+    timeout_seconds: int | None = Field(default=None, ge=1, le=900)
+    max_output_tokens: int | None = Field(default=None, ge=0)
+
+    @classmethod
+    def from_routing_decision(cls, decision: "RoutingDecision") -> "ProviderExecutionConfig":
+        if decision.outcome != "SELECTED" or not decision.provider:
+            raise ValueError("a selected routing decision with a provider is required")
+        return cls(
+            profile_id=decision.profile_id,
+            provider=decision.provider,
+            model=decision.model,
+            reasoning_effort=decision.reasoning_effort,
+            timeout_seconds=decision.timeout_seconds,
+            max_output_tokens=decision.max_output_tokens,
+        )
 
 
 class ModelProfileRegistry(BaseModel):
@@ -61,6 +95,7 @@ class RoutingPolicy(BaseModel):
 
 class RoutingRequest(BaseModel):
     role: RoutingRole
+    execution_provider: str = Field(default="codex", min_length=1, max_length=80)
     task_type: str = Field(min_length=1, max_length=120)
     task_complexity: TaskComplexity = TaskComplexity.NORMAL
     previous_attempt_count: int = Field(default=0, ge=0)

@@ -48,13 +48,32 @@ class ModelRouter:
             selection_reason = f"budget policy explicitly allowed downgrade to {profile_id}"
         else:
             selection_reason = self._selection_reason(request, profile_id, escalation_reason)
+        if request.execution_provider == "mock":
+            return RoutingDecision(
+                outcome="SELECTED", role=request.role, profile_id=profile_id,
+                provider="mock", selection_reason=selection_reason,
+                escalation_level=escalation_level, escalation_reason=escalation_reason,
+                context_size=request.context_size,
+            )
+        resolved = self._resolve_provider_profile(profile, request.execution_provider)
+        if resolved is None:
+            return self._review(
+                request, escalation_level, escalation_reason,
+                f"selected profile has no trusted mapping for execution provider {request.execution_provider}",
+            )
         return RoutingDecision(
             outcome="SELECTED", role=request.role, profile_id=profile_id,
-            provider=profile.provider, model=profile.model, reasoning_effort=profile.reasoning_effort,
-            timeout_seconds=profile.timeout_seconds, max_output_tokens=profile.max_output_tokens,
+            provider=request.execution_provider, model=resolved.model, reasoning_effort=resolved.reasoning_effort,
+            timeout_seconds=resolved.timeout_seconds, max_output_tokens=resolved.max_output_tokens,
             selection_reason=selection_reason, escalation_level=escalation_level,
             escalation_reason=escalation_reason, context_size=request.context_size,
         )
+
+    @staticmethod
+    def _resolve_provider_profile(profile: ModelProfile, execution_provider: str):
+        if execution_provider == profile.provider:
+            return profile
+        return profile.provider_profiles.get(execution_provider)
 
     def _preferred_profile(self, request: RoutingRequest) -> tuple[str, int, str | None]:
         if request.role == RoutingRole.ARCHITECT:

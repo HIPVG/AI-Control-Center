@@ -7,6 +7,7 @@ from time import monotonic
 from typing import Any, Callable, Protocol
 
 from backend.models.day import ArchitectDecision, SemanticEvaluation
+from backend.models.model_routing import ProviderExecutionConfig
 from backend.models.orchestration import ProviderSettings
 from backend.models.result import TokenUsage
 
@@ -24,18 +25,21 @@ class ProviderRequestError(RuntimeError):
 
 
 class DayArchitect(Protocol):
-    def choose(self, request: dict[str, Any]) -> ArchitectDecision: ...
+    def choose(self, request: dict[str, Any], execution: ProviderExecutionConfig) -> ArchitectDecision: ...
 
 
 class DayEvaluator(Protocol):
-    def evaluate(self, request: dict[str, Any]) -> SemanticEvaluation: ...
+    def evaluate(self, request: dict[str, Any], execution: ProviderExecutionConfig) -> SemanticEvaluation: ...
 
 
 class MockDayArchitect:
-    def choose(self, request: dict[str, Any]) -> ArchitectDecision:
+    def choose(self, request: dict[str, Any], execution: ProviderExecutionConfig) -> ArchitectDecision:
         eligible = request.get("eligible_tasks", [])
         task_id = eligible[0]["task_id"] if eligible else None
-        return ArchitectDecision(decision="RUN_TASK" if task_id else "DAY_COMPLETE", task_id=task_id, reason="first trusted eligible queue item")
+        return ArchitectDecision(
+            decision="RUN_TASK" if task_id else "DAY_COMPLETE", task_id=task_id,
+            reason="first trusted eligible queue item", diagnostics={"provider": "mock", "execution": execution.model_dump(mode="json")},
+        )
 
 
 class MockSemanticEvaluator:
@@ -44,10 +48,11 @@ class MockSemanticEvaluator:
     def __init__(self, decisions: dict[str, SemanticEvaluation] | None = None) -> None:
         self.decisions = decisions or {}
 
-    def evaluate(self, request: dict[str, Any]) -> SemanticEvaluation:
+    def evaluate(self, request: dict[str, Any], execution: ProviderExecutionConfig) -> SemanticEvaluation:
         task_id = str(request["task_id"])
         metrics = request.get("rubric", {}).get("metrics", [])
-        return self.decisions.get(task_id, SemanticEvaluation(decision="PASS", reason="mock semantic pass", metrics={metric: 5.0 for metric in metrics}))
+        result = self.decisions.get(task_id, SemanticEvaluation(decision="PASS", reason="mock semantic pass", metrics={metric: 5.0 for metric in metrics}))
+        return result.model_copy(update={"diagnostics": {"provider": "mock", "execution": execution.model_dump(mode="json")}})
 
 
 class _OpenAIStructuredProvider:
@@ -59,26 +64,30 @@ class _OpenAIStructuredProvider:
         self.settings = settings or ProviderSettings(provider="openai")
         self.client_factory = client_factory
 
-    def _client(self) -> Any:
+    def _client(self, execution: ProviderExecutionConfig) -> Any:
         api_key = os.environ.get("OPENAI_API_KEY")
-        if not api_key or not self.settings.model:
-            raise ProviderConfigurationError("OPENAI_API_KEY and configured model are required")
+        if not api_key or not execution.model or not execution.reasoning_effort or not execution.timeout_seconds:
+            raise ProviderConfigurationError("OPENAI_API_KEY and a routed OpenAI execution configuration are required")
+        if execution.provider != self.provider_name:
+            raise ProviderConfigurationError("routed provider does not match OpenAI provider")
         if self.client_factory:
-            return self.client_factory(api_key=api_key, timeout=self.settings.timeout_seconds, max_retries=0)
+            return self.client_factory(api_key=api_key, timeout=execution.timeout_seconds, max_retries=0)
         try:
             from openai import OpenAI
         except ImportError as exc:
             raise ProviderConfigurationError("OpenAI Python SDK is not installed") from exc
-        return OpenAI(api_key=api_key, timeout=self.settings.timeout_seconds, max_retries=0)
+        return OpenAI(api_key=api_key, timeout=execution.timeout_seconds, max_retries=0)
 
-    def _request(self, *, instructions: str, payload: dict[str, Any], result_type: type[ArchitectDecision] | type[SemanticEvaluation]) -> tuple[dict[str, Any], TokenUsage, dict[str, object]]:
+    def _request(self, *, instructions: str, payload: dict[str, Any], result_type: type[ArchitectDecision] | type[SemanticEvaluation], execution: ProviderExecutionConfig) -> tuple[dict[str, Any], TokenUsage, dict[str, object]]:
         started = monotonic()
-        client = self._client()
+        client = self._client(execution)
         last_error: Exception | None = None
         for attempt in range(self.settings.max_transient_retries + 1):
             try:
                 response = client.responses.create(
-                    model=self.settings.model,
+                    model=execution.model,
+                    reasoning={"effort": execution.reasoning_effort},
+                    max_output_tokens=execution.max_output_tokens,
                     store=False,
                     instructions=instructions,
                     input=json.dumps(payload, ensure_ascii=False),
@@ -89,7 +98,12 @@ class _OpenAIStructuredProvider:
                     raise ProviderRequestError("provider returned no structured output")
                 parsed = json.loads(output_text)
                 usage = _token_usage(_read(response, "usage"))
-                return parsed, usage, {"provider": self.provider_name, "model": self.settings.model, "duration_ms": round((monotonic() - started) * 1000, 2), "attempts": attempt + 1, "success": True}
+                return parsed, usage, {
+                    "provider": self.provider_name, "profile_id": execution.profile_id,
+                    "model": execution.model, "reasoning_effort": execution.reasoning_effort,
+                    "timeout_seconds": execution.timeout_seconds, "max_output_tokens": execution.max_output_tokens,
+                    "duration_ms": round((monotonic() - started) * 1000, 2), "attempts": attempt + 1, "success": True,
+                }
             except (json.JSONDecodeError, ValueError) as exc:
                 raise ProviderRequestError("provider returned invalid structured output") from exc
             except ProviderRequestError:
@@ -104,19 +118,19 @@ class _OpenAIStructuredProvider:
 
 
 class OpenAIDayArchitect(_OpenAIStructuredProvider):
-    def choose(self, request: dict[str, Any]) -> ArchitectDecision:
+    def choose(self, request: dict[str, Any], execution: ProviderExecutionConfig) -> ArchitectDecision:
         parsed, usage, diagnostics = self._request(
             instructions="Choose only from eligible configured task IDs. Do not create tasks, commands, paths, budgets, or acceptance criteria.",
-            payload=request, result_type=ArchitectDecision,
+            payload=request, result_type=ArchitectDecision, execution=execution,
         )
         return ArchitectDecision.model_validate({**parsed, "token_usage": usage, "diagnostics": diagnostics})
 
 
 class OpenAISemanticEvaluator(_OpenAIStructuredProvider):
-    def evaluate(self, request: dict[str, Any]) -> SemanticEvaluation:
+    def evaluate(self, request: dict[str, Any], execution: ProviderExecutionConfig) -> SemanticEvaluation:
         parsed, usage, diagnostics = self._request(
             instructions="Evaluate only the supplied bounded evidence and trusted rubric. Return no commands, paths, or replacement acceptance criteria.",
-            payload=request, result_type=SemanticEvaluation,
+            payload=request, result_type=SemanticEvaluation, execution=execution,
         )
         result = SemanticEvaluation.model_validate({**parsed, "token_usage": usage, "diagnostics": diagnostics})
         if result.repair_instruction and (len(result.repair_instruction) > 1000 or "\n" in result.repair_instruction or re.search(r"(?i)(\\\\|/|--|\\b(?:python|powershell|cmd|git)\\b|\\.py\\b)", result.repair_instruction)):

@@ -20,9 +20,9 @@ def router() -> ModelRouter:
     return ModelRouter(load_model_profile_registry(PROFILES))
 
 
-def request(*, role=RoutingRole.CODEX, complexity=TaskComplexity.NORMAL, attempts=0, failure=None, policy=None, input_tokens=1000000, output_tokens=1000000):
+def request(*, role=RoutingRole.CODEX, execution_provider="codex", complexity=TaskComplexity.NORMAL, attempts=0, failure=None, policy=None, input_tokens=1000000, output_tokens=1000000):
     return RoutingRequest(
-        role=role, task_type="code_fix", task_complexity=complexity,
+        role=role, execution_provider=execution_provider, task_type="code_fix", task_complexity=complexity,
         previous_attempt_count=attempts, previous_failure_type=failure,
         context_size=500, remaining_role_input_tokens=input_tokens,
         remaining_role_output_tokens=output_tokens, remaining_day_input_tokens=input_tokens,
@@ -45,6 +45,43 @@ def test_complexity_and_role_defaults_choose_lowest_sufficient_profile():
     assert selected.select(request(role=RoutingRole.ARCHITECT, complexity=TaskComplexity.SIMPLE)).profile_id == "standard"
     assert selected.select(request(role=RoutingRole.EVALUATOR, complexity=TaskComplexity.SIMPLE)).profile_id == "economical"
     assert selected.select(request(role=RoutingRole.EVALUATOR, complexity=TaskComplexity.NORMAL)).profile_id == "standard"
+
+
+def test_provider_mapping_resolves_concrete_openai_execution_and_mock_never_claims_a_model():
+    selected = router()
+    real = selected.select(request(role=RoutingRole.ARCHITECT, execution_provider="openai"))
+    assert (real.profile_id, real.provider, real.model, real.reasoning_effort) == ("standard", "openai", "gpt-5.6-terra", "medium")
+    assert (real.timeout_seconds, real.max_output_tokens) == (300, 8000)
+    mock = selected.select(request(role=RoutingRole.ARCHITECT, execution_provider="mock"))
+    assert (mock.provider, mock.model, mock.reasoning_effort) == ("mock", None, None)
+
+
+def test_unknown_execution_provider_fails_closed_instead_of_falling_back_to_codex():
+    decision = router().select(request(role=RoutingRole.ARCHITECT, execution_provider="unknown-provider"))
+    assert decision.outcome == "HUMAN_REVIEW"
+
+
+def test_day_runner_passes_the_router_resolved_openai_config_to_the_architect():
+    task = configured_task("A")
+    plan = DayPlan(plan_id="real", title="real", task_ids=["A"], architect_provider="openai")
+    observed = []
+
+    class Architect:
+        def choose(self, request, execution):
+            observed.append((request["routing"], execution.model_dump(mode="json")))
+            return ArchitectDecision(task_id="A", reason="trusted queue")
+
+    result = DayRunner(
+        DayPlanRegistry(plans={"real": plan}), TaskRegistry(tasks={"A": task}),
+        lambda task_id, **kwargs: {"task_id": task_id, "final_result": "COMPLETE_NO_CHANGE", "codex_invoked": False, "codex_attempts": []},
+        architects={"openai": Architect()}, model_router=router(),
+        provider_budgets={role: ProviderBudget(daily_input_tokens=100000, daily_output_tokens=100000) for role in ("architect", "evaluator", "codex")},
+    ).start("real")
+    routing, execution = observed[0]
+    assert routing["provider"] == execution["provider"] == "openai"
+    assert routing["model"] == execution["model"] == "gpt-5.6-terra"
+    assert routing["reasoning_effort"] == execution["reasoning_effort"] == "medium"
+    assert result["model_routing_decisions"][0]["model"] == "gpt-5.6-terra"
 
 
 def test_retry_is_not_escalation_but_reasoning_failure_is_bounded_escalation():
@@ -88,8 +125,9 @@ def test_day_runner_persists_router_selection_and_profile_token_accounting():
     persisted = []
 
     class Architect:
-        def choose(self, request):
+        def choose(self, request, execution):
             assert request["routing"]["profile_id"] == "standard"
+            assert (execution.provider, execution.model) == ("mock", None)
             return ArchitectDecision(task_id="A", reason="trusted queue", task_complexity="complex", token_usage=TokenUsage(input_tokens=20, cached_input_tokens=5, output_tokens=3, available=True))
 
     def execute(task_id, **kwargs):
