@@ -84,6 +84,11 @@ def test_nonzero_exit_keeps_utf8_stderr_and_exit_code(monkeypatch, tmp_path):
     assert result.diagnostics.event_types == ["thread.started"]
 
 
+def test_error_event_records_a_bounded_first_error_message():
+    parsed = CodexRunner.parse_jsonl('{"type":"error","message":"sandbox denied"}')
+    assert parsed.first_error_event == "sandbox denied"
+
+
 def test_executable_not_found_is_structured_error(tmp_path):
     workspace = SmokeWorkspace(tmp_path / "smoke")
     run = workspace.create_run()
@@ -135,6 +140,19 @@ def test_real_smoke_uses_workspace_write_with_controlled_process_arguments(monke
     assert result.diagnostics.turn_started
     assert result.diagnostics.turn_completed
     assert result.token_usage.available
+
+
+def test_isolated_file_change_uses_only_direct_child_target(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        "backend.runners.codex.subprocess.run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(args[0], 0, stdout='{"type":"turn.completed"}', stderr=""),
+    )
+    workdir = tmp_path / "fixture"
+    workdir.mkdir()
+    result = RealCodexRunner(real_config()).run_isolated_file_change(workdir, workdir / "status.txt", "PASS")
+    assert result.status == "completed"
+    rejected = RealCodexRunner(real_config()).run_isolated_file_change(workdir, tmp_path / "status.txt", "PASS")
+    assert rejected.error_code == "SMOKE_TARGET_OUTSIDE_WORKSPACE"
 
 
 def test_windows_executable_is_resolved_before_execution(monkeypatch):

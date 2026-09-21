@@ -31,6 +31,7 @@ class ProcessDiagnostics(BaseModel):
     invalid_json_lines: int = Field(default=0, ge=0)
     invalid_line_summary: str | None = None
     event_types: list[str] = Field(default_factory=list)
+    first_error_event: str | None = None
     thread_started: bool = False
     turn_started: bool = False
     turn_completed: bool = False

@@ -25,6 +25,7 @@ class JsonlParseResult(BaseModel):
     invalid_line_summary: str | None = None
     token_usage: TokenUsage = Field(default_factory=TokenUsage)
     event_types: list[str] = Field(default_factory=list)
+    first_error_event: str | None = None
     thread_started: bool = False
     turn_started: bool = False
     turn_completed: bool = False
@@ -107,6 +108,8 @@ class CodexRunner:
                 parsed.turn_completed = parsed.turn_completed or event_type == "turn.completed"
                 parsed.turn_failed = parsed.turn_failed or event_type == "turn.failed"
                 parsed.error_event = parsed.error_event or event_type == "error"
+                if event_type in {"turn.failed", "error"} and parsed.first_error_event is None:
+                    parsed.first_error_event = str(payload.get("message") or payload.get("error") or event_type)[:MAX_INVALID_LINE_CHARS]
             usage = cls._usage_from_payload(payload)
             if usage.available:
                 latest_usage = usage
@@ -160,6 +163,25 @@ class RealCodexRunner(CodexRunner):
 
     def run_smoke(self, smoke_directory: Path, target: Path) -> ExecutionResult:
         prompt = f"Create {target.name} in the current working directory containing exactly this text and no newline: {SMOKE_CONTENT}"
+        return self._run_isolated_file_change(smoke_directory, target, prompt)
+
+    def run_isolated_file_change(self, working_directory: Path, target: Path, expected_content: str) -> ExecutionResult:
+        prompt = (
+            f"Change {target.name} in the current directory so that its exact content is:\n"
+            f"{expected_content}\n"
+            "Do not modify any other file. No explanation is required."
+        )
+        return self._run_isolated_file_change(working_directory, target, prompt)
+
+    def _run_isolated_file_change(self, working_directory: Path, target: Path, prompt: str) -> ExecutionResult:
+        smoke_directory = working_directory.resolve()
+        if target.resolve().parent != smoke_directory:
+            return ExecutionResult(
+                status="failed",
+                test_result="not_run",
+                summary="Codex target must be a direct child of the isolated working directory.",
+                error_code="SMOKE_TARGET_OUTSIDE_WORKSPACE",
+            )
         executable_path, command = self.build_smoke_command(prompt)
         codex_home = self.resolve_codex_home()
         if codex_home is None:
@@ -341,6 +363,7 @@ class RealCodexRunner(CodexRunner):
             invalid_json_lines=parsed.malformed_lines if parsed else 0,
             invalid_line_summary=parsed.invalid_line_summary if parsed else None,
             event_types=parsed.event_types if parsed else [],
+            first_error_event=parsed.first_error_event if parsed else None,
             thread_started=parsed.thread_started if parsed else False,
             turn_started=parsed.turn_started if parsed else False,
             turn_completed=parsed.turn_completed if parsed else False,

@@ -23,3 +23,9 @@ def test_status_includes_timeline_for_dashboard_rendering(client):
     response = client.get("/api/status")
     assert "timeline" in response.json()
     assert isinstance(response.json()["timeline"], list)
+
+
+def test_codex_smoke_endpoint_does_not_accept_browser_supplied_commands(client):
+    response = client.post("/api/run/codex-smoke", json={"command": "unsafe", "prompt": "unsafe"})
+    assert response.status_code == 200
+    assert response.json()["error_code"] == "REAL_MODE_REQUIRED"

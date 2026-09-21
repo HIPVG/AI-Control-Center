@@ -1,4 +1,4 @@
 codex:
   mode: mock
-  executable: codex
+  executable: C:\Users\広瀬剛\AppData\Local\OpenAI\Codex\bin\247581e40ee272fb\codex.exe
   timeout_seconds: 300
