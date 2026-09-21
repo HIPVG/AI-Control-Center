@@ -28,7 +28,7 @@
     "M24"
   ],
   "blocked_milestones": [],
-  "human_gate": "AUTONOMOUS_RECOVERY_VALIDATION",
+  "human_gate": "AUTONOMOUS_RECOVERY_AND_CONTINUE_VALIDATION",
   "latest_test_result": "163 passed, 3 warnings",
   "latest_commit": "f466661",
   "remote_push_state": "pushed",
@@ -40,7 +40,7 @@
     "uncached_input_tokens": 18454,
     "output_tokens": 82
   },
-  "updated_at": "2026-09-22T06:20:00+09:00",
+  "updated_at": "2026-09-22T06:30:00+09:00",
   "real_codex_core_continuous_validation": "PASSED",
   "continuous_runtime_evidence": {
     "start_progress_percent": 33.33,
@@ -109,5 +109,13 @@
     "execution": "TRUSTED_LOCAL_LLM_EXPERIMENT",
     "builder_invoked": false,
     "forbidden_goal_rejected_before_execution": true
-  }
+  },
+  "m25_scope": [
+    "SELF_REPAIR",
+    "BOUNDED_REPLAN",
+    "AUTONOMOUS_NEXT_ACTION",
+    "CONTINUE_WITHOUT_REPEATED_GOAL"
+  ],
+  "autonomous_next_action_doc": "docs/AUTONOMOUS_NEXT_ACTION.md",
+  "goal_entry_role": "EXCEPTION_PATH_FOR_DIRECTION_CHANGE"
 }
