@@ -52,3 +52,9 @@ def test_configured_tasks_endpoint_hides_commands_and_task_endpoint_rejects_requ
     selected = client.post("/api/run/task/PC-001-A", json={"command": "unsafe", "path": "C:/unsafe"})
     assert selected.status_code == 200
     assert selected.json()["error_code"] == "REAL_MODE_REQUIRED"
+
+
+def test_discovery_endpoint_accepts_only_a_configured_discovery_id(client):
+    response = client.post("/api/tasks/discover-failing/not-configured", json={"command": "unsafe", "cases": ["unsafe"]})
+    assert response.status_code == 200
+    assert response.json()["error_code"] == "DISCOVERY_NOT_CONFIGURED"

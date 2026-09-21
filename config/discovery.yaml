@@ -1,0 +1,40 @@
+discoveries:
+  process_consistency:
+    discovery_id: process_consistency
+    project_id: local_llm_lab
+    working_directory: .
+    candidate_case_ids:
+      - PC-001-A
+      - PC-001-C
+      - PC-002-A
+      - PC-002-C
+      - PC-003-A
+      - PC-003-C
+      - PC-004-A
+      - PC-004-C
+      - PC-005-A
+      - PC-005-C
+      - PC-006-A
+      - PC-006-C
+      - PC-007-A
+      - PC-007-C
+      - PC-008-A
+      - PC-008-C
+      - PC-009-A
+      - PC-009-C
+      - PC-010-A
+      - PC-010-C
+      - PC-011-A
+      - PC-011-C
+      - PC-012-A
+      - PC-012-C
+    precheck:
+      argv:
+        - python
+        - scripts/run_process_consistency_smoke.py
+        - --dry-run
+        - --cases
+        - '{case_id}'
+        - --output-root
+        - '{artifact_root}'
+    code_fix_error_codes: []

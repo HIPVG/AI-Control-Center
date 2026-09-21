@@ -11,6 +11,7 @@ from backend.agents.evaluator import MockEvaluator
 from backend.agents.triage import MockTriage, TriageDecision
 from backend.control.context_broker import ContextBroker
 from backend.control.projects import ProjectRegistry, load_project_registry
+from backend.control.task_discovery import DeterministicTaskDiscovery, DiscoveryRegistry, FailingTaskDiscoveryResult, load_discovery_registry
 from backend.control.tasks import ConfiguredTask, TaskCommand, TaskRegistry, load_task_registry
 from backend.control.scope_guard import ScopeGuard
 from backend.control.token_budget import BudgetDecision, TokenBudgetManager, load_budget_config
@@ -54,6 +55,7 @@ class ControlCenterEngine:
         real_runner: RealCodexRunner | None = None,
         project_registry: ProjectRegistry | None = None,
         task_registry: TaskRegistry | None = None,
+        discovery_registry: DiscoveryRegistry | None = None,
         worktree_root: Path | None = None,
     ) -> None:
         self.store = state_store
@@ -64,6 +66,7 @@ class ControlCenterEngine:
         self.runtime = runtime_config or load_runtime_config(project_root / "config" / "runtime.yaml")
         self.projects = project_registry or load_project_registry(project_root / "config" / "projects.yaml")
         self.tasks = task_registry or load_task_registry(project_root / "config" / "tasks.yaml")
+        self.discoveries = discovery_registry or load_discovery_registry(project_root / "config" / "discovery.yaml")
         self.worktree_root = (worktree_root or project_root / "state" / "worktrees").resolve()
         self.smoke_workspace = SmokeWorkspace(smoke_root or project_root / "state" / "smoke")
         self.real_runner = real_runner or RealCodexRunner(self.runtime.codex)
@@ -86,6 +89,7 @@ class ControlCenterEngine:
             "token_usage_tracking_version": 1,
             "project_smoke_results": [],
             "task_runs": [],
+            "task_discoveries": [],
             "task_start_completed": {"PC-014": 18},
             "task_progress": calculate_progress(task_completed, task_total),
             "current_task": {"task_id": "PC-014", "title": "Evidence Grounding", "completed": task_completed, "total": task_total, "retry": 0, "max_retry": 2},
@@ -249,6 +253,53 @@ class ControlCenterEngine:
 
     def configured_tasks(self) -> list[dict[str, str]]:
         return self.tasks.metadata()
+
+    def discover_failing_task(self, discovery_id: str) -> dict[str, Any]:
+        """Run trusted, deterministic candidate checks without invoking Codex."""
+        definition = self.discoveries.get(discovery_id)
+        started = datetime.now(timezone.utc)
+        run_id = uuid4().hex
+        if definition is None:
+            return self._discovery_finish(FailingTaskDiscoveryResult(
+                run_id=run_id, discovery_id=discovery_id, project_id="unconfigured", started_at=started,
+                completed_at=datetime.now(timezone.utc), final_result="FAILED", error_code="DISCOVERY_NOT_CONFIGURED",
+            ))
+        project = self.projects.get(definition.project_id)
+        if project is None:
+            return self._discovery_finish(FailingTaskDiscoveryResult(
+                run_id=run_id, discovery_id=discovery_id, project_id=definition.project_id, started_at=started,
+                completed_at=datetime.now(timezone.utc), final_result="FAILED", error_code="DISCOVERY_PROJECT_NOT_CONFIGURED",
+            ))
+        source_root = project.path.resolve()
+        validation_error, _ = self._validate_project_repository(source_root)
+        if validation_error:
+            return self._discovery_finish(FailingTaskDiscoveryResult(
+                run_id=run_id, discovery_id=discovery_id, project_id=definition.project_id, started_at=started,
+                completed_at=datetime.now(timezone.utc), final_result="FAILED", error_code=validation_error,
+            ))
+        try:
+            working_directory = self._task_working_directory(source_root, definition.working_directory)
+        except ValueError:
+            return self._discovery_finish(FailingTaskDiscoveryResult(
+                run_id=run_id, discovery_id=discovery_id, project_id=definition.project_id, started_at=started,
+                completed_at=datetime.now(timezone.utc), final_result="FAILED", error_code="DISCOVERY_WORKING_DIRECTORY_ESCAPE",
+            ))
+        self._event("DISCOVERY", AuditEventType.DETERMINISTIC_CHECK, f"{discovery_id} deterministic candidate discovery started", details={"candidate_count": len(definition.candidate_case_ids)})
+        result = DeterministicTaskDiscovery().discover(
+            definition,
+            run_id=run_id,
+            started_at=started,
+            run_command=self._run_task_command,
+            working_directory=working_directory,
+            artifact_root=self._discovery_artifact_root(run_id),
+        )
+        self._event("DISCOVERY", AuditEventType.DETERMINISTIC_CHECK, f"{discovery_id} discovery {result.final_result}", details={"cases_checked": len(result.cases), "selected_case_id": result.selected_case_id})
+        return self._discovery_finish(result)
+
+    def _discovery_finish(self, result: FailingTaskDiscoveryResult) -> dict[str, Any]:
+        self.data.setdefault("task_discoveries", []).append(result.model_dump(mode="json"))
+        self._save()
+        return result.model_dump(mode="json")
 
     def run_codex_smoke(self) -> dict[str, Any]:
         task_id = "CODEX-SMOKE"
@@ -814,6 +865,15 @@ class ControlCenterEngine:
             root.relative_to(managed_root)
         except ValueError as exc:
             raise ValueError("task artifact path escaped managed state") from exc
+        return root
+
+    def _discovery_artifact_root(self, run_id: str) -> Path:
+        root = (self.project_root / "state" / "task-discovery" / run_id).resolve()
+        managed_root = (self.project_root / "state" / "task-discovery").resolve()
+        try:
+            root.relative_to(managed_root)
+        except ValueError as exc:
+            raise ValueError("discovery artifact path escaped managed state") from exc
         return root
 
     def _run_task_command(self, command: TaskCommand, cwd: Path, artifact_root: Path) -> CommandRunResult:

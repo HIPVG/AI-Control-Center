@@ -72,3 +72,8 @@ def configured_tasks() -> list[dict]:
 @app.post("/api/run/task/{task_id}")
 def run_task(task_id: str) -> dict:
     return engine.run_task(task_id)
+
+
+@app.post("/api/tasks/discover-failing/{discovery_id}")
+def discover_failing_task(discovery_id: str) -> dict:
+    return engine.discover_failing_task(discovery_id)

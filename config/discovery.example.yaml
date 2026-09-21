@@ -1,0 +1,9 @@
+discoveries:
+  example_discovery:
+    discovery_id: example_discovery
+    project_id: example_project
+    working_directory: .
+    candidate_case_ids: [CASE-001]
+    precheck:
+      argv: [python, scripts/check_case.py, --case, '{case_id}', --output-root, '{artifact_root}']
+    code_fix_error_codes: [ASSERTION_FAILURE]
