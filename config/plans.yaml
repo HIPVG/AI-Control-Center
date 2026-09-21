@@ -29,6 +29,9 @@ plans:
     max_repair_loops_per_task: 1
     max_failed_tasks: 1
     stop_on_human_review: true
+    allowed_profile_ids: [economical, standard, deep]
+    allow_profile_budget_downgrade: false
+    max_profile_escalation_level: 2
   week1-day3-local-llm-real-architect:
     plan_id: week1-day3-local-llm-real-architect
     title: Week 1 Day 3 LocalLLM real Architect validation
@@ -45,3 +48,25 @@ plans:
     max_repair_loops_per_task: 1
     max_failed_tasks: 1
     stop_on_human_review: true
+    allowed_profile_ids: [economical, standard, deep]
+    allow_profile_budget_downgrade: false
+    max_profile_escalation_level: 2
+  week1-day3-local-llm-v2-real-architect:
+    plan_id: week1-day3-local-llm-v2-real-architect
+    title: Week 1 Day 3 LocalLLM multi-task real Architect validation
+    task_ids: [PC-001-A, PC-001-C, PC-002-A]
+    architect_provider: openai
+    evaluator_provider: mock
+    single_step_default: true
+    continuous_mode_supported: true
+    validation_day: 3
+    max_tasks_per_run: 3
+    max_codex_calls: 3
+    max_architect_calls: 4
+    max_evaluator_calls: 0
+    max_repair_loops_per_task: 1
+    max_failed_tasks: 1
+    stop_on_human_review: true
+    allowed_profile_ids: [economical, standard, deep]
+    allow_profile_budget_downgrade: false
+    max_profile_escalation_level: 2

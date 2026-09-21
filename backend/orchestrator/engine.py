@@ -11,6 +11,7 @@ from backend.agents.day_providers import MockDayArchitect, MockSemanticEvaluator
 from backend.agents.evaluator import MockEvaluator
 from backend.agents.triage import MockTriage, TriageDecision
 from backend.control.context_broker import ContextBroker
+from backend.control.model_router import ModelRouter, load_model_profile_registry
 from backend.control.orchestration import load_orchestration_config
 from backend.control.faults import FaultProfile, FaultRegistry, load_fault_registry, locate_qa_shipment_gt_operator
 from backend.control.projects import ProjectRegistry, load_project_registry
@@ -21,6 +22,7 @@ from backend.control.scope_guard import ScopeGuard
 from backend.control.token_budget import BudgetDecision, TokenBudgetManager, load_budget_config
 from backend.models.audit import AuditEvent, AuditEventType
 from backend.models.day import DayExecutionMode
+from backend.models.orchestration import ProviderBudget
 from backend.models.result import TokenUsage
 from backend.models.runtime import CodexAttemptResult, CodexMode, CommandRunResult, FaultRepairResult, ProjectSmokeResult, RuntimeConfig, SmokeRunResult, TaskRunResult, load_runtime_config
 from backend.models.state import RunState, WorkflowState
@@ -76,6 +78,8 @@ class ControlCenterEngine:
         self.tasks = task_registry or load_task_registry(project_root / "config" / "tasks.yaml")
         self.plans = plan_registry or load_plan_registry(project_root / "config" / "plans.yaml")
         self.orchestration = load_orchestration_config(project_root / "config" / "orchestration.yaml")
+        self.model_profiles = load_model_profile_registry(project_root / "config" / "model_profiles.yaml")
+        self.model_router = ModelRouter(self.model_profiles)
         self.discoveries = discovery_registry or load_discovery_registry(project_root / "config" / "discovery.yaml")
         self.faults = fault_registry or load_fault_registry(project_root / "config" / "faults.yaml")
         self.worktree_root = (worktree_root or project_root / "state" / "worktrees").resolve()
@@ -87,7 +91,16 @@ class ControlCenterEngine:
             self.plans, self.tasks, self._run_day_task,
             architects={"mock": MockDayArchitect(), "openai": OpenAIDayArchitect(self.orchestration.orchestration.architect)},
             evaluators={"mock": MockSemanticEvaluator(), "openai": OpenAISemanticEvaluator(self.orchestration.orchestration.evaluator)},
-            provider_budgets={"architect": self.orchestration.orchestration.architect_budget, "evaluator": self.orchestration.orchestration.evaluator_budget},
+            provider_budgets={
+                "architect": self.orchestration.orchestration.architect_budget,
+                "evaluator": self.orchestration.orchestration.evaluator_budget,
+                "codex": ProviderBudget(
+                    daily_input_tokens=self.budgets.config.codex.daily_input_tokens,
+                    daily_output_tokens=self.budgets.config.codex.daily_output_tokens,
+                    max_calls=50,
+                ),
+            },
+            model_router=self.model_router,
             persist=self._save_day_state, audit=self._day_audit,
             saved=self.data.get("day_orchestration"),
         )
@@ -291,9 +304,11 @@ class ControlCenterEngine:
     def day_status(self) -> dict[str, Any]:
         return self.day_runner.view()
 
-    def _run_day_task(self, task_id: str, max_codex_attempts: int | None = None, repair_instruction: str | None = None) -> dict[str, Any]:
+    def _run_day_task(self, task_id: str, max_codex_attempts: int | None = None, repair_instruction: str | None = None, routing_decision: dict[str, Any] | None = None) -> dict[str, Any]:
         # The current configured real task set is deterministic. Semantic task
         # adapters may consume this bounded instruction in a later integration.
+        # Codex CLI capability mapping is intentionally not guessed: profile
+        # selection is audited by DayRunner and does not invent CLI arguments.
         return self.run_task(task_id, max_codex_attempts=max_codex_attempts)
 
     def _save_day_state(self, snapshot: dict[str, Any]) -> None:

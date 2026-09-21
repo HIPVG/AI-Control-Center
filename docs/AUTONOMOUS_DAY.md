@@ -13,7 +13,9 @@ definitions from the browser.
 - Semantic tasks receive only a bounded structured result and configured metric
   names. A `REPAIR` decision is bounded by the plan's repair-loop limit.
 - Architect, evaluator, and Codex call counts are persisted and guarded. Role
-  token usage is persisted separately.
+  token usage is persisted separately. Before every provider/Codex path, the
+  trusted ModelRouter selects and persists the lowest allowed logical profile;
+  profile token totals and bounded escalation reasons are persisted separately.
 - Any provider error, unknown selection, cap breach, or review result enters
   the Human Review queue and stops the plan.
 
@@ -48,6 +50,22 @@ work. Day and overall progress are calculated from terminal queue tasks.
 The completed historical one-task `week1-day3-local-llm` plan remains unchanged.
 `week1-day3-local-llm-real-architect` is opt-in and fails with a typed provider
 configuration error until credentials and a model are explicitly configured.
+`week1-day3-local-llm-v2-real-architect` is the equivalent three-task variant.
+For a normal PowerShell production session, set `OPENAI_API_KEY`,
+`AI_CONTROL_CENTER_ARCHITECT_PROVIDER=openai`, and
+`AI_CONTROL_CENTER_ARCHITECT_MODEL` before starting `scripts/start.ps1`.
+Evaluator overrides use the corresponding `..._EVALUATOR_PROVIDER` and
+`..._EVALUATOR_MODEL` names. These values are read at startup and are never
+persisted as diagnostics or state.
+
+## Model routing boundary
+
+`config/model_profiles.yaml` holds stable logical profiles (`economical`,
+`standard`, `deep`). The router consumes trusted plan policy and remaining
+budgets, but cannot alter task scope, commands, acceptance criteria, retries,
+or budgets. The current Codex CLI runner does not receive guessed model or
+reasoning flags: profile selection is audited while provider-specific transport
+mapping remains explicitly configured and opt-in.
 
 ## Semantic task discovery
 

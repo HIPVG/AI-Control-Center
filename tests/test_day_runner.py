@@ -37,6 +37,14 @@ def test_multi_task_plan_loads_without_reinterpreting_historical_plan():
     assert config.orchestration.evaluator.provider == "mock"
 
 
+def test_provider_environment_overrides_are_explicit_and_do_not_require_credentials(monkeypatch):
+    monkeypatch.setenv("AI_CONTROL_CENTER_ARCHITECT_PROVIDER", "openai")
+    monkeypatch.setenv("AI_CONTROL_CENTER_ARCHITECT_MODEL", "configured-test-model")
+    config = load_orchestration_config(Path("config/orchestration.yaml"))
+    assert config.orchestration.architect.provider == "openai"
+    assert config.orchestration.architect.model == "configured-test-model"
+
+
 def test_single_step_pauses_after_first_task_then_completes_final_task_with_progress():
     calls = []
 

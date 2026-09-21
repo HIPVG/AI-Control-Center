@@ -6,6 +6,7 @@ from uuid import uuid4
 from pydantic import BaseModel, Field
 
 from backend.models.result import TokenUsage
+from backend.models.model_routing import ProfileTokenUsage, RoutingDecision
 
 
 class DayRunState(str, Enum):
@@ -41,6 +42,7 @@ class ArchitectDecision(BaseModel):
     task_id: str | None = None
     reason: str = Field(min_length=1, max_length=1000)
     priority: int | None = Field(default=None, ge=0, le=100)
+    task_complexity: Literal["simple", "normal", "complex"] | None = None
     token_usage: TokenUsage = Field(default_factory=TokenUsage)
     diagnostics: dict[str, object] = Field(default_factory=dict)
 
@@ -71,6 +73,9 @@ class DayPlan(BaseModel):
     max_repair_loops_per_task: int = Field(default=1, ge=0, le=10)
     max_failed_tasks: int = Field(default=1, ge=0, le=100)
     stop_on_human_review: bool = True
+    allowed_profile_ids: list[str] = Field(default_factory=lambda: ["economical", "standard", "deep"])
+    allow_profile_budget_downgrade: bool = False
+    max_profile_escalation_level: int = Field(default=2, ge=0, le=2)
 
 
 class DayPlanRegistry(BaseModel):
@@ -133,4 +138,7 @@ class DayRunSnapshot(BaseModel):
     token_usage: dict[str, TokenUsage] = Field(default_factory=lambda: {
         "architect": TokenUsage(), "codex": TokenUsage(), "evaluator": TokenUsage(),
     })
+    profile_token_usage: dict[str, ProfileTokenUsage] = Field(default_factory=dict)
+    model_routing_decisions: list[RoutingDecision] = Field(default_factory=list)
+    deterministic_zero_usage_task_ids: list[str] = Field(default_factory=list)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

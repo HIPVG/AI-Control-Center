@@ -9,6 +9,7 @@ The project separates planning, deterministic checks, Codex implementation, auto
 - Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - Agent rules: [AGENTS.md](AGENTS.md)
 - Model / reasoning routing: [docs/MODEL_ROUTING.md](docs/MODEL_ROUTING.md)
+- Autonomous Day operation: [docs/AUTONOMOUS_DAY.md](docs/AUTONOMOUS_DAY.md)
 - Initial Codex implementation prompt: [prompts/CODEX_BOOTSTRAP.md](prompts/CODEX_BOOTSTRAP.md)
 
 ## Core operating principle
@@ -22,6 +23,26 @@ Human                = Decide
 ```
 
 The first implementation milestone is v0.1: a local FastAPI + HTML/JavaScript dashboard with mock orchestration, state management, token accounting, progress display, and safety guards.
+
+## Local launch and Day validation
+
+Use the project launchers on `127.0.0.1:8000`:
+
+```powershell
+& C:\AI-Control-Center\scripts\start_dev.ps1
+```
+
+For a non-reloading production-style server, use `& C:\AI-Control-Center\scripts\start.ps1`.
+The mock Day plan can then be run one deterministic task at a time:
+
+```powershell
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/api/day/start/week1-day3-local-llm-v2?mode=single-step | ConvertTo-Json -Depth 20
+```
+
+`config/model_profiles.yaml` defines the logical reasoning profiles. Real
+providers remain opt-in through `OPENAI_API_KEY` and explicit
+`config/orchestration.yaml` model configuration; no credential or network call
+is made during normal mock validation.
 
 ## Real Codex smoke
 

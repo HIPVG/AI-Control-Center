@@ -1,0 +1,25 @@
+model_profiles:
+  economical:
+    provider: codex
+    model: terra
+    reasoning_effort: low
+    timeout_seconds: 120
+    max_output_tokens: 4000
+    estimated_input_tokens: 12000
+    estimated_output_tokens: 2000
+  standard:
+    provider: codex
+    model: terra
+    reasoning_effort: medium
+    timeout_seconds: 300
+    max_output_tokens: 8000
+    estimated_input_tokens: 24000
+    estimated_output_tokens: 4000
+  deep:
+    provider: codex
+    model: terra
+    reasoning_effort: high
+    timeout_seconds: 600
+    max_output_tokens: 12000
+    estimated_input_tokens: 40000
+    estimated_output_tokens: 8000

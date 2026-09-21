@@ -3,25 +3,31 @@ from typing import Any, Callable, Protocol
 
 from backend.agents.day_providers import DayArchitect, DayEvaluator, MockDayArchitect, MockSemanticEvaluator
 from backend.control.tasks import ConfiguredTask, TaskRegistry
+from backend.control.model_router import ModelRouter, accumulate_profile_usage
 from backend.models.day import DayExecutionMode, DayPlan, DayPlanRegistry, DayRunSnapshot, DayRunState, HumanReviewItem, QueueTaskState, QueuedTask
+from backend.models.model_routing import FailureType, RoutingDecision, RoutingPolicy, RoutingRequest, RoutingRole, TaskComplexity
 from backend.models.orchestration import ProviderBudget
 from backend.models.result import TokenUsage
 
 
 class DayTaskExecutor(Protocol):
-    def __call__(self, task_id: str, max_codex_attempts: int | None = None, repair_instruction: str | None = None) -> dict[str, Any]: ...
+    def __call__(self, task_id: str, max_codex_attempts: int | None = None, repair_instruction: str | None = None, routing_decision: dict[str, Any] | None = None) -> dict[str, Any]: ...
 
 
 class DayRunner:
     """Persistent scheduler; it delegates every build action to the guarded task engine."""
 
-    def __init__(self, plans: DayPlanRegistry, tasks: TaskRegistry, execute_task: DayTaskExecutor, *, architects: dict[str, DayArchitect] | None = None, evaluators: dict[str, DayEvaluator] | None = None, provider_budgets: dict[str, ProviderBudget] | None = None, persist: Callable[[dict[str, Any]], None] | None = None, audit: Callable[[str, str, dict[str, Any]], None] | None = None, saved: dict[str, Any] | None = None) -> None:
+    def __init__(self, plans: DayPlanRegistry, tasks: TaskRegistry, execute_task: DayTaskExecutor, *, architects: dict[str, DayArchitect] | None = None, evaluators: dict[str, DayEvaluator] | None = None, provider_budgets: dict[str, ProviderBudget] | None = None, model_router: ModelRouter | None = None, persist: Callable[[dict[str, Any]], None] | None = None, audit: Callable[[str, str, dict[str, Any]], None] | None = None, saved: dict[str, Any] | None = None) -> None:
         self.plans, self.tasks, self.execute_task = plans, tasks, execute_task
         self.architects = architects or {"mock": MockDayArchitect()}
         self.evaluators = evaluators or {"mock": MockSemanticEvaluator()}
         self.provider_budgets = provider_budgets or {"architect": ProviderBudget(), "evaluator": ProviderBudget()}
+        self.model_router = model_router
         self.persist, self.audit = persist, audit
         self.snapshot = DayRunSnapshot.model_validate(saved or {})
+        if self.model_router:
+            for profile_id in self.model_router.profiles.model_profiles:
+                self.snapshot.profile_token_usage.setdefault(profile_id, self._empty_profile_usage())
         if self.snapshot.state == DayRunState.RUNNING:
             self.snapshot.state, self.snapshot.stop_reason = DayRunState.PAUSED, "INTERRUPTED_REQUIRES_RESUME"
             self._save()
@@ -33,6 +39,10 @@ class DayRunner:
             "codex": self.snapshot.token_usage["codex"].total_tokens,
             "evaluator": self.snapshot.token_usage["evaluator"].total_tokens,
             "day_total": sum(usage.total_tokens for usage in self.snapshot.token_usage.values()),
+        }
+        value["profile_token_totals"] = {
+            profile_id: usage.gross_input_tokens + usage.output_tokens
+            for profile_id, usage in self.snapshot.profile_token_usage.items()
         }
         return value
 
@@ -89,19 +99,26 @@ class DayRunner:
             return
         if not self._provider_precheck("architect", self.snapshot.architect_calls):
             return
+        routing = self._select_profile(
+            plan, RoutingRole.ARCHITECT, task_type="day_planning", complexity=TaskComplexity.NORMAL,
+            previous_attempt_count=0, previous_failure_type=None, context_size=len(self.snapshot.queue),
+        )
+        if routing is None:
+            return
         architect = self.architects.get(plan.architect_provider)
         if architect is None:
             self._human_review("SYSTEM", "ARCHITECT_PROVIDER_NOT_CONFIGURED")
             return
         self.snapshot.architect_calls += 1
         try:
-            decision = architect.choose(self._architect_request(plan))
+            decision = architect.choose(self._architect_request(plan, routing))
         except RuntimeError as exc:
             self._human_review("SYSTEM", f"ARCHITECT_PROVIDER_ERROR:{type(exc).__name__}")
             return
         self._add_usage("architect", decision.token_usage)
+        self._add_profile_usage(routing, decision.token_usage, decision.diagnostics)
         self._provider_overage("architect")
-        self._audit("SYSTEM", "DAY_ARCHITECT_DECISION", {"decision": decision.decision, "task_id": decision.task_id, "reason": decision.reason, "diagnostics": decision.diagnostics})
+        self._audit("SYSTEM", "DAY_ARCHITECT_DECISION", {"decision": decision.decision, "task_id": decision.task_id, "reason": decision.reason, "task_complexity": decision.task_complexity, "diagnostics": decision.diagnostics, "routing": routing.model_dump(mode="json")})
         if decision.decision == "STOP_DAY":
             self._stop("ARCHITECT_STOP_DAY")
             return
@@ -125,21 +142,34 @@ class DayRunner:
             self._audit(item.task_id, "DAY_TASK_RESULT", {"final_result": "SKIPPED", "reason": decision.reason})
             self._after_task(plan)
             return
-        self._execute_one(plan, item)
+        complexity = TaskComplexity(decision.task_complexity or "normal")
+        self._execute_one(plan, item, task_complexity=complexity)
 
-    def _execute_one(self, plan: DayPlan, item: QueuedTask, repair_instruction: str | None = None) -> None:
+    def _execute_one(self, plan: DayPlan, item: QueuedTask, repair_instruction: str | None = None, task_complexity: TaskComplexity = TaskComplexity.NORMAL, previous_failure_type: FailureType | None = None) -> None:
         task = self.tasks.get(item.task_id)
         assert task is not None
         remaining_codex = plan.max_codex_calls - self.snapshot.codex_calls
         if task.requires_codex and remaining_codex <= 0:
             self._stop("MAX_CODEX_CALLS_REACHED")
             return
+        routing = self._select_profile(
+            plan, RoutingRole.CODEX, task_type=task.task_type.value, complexity=task_complexity,
+            previous_attempt_count=item.attempts, previous_failure_type=previous_failure_type,
+            context_size=task.context_max_characters,
+        )
+        if routing is None:
+            return
         item.state, item.attempts, item.updated_at = QueueTaskState.RUNNING, item.attempts + 1, datetime.now(timezone.utc)
         self._save()
-        result = self.execute_task(item.task_id, max_codex_attempts=remaining_codex, repair_instruction=repair_instruction)
+        result = self.execute_task(item.task_id, max_codex_attempts=remaining_codex, repair_instruction=repair_instruction, routing_decision=routing.model_dump(mode="json"))
         self.snapshot.codex_calls += len(result.get("codex_attempts", []))
-        self._add_usage("codex", TokenUsage(input_tokens=int(result.get("gross_input_tokens", 0)), cached_input_tokens=int(result.get("cached_input_tokens", 0)), output_tokens=int(result.get("output_tokens", 0)), available=bool(result.get("codex_invoked"))))
-        self._audit(item.task_id, "DAY_TASK_RESULT", {"final_result": result.get("final_result"), "codex_invoked": result.get("codex_invoked", False), "error_code": result.get("error_code"), "result_reference": result.get("run_id")})
+        usage = TokenUsage(input_tokens=int(result.get("gross_input_tokens", 0)), cached_input_tokens=int(result.get("cached_input_tokens", 0)), output_tokens=int(result.get("output_tokens", 0)), available=bool(result.get("codex_invoked")))
+        self._add_usage("codex", usage)
+        if result.get("codex_invoked"):
+            self._add_profile_usage(routing, usage, result.get("diagnostics", {}))
+        else:
+            self._record_deterministic_zero_usage(item.task_id)
+        self._audit(item.task_id, "DAY_TASK_RESULT", {"final_result": result.get("final_result"), "codex_invoked": result.get("codex_invoked", False), "error_code": result.get("error_code"), "result_reference": result.get("run_id"), "routing": routing.model_dump(mode="json")})
         final = result.get("final_result")
         if final == "COMPLETE_NO_CHANGE":
             item.state, item.final_result = QueueTaskState.COMPLETE_NO_CHANGE, final
@@ -167,6 +197,13 @@ class DayRunner:
             return
         if not self._provider_precheck("evaluator", self.snapshot.evaluator_calls):
             return
+        routing = self._select_profile(
+            plan, RoutingRole.EVALUATOR, task_type=task.task_type.value,
+            complexity=TaskComplexity.NORMAL, previous_attempt_count=item.repair_loops,
+            previous_failure_type=None, context_size=len(str(self._bounded_result(result))),
+        )
+        if routing is None:
+            return
         evaluator = self.evaluators.get(plan.evaluator_provider)
         if evaluator is None:
             self._human_review(item.task_id, "EVALUATOR_PROVIDER_NOT_CONFIGURED", result=result)
@@ -174,20 +211,21 @@ class DayRunner:
         self.snapshot.evaluator_calls += 1
         item.evaluator_invoked = True
         try:
-            evaluation = evaluator.evaluate(self._evaluator_request(task, item, result))
+            evaluation = evaluator.evaluate(self._evaluator_request(task, item, result, routing))
         except RuntimeError as exc:
             self._human_review(item.task_id, f"EVALUATOR_PROVIDER_ERROR:{type(exc).__name__}", result=result)
             return
         self._add_usage("evaluator", evaluation.token_usage)
+        self._add_profile_usage(routing, evaluation.token_usage, evaluation.diagnostics)
         self._provider_overage("evaluator")
-        self._audit(item.task_id, "DAY_EVALUATION_RESULT", {"decision": evaluation.decision, "metrics": evaluation.metrics, "blocking_issues": evaluation.blocking_issues, "diagnostics": evaluation.diagnostics})
+        self._audit(item.task_id, "DAY_EVALUATION_RESULT", {"decision": evaluation.decision, "metrics": evaluation.metrics, "blocking_issues": evaluation.blocking_issues, "diagnostics": evaluation.diagnostics, "routing": routing.model_dump(mode="json")})
         if evaluation.decision in {"PASS", "NOT_REQUIRED"}:
             item.state, item.final_result = QueueTaskState.PASS, "COMPLETE"
         elif evaluation.decision == "REPAIR" and item.repair_loops < plan.max_repair_loops_per_task:
             item.repair_loops += 1
             item.state = QueueTaskState.REPAIR_PENDING
             self._save()
-            self._execute_one(plan, item, repair_instruction=evaluation.repair_instruction)
+            self._execute_one(plan, item, repair_instruction=evaluation.repair_instruction, previous_failure_type=FailureType.REASONING)
             return
         else:
             self._human_review(item.task_id, evaluation.reason or "SEMANTIC_EVALUATION_REQUIRES_REVIEW", result=result)
@@ -219,7 +257,73 @@ class DayRunner:
             if warning not in self.snapshot.budget_warnings:
                 self.snapshot.budget_warnings.append(warning)
 
-    def _architect_request(self, plan: DayPlan) -> dict[str, Any]:
+    def _select_profile(
+        self,
+        plan: DayPlan,
+        role: RoutingRole,
+        *,
+        task_type: str,
+        complexity: TaskComplexity,
+        previous_attempt_count: int,
+        previous_failure_type: FailureType | None,
+        context_size: int,
+    ) -> RoutingDecision | None:
+        if self.model_router is None:
+            # Direct unit-test construction may omit the control component; the
+            # production engine always injects it. This compatibility path does
+            # not select a profile or grant any additional authority.
+            return RoutingDecision(
+                outcome="SELECTED", role=role, selection_reason="router not configured for direct test runner",
+                context_size=context_size,
+            )
+        role_budget = self.provider_budgets.get(role.value)
+        role_usage = self.snapshot.token_usage.get(role.value, TokenUsage())
+        day_input = sum(usage.input_tokens for usage in self.snapshot.token_usage.values())
+        day_output = sum(usage.output_tokens for usage in self.snapshot.token_usage.values())
+        remaining_role_input = max((role_budget.daily_input_tokens if role_budget else 0) - role_usage.input_tokens, 0)
+        remaining_role_output = max((role_budget.daily_output_tokens if role_budget else 0) - role_usage.output_tokens, 0)
+        # The Day budget is the sum of configured role budgets; the router cannot raise it.
+        day_input_budget = sum(budget.daily_input_tokens for budget in self.provider_budgets.values())
+        day_output_budget = sum(budget.daily_output_tokens for budget in self.provider_budgets.values())
+        decision = self.model_router.select(RoutingRequest(
+            role=role, task_type=task_type, task_complexity=complexity,
+            previous_attempt_count=previous_attempt_count, previous_failure_type=previous_failure_type,
+            context_size=context_size, remaining_role_input_tokens=remaining_role_input,
+            remaining_role_output_tokens=remaining_role_output,
+            remaining_day_input_tokens=max(day_input_budget - day_input, 0),
+            remaining_day_output_tokens=max(day_output_budget - day_output, 0),
+            plan_policy=RoutingPolicy(
+                allowed_profile_ids=plan.allowed_profile_ids,
+                allow_budget_downgrade=plan.allow_profile_budget_downgrade,
+                max_escalation_level=plan.max_profile_escalation_level,
+            ),
+        ))
+        self.snapshot.model_routing_decisions.append(decision)
+        self._audit("SYSTEM", "DAY_MODEL_ROUTING", decision.model_dump(mode="json"))
+        if decision.outcome != "SELECTED":
+            self._human_review("SYSTEM", f"MODEL_ROUTER:{decision.selection_reason}")
+            return None
+        self._save()
+        return decision
+
+    @staticmethod
+    def _empty_profile_usage():
+        from backend.models.model_routing import ProfileTokenUsage
+        return ProfileTokenUsage()
+
+    def _add_profile_usage(self, routing: RoutingDecision, usage: TokenUsage, diagnostics: dict[str, Any] | None) -> None:
+        if not routing.profile_id:
+            return
+        current = self.snapshot.profile_token_usage.setdefault(routing.profile_id, self._empty_profile_usage())
+        duration_ms = float((diagnostics or {}).get("duration_ms", 0) or 0)
+        self.snapshot.profile_token_usage[routing.profile_id] = accumulate_profile_usage(current, usage, duration_ms)
+
+    def _record_deterministic_zero_usage(self, task_id: str) -> None:
+        if task_id not in self.snapshot.deterministic_zero_usage_task_ids:
+            self.snapshot.deterministic_zero_usage_task_ids.append(task_id)
+            self._audit(task_id, "DAY_DETERMINISTIC_NO_AI", {"token_usage": TokenUsage().model_dump(), "reason": "PRECHECK_PASS"})
+
+    def _architect_request(self, plan: DayPlan, routing: RoutingDecision) -> dict[str, Any]:
         eligible = [item for item in self.snapshot.queue if item.state in {QueueTaskState.PENDING, QueueTaskState.READY, QueueTaskState.REPAIR_PENDING}]
         return {
             "plan_id": plan.plan_id, "validation_day": plan.validation_day,
@@ -229,10 +333,11 @@ class DayRunner:
             "review": [{"task_id": item.task_id, "reason": item.reason} for item in self.snapshot.human_review_queue],
             "remaining_budgets": {"architect_calls": plan.max_architect_calls - self.snapshot.architect_calls, "evaluator_calls": plan.max_evaluator_calls - self.snapshot.evaluator_calls, "codex_calls": plan.max_codex_calls - self.snapshot.codex_calls},
             "stop_conditions": {"max_tasks_per_run": plan.max_tasks_per_run, "max_failed_tasks": plan.max_failed_tasks},
+            "routing": routing.model_dump(mode="json"),
         }
 
-    def _evaluator_request(self, task: ConfiguredTask, item: QueuedTask, result: dict[str, Any]) -> dict[str, Any]:
-        return {"task_id": task.task_id, "task_goal": task.title, "acceptance_criteria": " ".join(task.postcheck.argv), "precheck": result.get("precheck_result"), "postcheck": result.get("postcheck_result"), "scope_guard": result.get("scope_guard_result"), "changed_files": result.get("changed_files", []), "evidence": self._bounded_result(result), "rubric": {"metrics": task.evaluation_metrics}, "repair_attempt": item.repair_loops}
+    def _evaluator_request(self, task: ConfiguredTask, item: QueuedTask, result: dict[str, Any], routing: RoutingDecision) -> dict[str, Any]:
+        return {"task_id": task.task_id, "task_goal": task.title, "acceptance_criteria": " ".join(task.postcheck.argv), "precheck": result.get("precheck_result"), "postcheck": result.get("postcheck_result"), "scope_guard": result.get("scope_guard_result"), "changed_files": result.get("changed_files", []), "evidence": self._bounded_result(result), "rubric": {"metrics": task.evaluation_metrics}, "repair_attempt": item.repair_loops, "routing": routing.model_dump(mode="json")}
 
     @staticmethod
     def _bounded_result(result: dict[str, Any]) -> dict[str, Any]:
