@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import FastAPI, Query
@@ -6,9 +7,12 @@ from fastapi.staticfiles import StaticFiles
 
 from backend.orchestrator.engine import ControlCenterEngine, JsonStateStore
 from backend.models.day import DayExecutionMode
+from backend.control.daily_operation import DailyOperationService
 
 ROOT = Path(__file__).resolve().parent.parent
 engine = ControlCenterEngine(JsonStateStore(ROOT / "state" / "control-center.json"), ROOT / "config" / "budget.yaml")
+daily_operation = DailyOperationService(ROOT)
+started_at = datetime.now(timezone.utc)
 
 app = FastAPI(title="AI Control Center", version="0.1.0")
 app.mount("/static", StaticFiles(directory=ROOT / "frontend"), name="static")
@@ -48,6 +52,24 @@ def token_usage() -> dict:
 @app.get("/api/runtime")
 def runtime() -> dict:
     return engine.runtime_view()
+
+
+@app.get("/api/operation/health")
+def operation_health() -> dict:
+    return {
+        "server_state": "HEALTHY",
+        "started_at": started_at.isoformat(),
+        "day_state": engine.day_status()["state"],
+        "autostart": daily_operation.autostart_status(),
+    }
+
+
+@app.post("/api/operation/autostart/enable")
+def enable_autostart() -> dict:
+    result = daily_operation.enable_autostart()
+    if result.get("action") == "ENABLED":
+        engine.record_autostart_enabled()
+    return result
 
 
 @app.get("/api/day/plans")

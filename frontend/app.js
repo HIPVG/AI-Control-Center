@@ -5,6 +5,17 @@ let configuredPlans = [];
 let latestStatus = null;
 let configuredExperiments = [];
 
+function renderHealth(health) {
+  const autostart = health.autostart ?? {};
+  byId("server-health").textContent = health.server_state ?? "UNAVAILABLE";
+  byId("autostart-status").textContent = autostart.supported
+    ? (autostart.enabled ? "Automatic startup is enabled for this Windows user." : "Automatic startup is not enabled.")
+    : "Automatic startup requires Windows.";
+  const button = byId("enable-autostart");
+  button.disabled = !autostart.supported || Boolean(autostart.enabled);
+  button.textContent = autostart.enabled ? "Automatic startup enabled" : "Enable automatic startup";
+}
+
 function node(tag, text, className) {
   const element = document.createElement(tag);
   element.textContent = text;
@@ -113,12 +124,13 @@ function render(status) {
 }
 
 async function refresh() {
-  const [statusResponse, plansResponse, experimentsResponse] = await Promise.all([fetch("/api/status"), fetch("/api/day/plans"), fetch("/api/experiments")]);
-  if (!statusResponse.ok || !plansResponse.ok || !experimentsResponse.ok) throw new Error("Unable to load Control Center state.");
+  const [statusResponse, plansResponse, experimentsResponse, healthResponse] = await Promise.all([fetch("/api/status"), fetch("/api/day/plans"), fetch("/api/experiments"), fetch("/api/operation/health")]);
+  if (!statusResponse.ok || !plansResponse.ok || !experimentsResponse.ok || !healthResponse.ok) throw new Error("Unable to load Control Center state.");
   renderPlans(await plansResponse.json());
   configuredExperiments = await experimentsResponse.json();
   byId("run-experiment").disabled = configuredExperiments.length === 0;
   render(await statusResponse.json());
+  renderHealth(await healthResponse.json());
 }
 
 byId("refresh").addEventListener("click", () => refresh().catch((error) => { byId("operation-status").textContent = error.message; }));
@@ -159,6 +171,33 @@ byId("run-continuous").addEventListener("click", async () => {
   } finally {
     updateContinuousControl();
   }
+});
+
+byId("stop-day").addEventListener("click", async () => {
+  const button = byId("stop-day");
+  button.disabled = true;
+  byId("operation-status").textContent = "Stopping the active Day…";
+  try {
+    const response = await fetch("/api/day/stop", { method: "POST" });
+    const result = await response.json();
+    if (!response.ok || result.error_code) throw new Error(result.error_code ?? "Day stop request was rejected.");
+    await refresh();
+    byId("operation-status").textContent = "Day is stopped and can be resumed from this dashboard.";
+  } catch (error) { byId("operation-status").textContent = error.message; }
+  finally { button.disabled = false; }
+});
+
+byId("enable-autostart").addEventListener("click", async () => {
+  const button = byId("enable-autostart");
+  button.disabled = true;
+  byId("operation-status").textContent = "Enabling automatic startup for this Windows user…";
+  try {
+    const response = await fetch("/api/operation/autostart/enable", { method: "POST" });
+    const result = await response.json();
+    if (!response.ok || !["ENABLED", "ALREADY_ENABLED"].includes(result.action)) throw new Error("Automatic startup could not be enabled.");
+    await refresh();
+    byId("operation-status").textContent = result.action === "ENABLED" ? "Automatic startup is enabled." : "Automatic startup was already enabled.";
+  } catch (error) { byId("operation-status").textContent = error.message; }
 });
 
 byId("run-experiment").addEventListener("click", async () => {

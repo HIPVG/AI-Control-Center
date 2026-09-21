@@ -28,7 +28,7 @@ branch. Status is tracked in `docs/DEV_PROGRESS.json`.
 | M20 | Real continuous Codex-Core Day | M18 | trusted multi-task Day completes end-to-end without per-task human action | REAL_CODEX_CORE_CONTINUOUS_VALIDATION | COMPLETE |
 | M21 | Exception-driven escalation | M20 | auto-resolve/retry/replan routine failure classes; human only for true authority/external boundaries | BATCH_WITH_M22_EXTERNAL_VALIDATION | COMPLETE |
 | M22 | Real LocalLLM experiment integration | M21 implementation | run an existing trusted LocalLLM-Lab experiment through Control Center, preserve experiment-vs-code semantics, capture artifacts/telemetry | ESCALATION_AND_REAL_LOCAL_LLM_VALIDATION | COMPLETE |
-| M23 | PowerShell-free daily operation | M18, M22 | auto-start/service behavior and dashboard start/resume/stop/health controls | ZERO_COMMAND_DAILY_OPERATION_VALIDATION | IN_PROGRESS |
+| M23 | PowerShell-free daily operation | M18, M22 | auto-start/service behavior and dashboard start/resume/stop/health controls | ZERO_COMMAND_DAILY_OPERATION_VALIDATION | HUMAN_GATE |
 | M24 | Goal-to-Plan | M21, M22 | bounded goal intake → Codex plan → deterministic policy validation → execution | GOAL_TO_PLAN_EXTERNAL_VALIDATION | ROADMAP |
 | M25 | Self-repair and bounded replan | M21, M24 | classify failure → retry/repair/review/replan automatically within limits | AUTONOMOUS_RECOVERY_VALIDATION | ROADMAP |
 | M26 | Automated Git completion | M25 | verified work can commit/push agent branch and prepare PR; no automatic main merge | AUTO_GIT_PR_VALIDATION | ROADMAP |
@@ -88,3 +88,15 @@ External combined M21/M22 validation passed on 2026-09-22:
 - classification: completed.
 
 This closes M21 and M22 and advances development to M23 PowerShell-free daily operation.
+
+
+M23 implementation is ready for external validation:
+- the Dashboard reports bounded server health and user-local automatic-start state;
+- it can explicitly enable the fixed, non-overwriting Windows logon task without
+  accepting browser-supplied commands or paths;
+- Dashboard controls cover configured Day start, continuous resume, stop, and
+  trusted state refresh;
+- the automatic-start choice is audit-recorded and fails closed if Windows Task
+  Scheduler is unavailable;
+- the external check requires only Dashboard interaction plus one normal
+  Windows sign-in to observe automatic server startup.

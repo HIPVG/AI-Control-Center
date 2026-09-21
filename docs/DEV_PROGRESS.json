@@ -27,8 +27,8 @@
   ],
   "blocked_milestones": [],
   "human_gate": "ZERO_COMMAND_DAILY_OPERATION_VALIDATION",
-  "latest_test_result": "153 passed, 2 warnings",
-  "latest_commit": "b947ba4",
+  "latest_test_result": "158 passed, 3 warnings",
+  "latest_commit": "pending-m23-daily-operation-commit",
   "remote_push_state": "pending",
   "safe_semantic_task_found": false,
   "strategy": "ZERO_TOUCH_CONTROL_LOOP",
@@ -38,7 +38,7 @@
     "uncached_input_tokens": 18454,
     "output_tokens": 82
   },
-  "updated_at": "2026-09-22T03:44:00+09:00",
+  "updated_at": "2026-09-22T04:20:00+09:00",
   "real_codex_core_continuous_validation": "PASSED",
   "continuous_runtime_evidence": {
     "start_progress_percent": 33.33,
@@ -80,5 +80,14 @@
     "automatic_retries": 0,
     "action": "No retry",
     "normal_day_unchanged": true
-  }
+  },
+  "m23_implementation": "READY_FOR_EXTERNAL_VALIDATION",
+  "m23_dashboard_controls": [
+    "health",
+    "autostart_enable",
+    "configured_day_start",
+    "continuous_resume",
+    "day_stop"
+  ],
+  "m23_test_result": "158 passed, 3 warnings"
 }

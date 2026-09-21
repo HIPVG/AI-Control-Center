@@ -317,6 +317,15 @@ class ControlCenterEngine:
     def runtime_view(self) -> dict[str, Any]:
         return self.runtime.model_dump(mode="json")
 
+    def record_autostart_enabled(self) -> None:
+        """Persist the explicit local automatic-start choice without OS details."""
+        self._event(
+            "SYSTEM", AuditEventType.DAILY_OPERATION_AUTOSTART,
+            "Windows automatic startup enabled for AI Control Center.",
+            details={"action": "ENABLED"},
+        )
+        self._save()
+
     def configured_tasks(self) -> list[dict[str, str]]:
         return self.tasks.metadata()
 

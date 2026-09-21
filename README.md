@@ -16,6 +16,7 @@ startup requirement.
 - Agent rules: [AGENTS.md](AGENTS.md)
 - Model / reasoning routing: [docs/MODEL_ROUTING.md](docs/MODEL_ROUTING.md)
 - Autonomous Day operation: [docs/AUTONOMOUS_DAY.md](docs/AUTONOMOUS_DAY.md)
+- Daily Dashboard operation: [docs/DAILY_OPERATION.md](docs/DAILY_OPERATION.md)
 - Initial Codex implementation prompt: [prompts/CODEX_BOOTSTRAP.md](prompts/CODEX_BOOTSTRAP.md)
 
 ## Core operating principle
@@ -58,6 +59,15 @@ the queue, `PAUSED` progress, ModelRouter selection, Codex role counts,
 gross/cached/uncached Architect tokens, Human Review, and the audit timeline.
 It never accepts browser-supplied commands, prompts, paths, budgets, or task
 definitions.
+
+## Daily operation
+
+The Dashboard is the normal control surface for start, continuous resume,
+stop, and server health. Its **Enable automatic startup** control optionally
+registers a fixed, user-local Windows logon task; it accepts no browser-supplied
+command or path and never overwrites an existing task. See
+[daily operation](docs/DAILY_OPERATION.md) for the explicit safety boundary and
+browser-only validation steps.
 
 `config/model_profiles.yaml` defines the logical reasoning profiles and their
 concrete provider mappings. Codex Core maps simple/normal/complex work to

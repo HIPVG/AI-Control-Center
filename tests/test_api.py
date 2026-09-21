@@ -6,14 +6,23 @@ from backend.orchestrator.engine import ControlCenterEngine
 from backend.models.runtime import RuntimeConfig
 
 
+class StubDailyOperation:
+    def autostart_status(self):
+        return {"supported": True, "enabled": False, "task_name": "AI Control Center", "state": "NOT_ENABLED"}
+
+    def enable_autostart(self):
+        return {"supported": True, "enabled": True, "task_name": "AI Control Center", "state": "ENABLED", "action": "ENABLED"}
+
+
 @pytest.fixture
 def client(monkeypatch):
     monkeypatch.setattr(control_app, "engine", ControlCenterEngine(runtime_config=RuntimeConfig()))
+    monkeypatch.setattr(control_app, "daily_operation", StubDailyOperation())
     return TestClient(control_app.app)
 
 
 def test_required_endpoints_are_available(client):
-    for path in ("/api/status", "/api/plan", "/api/tasks", "/api/timeline", "/api/token-usage", "/api/runtime", "/api/day/plans", "/api/day/status", "/api/experiments"):
+    for path in ("/api/status", "/api/plan", "/api/tasks", "/api/timeline", "/api/token-usage", "/api/runtime", "/api/operation/health", "/api/day/plans", "/api/day/status", "/api/experiments"):
         assert client.get(path).status_code == 200
     assert client.post("/api/run/mock").status_code == 200
     assert client.post("/api/run/codex-smoke").json()["error_code"] == "REAL_MODE_REQUIRED"
@@ -39,6 +48,9 @@ def test_dashboard_v2_uses_only_configured_day_plan_api_contracts(client):
     script = (control_app.ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
     assert 'id="run-day"' in html
     assert 'id="run-continuous"' in html
+    assert 'id="stop-day"' in html
+    assert 'id="server-health"' in html
+    assert 'id="enable-autostart"' in html
     assert 'id="run-experiment"' in html
     assert 'id="validate-transient"' in html
     assert 'id="validate-runtime"' in html
@@ -46,6 +58,9 @@ def test_dashboard_v2_uses_only_configured_day_plan_api_contracts(client):
     assert 'id="experiment-evidence"' in html
     assert "/api/day/start/" in script
     assert "/api/day/resume?mode=continuous" in script
+    assert 'fetch("/api/day/stop"' in script
+    assert "/api/operation/health" in script
+    assert "/api/operation/autostart/enable" in script
     assert "continuous_mode_supported" in script
     assert "/api/experiments" in script
     assert "/api/validation/escalation/" in script
@@ -83,6 +98,15 @@ def test_status_includes_timeline_for_dashboard_rendering(client):
     response = client.get("/api/status")
     assert "timeline" in response.json()
     assert isinstance(response.json()["timeline"], list)
+
+
+def test_health_and_autostart_endpoints_expose_only_fixed_operation_state(client):
+    health = client.get("/api/operation/health").json()
+    assert health["server_state"] == "HEALTHY"
+    assert health["autostart"]["task_name"] == "AI Control Center"
+    enabled = client.post("/api/operation/autostart/enable").json()
+    assert enabled["action"] == "ENABLED"
+    assert any(event.event_type.value == "DAILY_OPERATION_AUTOSTART" for event in control_app.engine.timeline)
 
 
 def test_codex_smoke_endpoint_does_not_accept_browser_supplied_commands(client):
