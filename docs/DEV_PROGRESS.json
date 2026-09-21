@@ -1,6 +1,6 @@
 {
-  "roadmap_version": 3,
-  "current_milestone": "M21_EXCEPTION_DRIVEN_ESCALATION",
+  "roadmap_version": 4,
+  "current_milestone": "M22_REAL_LOCAL_LLM_EXPERIMENT_INTEGRATION",
   "completed_milestones": [
     "M0",
     "M1",
@@ -24,7 +24,7 @@
     "M20"
   ],
   "blocked_milestones": [],
-  "human_gate": "ESCALATION_POLICY_EXTERNAL_VALIDATION",
+  "human_gate": "ESCALATION_AND_REAL_LOCAL_LLM_VALIDATION",
   "latest_test_result": "148 passed, 2 warnings",
   "latest_commit": "b947ba4",
   "remote_push_state": "pending",
@@ -36,7 +36,7 @@
     "uncached_input_tokens": 18454,
     "output_tokens": 82
   },
-  "updated_at": "2026-09-22T03:20:00+09:00",
+  "updated_at": "2026-09-22T03:35:00+09:00",
   "real_codex_core_continuous_validation": "PASSED",
   "continuous_runtime_evidence": {
     "start_progress_percent": 33.33,
@@ -56,6 +56,8 @@
     "architect_output_tokens": 236,
     "day_total_tokens": 55580
   },
-  "next_milestone_after_current": "M22_REAL_LOCAL_LLM_EXPERIMENT_INTEGRATION",
-  "real_local_llm_integration_doc": "docs/REAL_LOCAL_LLM_INTEGRATION.md"
+  "next_milestone_after_current": "M23_POWERSHELL_FREE_DAILY_OPERATION",
+  "real_local_llm_integration_doc": "docs/REAL_LOCAL_LLM_INTEGRATION.md",
+  "m21_implementation": "READY_FOR_BATCH_VALIDATION",
+  "m21_validation_batched_with": "M22"
 }
