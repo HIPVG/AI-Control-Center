@@ -289,3 +289,21 @@ LocalLLM-Lab `docs/week1-runbook.md`.
 Day 4-7 execution must reuse existing approved LocalLLM-Lab capabilities and
 must stop rather than downloading models, installing benchmark tools, or
 changing context conditions without explicit approval.
+
+
+M29 first external validation on 2026-09-22:
+- Dashboard correctly stopped Day 4 with typed EXTERNAL_ACTION_REQUIRED;
+- observed reason: CROSS_FAMILY_RUNNER_NOT_CONFIGURED;
+- no authority expansion occurred.
+
+Follow-up investigation found LocalLLM-Lab already has the generic trusted
+`scripts/run_experiment.py` orchestration path and cross-family model-matrix
+entries. Therefore M29 should reuse that existing runner rather than introduce a
+second cross-family runner. However, the current Gemma/Llama candidates remain
+design-only/unreviewed and have no configured runtime_model_name, so execution
+must still stop at the approved-runtime/approval boundary until an already
+installed model is explicitly approved and configured.
+
+M29 remains IN_PROGRESS until the Day 4 adapter uses the existing trusted runner
+and the external gate demonstrates either a real approved cross-family run or the
+correct approved-runtime missing boundary.
