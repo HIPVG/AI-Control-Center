@@ -34,7 +34,7 @@ branch. Status is tracked in `docs/DEV_PROGRESS.json`.
 | M26 | Automated Git completion | M25 | verified work can commit/push agent branch and prepare PR; no automatic main merge | AUTO_GIT_PR_VALIDATION | COMPLETE |
 | M27 | Zero-Touch Control Loop | M20–M26 | one goal/start → complete or genuine escalation, with no routine relay/PowerShell | ZERO_TOUCH_EXTERNAL_VALIDATION | COMPLETE |
 | M28 | Japanese Dashboard / UX simplification + runtime readiness | M27 | localize Dashboard, remove redundant controls, and make approved local runtime dependencies such as Ollama preflight/startup part of normal Zero-Touch readiness while preserving English API/state/audit identifiers | JAPANESE_UI_AND_RUNTIME_READINESS_VALIDATION | COMPLETE |
-| M29 | Week 1 Day 4-7 autonomous execution | M28 | drive the remaining LocalLLM-Lab Week 1 runbook through trusted next-action/Zero-Touch orchestration without repeated Goal entry or authority expansion | WEEK1_DAY4_7_AUTONOMOUS_VALIDATION | IN_PROGRESS |
+| M29 | LocalLLM-Lab authoritative Day 1-14 autonomous execution | M28 | resume from the first incomplete Day in the current Day 1-14 source of truth, perform a one-pass blocker sweep, auto-resolve routine/internal blockers, and batch only genuine authority decisions | DAY1_14_BATCH_AUTHORITY_REVIEW | IN_PROGRESS |
 
 M10 is deliberately non-blocking: a real semantic task must not be invented.
 
@@ -307,3 +307,18 @@ installed model is explicitly approved and configured.
 M29 remains IN_PROGRESS until the Day 4 adapter uses the existing trusted runner
 and the external gate demonstrates either a real approved cross-family run or the
 correct approved-runtime missing boundary.
+
+
+M29 source-of-truth correction:
+- LocalLLM-Lab `docs/README.md` declares `docs/runbooks/work-plan-day1-14.md`
+  as the current execution sequence;
+- the earlier M29 implementation was incorrectly driven by the older
+  `docs/week1-runbook.md`, which caused irrelevant Day 4 cross-family gates;
+- current autonomy must determine the first incomplete Day from authoritative
+  runbook + local evidence and then scan all remaining Days through Day 14 before
+  stopping;
+- internal harness/config/profile/runner/state defects are pre-authorized for
+  diagnosis and repair;
+- only genuine external/authority decisions are batched into one Human Gate.
+
+See `docs/LOCALLLM_DAY1_14_AUTONOMOUS.md`.
