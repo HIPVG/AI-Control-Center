@@ -30,8 +30,8 @@ branch. Status is tracked in `docs/DEV_PROGRESS.json`.
 | M22 | Real LocalLLM experiment integration | M21 implementation | run an existing trusted LocalLLM-Lab experiment through Control Center, preserve experiment-vs-code semantics, capture artifacts/telemetry | ESCALATION_AND_REAL_LOCAL_LLM_VALIDATION | COMPLETE |
 | M23 | PowerShell-free daily operation | M18, M22 | auto-start/service behavior and dashboard start/resume/stop/health controls | ZERO_COMMAND_DAILY_OPERATION_VALIDATION | COMPLETE |
 | M24 | Goal-to-Plan | M21, M22 | bounded goal intake → Codex plan → deterministic policy validation → execution | GOAL_TO_PLAN_EXTERNAL_VALIDATION | COMPLETE |
-| M25 | Self-repair, bounded replan, and autonomous next action | M21, M24 | recover/replan failures within limits and continue the obvious trusted success path without another typed Goal | AUTONOMOUS_RECOVERY_AND_CONTINUE_VALIDATION | IN_PROGRESS |
-| M26 | Automated Git completion | M25 | verified work can commit/push agent branch and prepare PR; no automatic main merge | AUTO_GIT_PR_VALIDATION | ROADMAP |
+| M25 | Self-repair, bounded replan, and autonomous next action | M21, M24 | recover/replan failures within limits and continue the obvious trusted success path without another typed Goal | AUTONOMOUS_RECOVERY_AND_CONTINUE_VALIDATION | COMPLETE |
+| M26 | Automated Git completion | M25 | verified work can commit/push agent branch and prepare PR; no automatic main merge | AUTO_GIT_PR_VALIDATION | IN_PROGRESS |
 | M27 | Zero-Touch Control Loop | M20–M26 | one goal/start → complete or genuine escalation, with no routine relay/PowerShell | ZERO_TOUCH_EXTERNAL_VALIDATION | ROADMAP |
 
 M10 is deliberately non-blocking: a real semantic task must not be invented.
@@ -147,3 +147,14 @@ M25 implementation is ready for external validation:
 - validation-only controls show one automatic Architect retry, one bounded
   invalid-task replan, and missing-runtime external action evidence without
   changing normal Day state.
+
+
+External M25 validation passed on 2026-09-22:
+- Architect retry validation completed with one automatic retry and no Human Review;
+- bounded replan validation completed with one automatic replan, zero retry, no Human Review, and REPLAN_REQUIRED evidence;
+- missing-runtime validation produced EXTERNAL_ACTION_REQUIRED with zero retry and normal Day unchanged;
+- trusted LocalLLM experiment completed with result/artifact recorded and Builder=false;
+- Recommended next action was displayed;
+- Continue autonomously executed the trusted recommendation without a new Goal and completed with RESULT_RECORDED.
+
+This closes M25 and advances development to M26 Automated Git completion.
