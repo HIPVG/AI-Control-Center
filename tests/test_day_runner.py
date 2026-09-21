@@ -113,6 +113,22 @@ def test_single_step_pauses_after_first_task_then_completes_final_task_with_prog
     assert calls == ["A", "B"]
 
 
+def test_active_paused_day_cannot_be_replaced_and_must_resume_its_trusted_queue():
+    calls = []
+
+    def execute(task_id, **kwargs):
+        calls.append(task_id)
+        return complete_no_change(task_id, **kwargs)
+
+    day = make_runner([configured_task("A"), configured_task("B")], execute)
+    assert day.start("mock-day")["state"] == "PAUSED"
+    rejected = day.start("mock-day", mode=DayExecutionMode.CONTINUOUS)
+    assert rejected["error_code"] == "ACTIVE_DAY_REQUIRES_RESUME_OR_REVIEW"
+    assert [item["task_id"] for item in rejected["queue"]] == ["A", "B"]
+    assert day.resume(mode=DayExecutionMode.CONTINUOUS)["state"] == "COMPLETE"
+    assert calls == ["A", "B"]
+
+
 def test_continuous_mode_processes_all_tasks_and_preserves_mode_for_resume():
     day = make_runner([configured_task("A"), configured_task("B"), configured_task("C")], complete_no_change)
     result = day.start("mock-day", mode=DayExecutionMode.CONTINUOUS)

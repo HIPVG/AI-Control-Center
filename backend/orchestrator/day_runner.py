@@ -57,6 +57,8 @@ class DayRunner:
             return {"error_code": "PLAN_NOT_CONFIGURED", **self.view()}
         if mode == DayExecutionMode.CONTINUOUS and not plan.continuous_mode_supported:
             return {"error_code": "CONTINUOUS_MODE_NOT_SUPPORTED", **self.view()}
+        if self.snapshot.state in {DayRunState.RUNNING, DayRunState.PAUSED, DayRunState.HUMAN_REVIEW}:
+            return {"error_code": "ACTIVE_DAY_REQUIRES_RESUME_OR_REVIEW", **self.view()}
         missing = [task_id for task_id in plan.task_ids if self.tasks.get(task_id) is None]
         if missing:
             return {"error_code": "PLAN_TASK_NOT_CONFIGURED", "missing_task_ids": missing, **self.view()}

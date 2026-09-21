@@ -38,7 +38,10 @@ def test_dashboard_v2_uses_only_configured_day_plan_api_contracts(client):
     html = (control_app.ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     script = (control_app.ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
     assert 'id="run-day"' in html
+    assert 'id="run-continuous"' in html
     assert "/api/day/start/" in script
+    assert "/api/day/resume?mode=continuous" in script
+    assert "continuous_mode_supported" in script
     assert "/api/run/mock" not in script
     assert "innerHTML" not in script
 

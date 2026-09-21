@@ -51,7 +51,9 @@ Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/api/day/start/week1-da
 
 Opening `http://127.0.0.1:8000` shows the live Autonomous Day dashboard. It
 defaults to `week1-day3-local-llm-v3-codex-core` and can start only a
-configured single-step plan. The dashboard reads trusted Day state to display
+configured plan. Use **Run continuously** only for a plan that advertises
+continuous support; a matching paused Day resumes its remaining trusted queue.
+The dashboard reads trusted Day state to display
 the queue, `PAUSED` progress, ModelRouter selection, Codex role counts,
 gross/cached/uncached Architect tokens, Human Review, and the audit timeline.
 It never accepts browser-supplied commands, prompts, paths, budgets, or task

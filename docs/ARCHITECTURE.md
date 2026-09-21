@@ -601,9 +601,10 @@ Overall progress should be based on planned task completion, not elapsed time.
 Dashboard v2 is a read-only view of trusted backend state plus a single
 configured-plan action. It must show the selected plan, Day state and PAUSED
 progress, queue, current routing, Codex role call counts, token breakdown,
-Human Review queue, and structured audit timeline. Its normal action posts only
-the selected configured plan ID and `mode=single-step`; it never sends commands,
-paths, prompts, budgets, or task definitions from the browser.
+Human Review queue, and structured audit timeline. It may start or resume only
+the selected configured plan with the typed `single-step` or plan-supported
+`continuous` mode; it never sends commands, paths, prompts, budgets, or task
+definitions from the browser.
 
 Main dashboard header:
 

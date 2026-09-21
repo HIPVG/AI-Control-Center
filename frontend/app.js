@@ -1,6 +1,8 @@
 const byId = (id) => document.getElementById(id);
 const compactNumber = (value) => Number(value ?? 0).toLocaleString();
 const percentage = (value) => `${Number(value ?? 0).toFixed(2).replace(/\.00$/, "")}%`;
+let configuredPlans = [];
+let latestStatus = null;
 
 function node(tag, text, className) {
   const element = document.createElement(tag);
@@ -16,6 +18,7 @@ function keyValue(label, value) {
 }
 
 function renderPlans(plans) {
+  configuredPlans = plans;
   const select = byId("plan-selector");
   const selected = select.value;
   select.replaceChildren(...plans.map((plan) => {
@@ -26,9 +29,18 @@ function renderPlans(plans) {
   }));
   const codexDefault = plans.find((plan) => plan.plan_id === "week1-day3-local-llm-v3-codex-core");
   select.value = plans.some((plan) => plan.plan_id === selected) ? selected : (codexDefault?.plan_id ?? plans[0]?.plan_id ?? "");
+  updateContinuousControl();
+}
+
+function updateContinuousControl() {
+  const selected = configuredPlans.find((plan) => plan.plan_id === byId("plan-selector").value);
+  const button = byId("run-continuous");
+  button.disabled = !selected?.continuous_mode_supported;
+  button.title = selected?.continuous_mode_supported ? "Run the configured remaining queue without per-task action." : "Continuous mode is not enabled for this configured plan.";
 }
 
 function render(status) {
+  latestStatus = status;
   const day = status.day ?? {};
   const task = day.current_task;
   const routing = day.current_routing;
@@ -86,6 +98,7 @@ async function refresh() {
 }
 
 byId("refresh").addEventListener("click", () => refresh().catch((error) => { byId("operation-status").textContent = error.message; }));
+byId("plan-selector").addEventListener("change", updateContinuousControl);
 byId("run-day").addEventListener("click", async () => {
   const button = byId("run-day");
   button.disabled = true;
@@ -93,13 +106,34 @@ byId("run-day").addEventListener("click", async () => {
   try {
     const planId = encodeURIComponent(byId("plan-selector").value);
     const response = await fetch(`/api/day/start/${planId}?mode=single-step`, { method: "POST" });
-    if (!response.ok) throw new Error("Day start request was rejected.");
+    const result = await response.json();
+    if (!response.ok || result.error_code) throw new Error(result.error_code ?? "Day start request was rejected.");
     await refresh();
     byId("operation-status").textContent = "Day state refreshed from the trusted backend.";
   } catch (error) {
     byId("operation-status").textContent = error.message;
   } finally {
     button.disabled = false;
+  }
+});
+
+byId("run-continuous").addEventListener("click", async () => {
+  const button = byId("run-continuous");
+  const planId = byId("plan-selector").value;
+  const day = latestStatus?.day ?? {};
+  const resume = day.plan_id === planId && ["PAUSED", "STOPPED"].includes(day.state);
+  button.disabled = true;
+  byId("operation-status").textContent = resume ? "Continuing the trusted remaining Day queue…" : "Starting trusted continuous Day run…";
+  try {
+    const response = await fetch(resume ? "/api/day/resume?mode=continuous" : `/api/day/start/${encodeURIComponent(planId)}?mode=continuous`, { method: "POST" });
+    const result = await response.json();
+    if (!response.ok || result.error_code) throw new Error(result.error_code ?? "Continuous Day request was rejected.");
+    await refresh();
+    byId("operation-status").textContent = "Continuous Day state refreshed from the trusted backend.";
+  } catch (error) {
+    byId("operation-status").textContent = error.message;
+  } finally {
+    updateContinuousControl();
   }
 });
 

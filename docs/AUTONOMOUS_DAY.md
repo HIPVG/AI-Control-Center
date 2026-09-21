@@ -58,6 +58,15 @@ trusted queue items until completion, review, provider/safety failure, or a
 hard limit. `POST /api/day/resume` preserves the original mode unless the same
 typed mode query is supplied. `POST /api/day/stop` persists a stop request.
 
+For M20, Dashboard v2 exposes a continuous action only when the selected
+trusted plan enables it. If that same plan is `PAUSED` or `STOPPED`, the action
+uses the typed resume endpoint so already terminal queue items are not rerun;
+otherwise it starts the configured plan in continuous mode. The browser still
+cannot submit task definitions, commands, paths, prompts, budgets, or an
+unsupported execution mode. The DayRunner itself rejects a replacement start
+while a Day is `RUNNING`, `PAUSED`, or in `HUMAN_REVIEW`; it must be resumed or
+the review handled without silently discarding its trusted queue and audit.
+
 Hard limits are trusted plan/config values: tasks per run, failed tasks,
 Architect/Evaluator/Codex calls, repair loops, and role-specific token budgets.
 Pre-call provider budget gates stop safely; a usage value reported after a

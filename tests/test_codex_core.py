@@ -3,6 +3,7 @@ import json
 import pytest
 
 from backend.agents.day_providers import CodexArchitectProvider, CodexReviewerProvider, ProviderRequestError
+from backend.models.day import DayExecutionMode
 from backend.models.model_routing import ProviderExecutionConfig
 from backend.models.result import ProcessDiagnostics, TokenUsage
 from backend.models.runtime import CodexMode, CodexRuntimeConfig, RuntimeConfig
@@ -85,6 +86,30 @@ def test_default_codex_core_plan_does_not_need_openai_key_and_pauses_after_prech
     assert result["evaluator_calls"] == 0
     assert result["day_progress"] == pytest.approx(33.33)
     assert result["current_routing"]["provider"] == "codex"
+
+
+def test_codex_core_continuous_resume_finishes_the_remaining_trusted_queue_without_live_codex(monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    engine = ControlCenterEngine(runtime_config=RuntimeConfig(codex=CodexRuntimeConfig(mode=CodexMode.MOCK)))
+    executed = []
+
+    def deterministic_task(task_id, **_kwargs):
+        executed.append(task_id)
+        return {
+            "run_id": f"day-{task_id}", "task_id": task_id, "final_result": "COMPLETE_NO_CHANGE",
+            "precheck_result": "PASS", "codex_invoked": False, "codex_attempts": [],
+        }
+
+    engine.day_runner.execute_task = deterministic_task
+    first = engine.start_day("week1-day3-local-llm-v3-codex-core")
+    result = engine.resume_day(mode=DayExecutionMode.CONTINUOUS)
+    assert first["state"] == "PAUSED"
+    assert result["state"] == "COMPLETE"
+    assert result["mode"] == "continuous"
+    assert result["day_progress"] == result["overall_progress"] == 100
+    assert result["architect_calls"] == 3
+    assert result["codex_calls"] == result["evaluator_calls"] == 0
+    assert executed == ["PC-001-A", "PC-001-C", "PC-002-A"]
 
 
 def test_role_workspace_defaults_outside_the_control_center_repository(monkeypatch, tmp_path):
