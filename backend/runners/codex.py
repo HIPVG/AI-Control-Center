@@ -178,6 +178,10 @@ class RealCodexRunner(CodexRunner):
         )
         return self._run_isolated_file_change(working_directory, target, prompt)
 
+    def run_worktree_task(self, working_directory: Path, prompt: str) -> ExecutionResult:
+        """Run a bounded task prompt in an already-created Git worktree."""
+        return self._run_command(working_directory, prompt, skip_git_repo_check=False, changed_file=None)
+
     def _run_isolated_file_change(self, working_directory: Path, target: Path, prompt: str) -> ExecutionResult:
         smoke_directory = working_directory.resolve()
         if target.resolve().parent != smoke_directory:
@@ -187,7 +191,18 @@ class RealCodexRunner(CodexRunner):
                 summary="Codex target must be a direct child of the isolated working directory.",
                 error_code="SMOKE_TARGET_OUTSIDE_WORKSPACE",
             )
-        executable_path, command = self.build_smoke_command(prompt)
+        return self._run_command(smoke_directory, prompt, skip_git_repo_check=True, changed_file=target.name)
+
+    def _run_command(self, working_directory: Path, prompt: str, *, skip_git_repo_check: bool, changed_file: str | None) -> ExecutionResult:
+        smoke_directory = working_directory.resolve()
+        if not smoke_directory.is_dir():
+            return ExecutionResult(
+                status="failed",
+                test_result="not_run",
+                summary="Codex working directory does not exist.",
+                error_code="CODEX_WORKING_DIRECTORY_NOT_FOUND",
+            )
+        executable_path, command = self.build_smoke_command(prompt, skip_git_repo_check=skip_git_repo_check)
         codex_home = self.resolve_codex_home()
         if codex_home is None:
             return ExecutionResult(
@@ -277,7 +292,7 @@ class RealCodexRunner(CodexRunner):
             )
         return ExecutionResult(
             status="completed",
-            files_changed=[target.name],
+            files_changed=[changed_file] if changed_file else [],
             tests_run=["deterministic smoke file check"],
             test_result="pending",
             summary="Codex smoke execution completed.",
@@ -287,7 +302,7 @@ class RealCodexRunner(CodexRunner):
             diagnostics=diagnostics,
         )
 
-    def build_smoke_command(self, prompt: str) -> tuple[str | None, list[str]]:
+    def build_smoke_command(self, prompt: str, *, skip_git_repo_check: bool = True) -> tuple[str | None, list[str]]:
         executable_path = self.resolve_executable()
         executable = executable_path or self.config.executable
         arguments = [
@@ -295,10 +310,11 @@ class RealCodexRunner(CodexRunner):
             "exec",
             "--sandbox",
             "workspace-write",
-            "--skip-git-repo-check",
             "--json",
             prompt,
         ]
+        if skip_git_repo_check:
+            arguments.insert(4, "--skip-git-repo-check")
         if Path(executable).suffix.lower() in {".cmd", ".bat"}:
             # A Windows command shim cannot be launched reliably with
             # CreateProcess. Invoke cmd explicitly while retaining shell=False.

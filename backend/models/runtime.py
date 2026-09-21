@@ -60,6 +60,67 @@ class ProjectSmokeResult(BaseModel):
     error_code: str | None = None
 
 
+class CommandRunResult(BaseModel):
+    argv: list[str] = Field(default_factory=list)
+    cwd: str | None = None
+    exit_code: int | None = None
+    passed: bool = False
+    stdout: str | None = None
+    stderr: str | None = None
+    error_code: str | None = None
+
+
+class CodexAttemptResult(BaseModel):
+    attempt: int = Field(ge=1)
+    exit_code: int | None = None
+    thread_started: bool = False
+    turn_started: bool = False
+    turn_completed: bool = False
+    gross_input_tokens: int = Field(default=0, ge=0)
+    cached_input_tokens: int = Field(default=0, ge=0)
+    uncached_input_tokens: int = Field(default=0, ge=0)
+    output_tokens: int = Field(default=0, ge=0)
+    error_code: str | None = None
+
+
+class TaskRunResult(BaseModel):
+    run_id: str
+    task_id: str
+    project_id: str
+    source_repo_path: str | None = None
+    source_head_sha: str | None = None
+    worktree_path: str | None = None
+    task_branch: str | None = None
+    state: str
+    start_time: datetime
+    end_time: datetime | None = None
+    precheck_result: str = "not_run"
+    precheck: CommandRunResult | None = None
+    triage_result: str = "not_run"
+    codex_invoked: bool = False
+    codex_attempts: list[CodexAttemptResult] = Field(default_factory=list)
+    codex_exit_code: int | None = None
+    thread_started: bool = False
+    turn_started: bool = False
+    turn_completed: bool = False
+    allowed_files: list[str] = Field(default_factory=list)
+    changed_files: list[str] = Field(default_factory=list)
+    out_of_scope_files: list[str] = Field(default_factory=list)
+    scope_guard_result: str = "not_run"
+    postcheck_result: str = "not_run"
+    postcheck: CommandRunResult | None = None
+    context_character_count: int = 0
+    context_byte_count: int = 0
+    gross_input_tokens: int = Field(default=0, ge=0)
+    cached_input_tokens: int = Field(default=0, ge=0)
+    uncached_input_tokens: int = Field(default=0, ge=0)
+    output_tokens: int = Field(default=0, ge=0)
+    budget_warning: str | None = None
+    final_result: str
+    human_review_reason: str | None = None
+    error_code: str | None = None
+
+
 def load_runtime_config(path: Path) -> RuntimeConfig:
     if not path.exists():
         return RuntimeConfig()

@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from backend.models.task import WorkOrder
 
@@ -12,6 +12,8 @@ class TaskContext(BaseModel):
     relevant_diff: str | None
     configuration: dict[str, str]
     retry_number: int
+    context_files: dict[str, str] = Field(default_factory=dict)
+    context_character_count: int = 0
 
 
 class ContextBroker:
@@ -25,6 +27,7 @@ class ContextBroker:
         relevant_diff: str | None = None,
         configuration: dict[str, str] | None = None,
         retry_number: int = 0,
+        context_files: dict[str, str] | None = None,
     ) -> TaskContext:
         return TaskContext(
             task_id=work_order.task_id,
@@ -35,4 +38,6 @@ class ContextBroker:
             relevant_diff=(relevant_diff or "")[:4000] or None,
             configuration=configuration or {},
             retry_number=retry_number,
+            context_files=context_files or {},
+            context_character_count=sum(len(value) for value in (context_files or {}).values()),
         )

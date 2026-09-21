@@ -39,3 +39,16 @@ def test_project_smoke_endpoint_accepts_only_configured_path_parameter(client):
     configured = client.post("/api/run/project-smoke/local_llm_lab", json={"path": "C:/unsafe"})
     assert configured.status_code == 200
     assert configured.json()["error_code"] == "REAL_MODE_REQUIRED"
+
+
+def test_configured_tasks_endpoint_hides_commands_and_task_endpoint_rejects_request_injection(client):
+    configured = client.get("/api/tasks/configured")
+    assert configured.status_code == 200
+    assert configured.json()[0]["task_id"] == "PC-001-A"
+    assert "argv" not in configured.json()[0]
+    unknown = client.post("/api/run/task/not-configured", json={"command": "unsafe", "path": "C:/unsafe"})
+    assert unknown.status_code == 200
+    assert unknown.json()["error_code"] == "TASK_NOT_CONFIGURED"
+    selected = client.post("/api/run/task/PC-001-A", json={"command": "unsafe", "path": "C:/unsafe"})
+    assert selected.status_code == 200
+    assert selected.json()["error_code"] == "REAL_MODE_REQUIRED"

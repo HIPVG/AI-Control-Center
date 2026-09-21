@@ -163,6 +163,18 @@ def test_isolated_file_change_uses_only_direct_child_target(monkeypatch, tmp_pat
     assert rejected.error_code == "SMOKE_TARGET_OUTSIDE_WORKSPACE"
 
 
+def test_worktree_command_keeps_git_repository_check_enabled(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        "backend.runners.codex.subprocess.run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(args[0], 0, stdout='{"type":"turn.completed"}', stderr=""),
+    )
+    worktree = tmp_path / "worktree"
+    worktree.mkdir()
+    result = RealCodexRunner(real_config()).run_worktree_task(worktree, "fix only allowed file")
+    assert result.status == "completed"
+    assert "--skip-git-repo-check" not in result.diagnostics.argv
+
+
 def test_windows_executable_is_resolved_before_execution(monkeypatch):
     monkeypatch.setattr("backend.runners.codex.shutil.which", lambda _: r"C:\\OpenAI\\bin\\codex.exe")
     runner = RealCodexRunner(real_config())

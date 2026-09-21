@@ -11,11 +11,12 @@ from backend.agents.evaluator import MockEvaluator
 from backend.agents.triage import MockTriage, TriageDecision
 from backend.control.context_broker import ContextBroker
 from backend.control.projects import ProjectRegistry, load_project_registry
+from backend.control.tasks import ConfiguredTask, TaskCommand, TaskRegistry, load_task_registry
 from backend.control.scope_guard import ScopeGuard
 from backend.control.token_budget import BudgetDecision, TokenBudgetManager, load_budget_config
 from backend.models.audit import AuditEvent, AuditEventType
 from backend.models.result import TokenUsage
-from backend.models.runtime import CodexMode, ProjectSmokeResult, RuntimeConfig, SmokeRunResult, load_runtime_config
+from backend.models.runtime import CodexAttemptResult, CodexMode, CommandRunResult, ProjectSmokeResult, RuntimeConfig, SmokeRunResult, TaskRunResult, load_runtime_config
 from backend.models.state import RunState, WorkflowState
 from backend.models.task import TaskType, WorkOrder
 from backend.orchestrator.state_machine import StateManager
@@ -52,6 +53,8 @@ class ControlCenterEngine:
         smoke_root: Path | None = None,
         real_runner: RealCodexRunner | None = None,
         project_registry: ProjectRegistry | None = None,
+        task_registry: TaskRegistry | None = None,
+        worktree_root: Path | None = None,
     ) -> None:
         self.store = state_store
         self.state_manager = StateManager()
@@ -60,6 +63,8 @@ class ControlCenterEngine:
         self.project_root = project_root
         self.runtime = runtime_config or load_runtime_config(project_root / "config" / "runtime.yaml")
         self.projects = project_registry or load_project_registry(project_root / "config" / "projects.yaml")
+        self.tasks = task_registry or load_task_registry(project_root / "config" / "tasks.yaml")
+        self.worktree_root = (worktree_root or project_root / "state" / "worktrees").resolve()
         self.smoke_workspace = SmokeWorkspace(smoke_root or project_root / "state" / "smoke")
         self.real_runner = real_runner or RealCodexRunner(self.runtime.codex)
         self.timeline: list[AuditEvent] = []
@@ -80,6 +85,7 @@ class ControlCenterEngine:
             "progress_tracking_version": 1,
             "token_usage_tracking_version": 1,
             "project_smoke_results": [],
+            "task_runs": [],
             "task_start_completed": {"PC-014": 18},
             "task_progress": calculate_progress(task_completed, task_total),
             "current_task": {"task_id": "PC-014", "title": "Evidence Grounding", "completed": task_completed, "total": task_total, "retry": 0, "max_retry": 2},
@@ -240,6 +246,9 @@ class ControlCenterEngine:
 
     def runtime_view(self) -> dict[str, Any]:
         return self.runtime.model_dump(mode="json")
+
+    def configured_tasks(self) -> list[dict[str, str]]:
+        return self.tasks.metadata()
 
     def run_codex_smoke(self) -> dict[str, Any]:
         task_id = "CODEX-SMOKE"
@@ -517,6 +526,359 @@ class ControlCenterEngine:
                 digest = "unreadable"
             snapshot[path] = f"{line[:2]}:{digest}"
         return snapshot
+
+    def run_task(self, task_id: str) -> dict[str, Any]:
+        """Execute one trusted configured task in a detached target-project worktree."""
+        started = datetime.now(timezone.utc)
+        run_id = uuid4().hex
+        task = self.tasks.get(task_id)
+        if task is None:
+            return self._task_finish(TaskRunResult(
+                run_id=run_id, task_id=task_id, project_id="unconfigured", state=WorkflowState.FAILED.value,
+                start_time=started, end_time=datetime.now(timezone.utc), final_result="FAILED", error_code="TASK_NOT_CONFIGURED",
+            ))
+        project = self.projects.get(task.project_id)
+        common = {
+            "run_id": run_id, "task_id": task.task_id, "project_id": task.project_id,
+            "start_time": started, "allowed_files": task.allowed_files,
+        }
+        if project is None:
+            return self._task_finish(TaskRunResult(
+                **common, state=WorkflowState.FAILED.value, end_time=datetime.now(timezone.utc), final_result="FAILED",
+                error_code="TASK_PROJECT_NOT_CONFIGURED",
+            ))
+        source_root = project.path.resolve()
+        common["source_repo_path"] = str(source_root)
+        if self.runtime.codex.mode != CodexMode.REAL:
+            return self._task_finish(TaskRunResult(
+                **common, state=WorkflowState.FAILED.value, end_time=datetime.now(timezone.utc), final_result="FAILED",
+                error_code="REAL_MODE_REQUIRED",
+            ))
+        source_error, source_status, source_head = self._task_source_validation(source_root)
+        common["source_head_sha"] = source_head
+        if source_error:
+            return self._task_finish(TaskRunResult(
+                **common, state=WorkflowState.FAILED.value, end_time=datetime.now(timezone.utc), final_result="FAILED",
+                error_code=source_error,
+            ))
+        task_dependencies = set(task.allowed_files) | set(task.context_files)
+        dirty_dependencies = sorted(set(source_status) & task_dependencies)
+        if dirty_dependencies:
+            return self._task_finish(TaskRunResult(
+                **common, state=WorkflowState.HUMAN_REVIEW.value, end_time=datetime.now(timezone.utc), final_result="HUMAN_REVIEW",
+                human_review_reason="source checkout has uncommitted task dependency changes", error_code="SOURCE_TASK_DEPENDENCY_DIRTY",
+            ))
+        if self.state_manager.current.state != WorkflowState.IDLE:
+            self._transition(task.task_id, WorkflowState.IDLE, "previous terminal workflow reset")
+        self.state_manager.start_task(task.task_id)
+        self._transition(task.task_id, WorkflowState.PLANNING, "configured deterministic task started")
+        worktree, branch, worktree_error = self._create_task_worktree(source_root, source_head, task, run_id)
+        if worktree_error:
+            self._transition(task.task_id, WorkflowState.HUMAN_REVIEW, "isolated worktree creation failed")
+            return self._task_finish(TaskRunResult(
+                **common, state=WorkflowState.HUMAN_REVIEW.value, end_time=datetime.now(timezone.utc), final_result="HUMAN_REVIEW",
+                human_review_reason="isolated worktree could not be created", error_code=worktree_error,
+            ))
+        common.update({"worktree_path": str(worktree), "task_branch": branch})
+        self._event(task.task_id, AuditEventType.SMOKE_STARTED, f"{task.task_id} WORKTREE CREATED", details={"worktree": str(worktree), "branch": branch, "source_head_sha": source_head, "source_dirty_file_count": len(source_status)})
+        try:
+            working_directory = self._task_working_directory(worktree, task.working_directory)
+        except ValueError:
+            self._transition(task.task_id, WorkflowState.HUMAN_REVIEW, "task working directory escaped managed worktree")
+            return self._task_finish(TaskRunResult(
+                **common, state=WorkflowState.HUMAN_REVIEW.value, end_time=datetime.now(timezone.utc), final_result="HUMAN_REVIEW",
+                human_review_reason="configured working directory escaped managed worktree", error_code="WORKTREE_PATH_ESCAPE",
+            ))
+        self._transition(task.task_id, WorkflowState.PRECHECK, "targeted deterministic precheck")
+        precheck = self._run_task_command(task.precheck, working_directory, self._task_artifact_root(run_id, "precheck"))
+        if precheck.passed:
+            self._event(task.task_id, AuditEventType.DETERMINISTIC_CHECK, f"{task.task_id} PRECHECK PASS", details=precheck.model_dump())
+            self._transition(task.task_id, WorkflowState.RUNNING_TEST, "precheck passed")
+            self._transition(task.task_id, WorkflowState.COMPLETE, "deterministic task already satisfied")
+            self._event(task.task_id, AuditEventType.TEST_RESULT, f"{task.task_id} COMPLETE_NO_CHANGE", details={"precheck": "PASS"})
+            return self._task_finish(TaskRunResult(
+                **common, state=WorkflowState.COMPLETE.value, end_time=datetime.now(timezone.utc), precheck_result="PASS", precheck=precheck,
+                final_result="COMPLETE_NO_CHANGE",
+            ))
+        self._event(task.task_id, AuditEventType.DETERMINISTIC_CHECK, f"{task.task_id} PRECHECK FAIL", details=precheck.model_dump())
+        self._transition(task.task_id, WorkflowState.RUNNING_TEST, "precheck failed")
+        triage = self._triage_precheck(precheck)
+        if triage != "CODE_FIX" or not task.requires_codex:
+            self._event(task.task_id, AuditEventType.TRIAGE, f"{task.task_id} TRIAGE {triage}", details={"precheck_error": precheck.error_code})
+            self._transition(task.task_id, WorkflowState.TRIAGE, "deterministic triage completed")
+            self._transition(task.task_id, WorkflowState.HUMAN_REVIEW if triage != "FAILED" else WorkflowState.FAILED, "deterministic triage blocked Codex")
+            state = self.state_manager.current.state
+            return self._task_finish(TaskRunResult(
+                **common, state=state.value, end_time=datetime.now(timezone.utc), precheck_result="FAIL", precheck=precheck,
+                triage_result=triage, final_result=state.value, human_review_reason="precheck is not a code-fix failure" if state == WorkflowState.HUMAN_REVIEW else None,
+                error_code=precheck.error_code or "PRECHECK_TRIAGE_BLOCKED",
+            ))
+        self._event(task.task_id, AuditEventType.TRIAGE, f"{task.task_id} TRIAGE CODE_FIX", details={"precheck_exit_code": precheck.exit_code})
+        self._transition(task.task_id, WorkflowState.TRIAGE, "deterministic triage classified CODE_FIX")
+        worktree_baseline = self._project_status_snapshot(worktree)
+        if worktree_baseline is None:
+            self._transition(task.task_id, WorkflowState.HUMAN_REVIEW, "worktree status unavailable")
+            return self._task_finish(TaskRunResult(
+                **common, state=WorkflowState.HUMAN_REVIEW.value, end_time=datetime.now(timezone.utc), precheck_result="FAIL", precheck=precheck,
+                triage_result="INFRASTRUCTURE_FAILURE", final_result="HUMAN_REVIEW", human_review_reason="worktree status unavailable", error_code="WORKTREE_GIT_UNAVAILABLE",
+            ))
+        return self._run_task_codex_attempts(task, common, working_directory, worktree, worktree_baseline, precheck)
+
+    def _run_task_codex_attempts(
+        self,
+        task: ConfiguredTask,
+        common: dict[str, Any],
+        working_directory: Path,
+        worktree: Path,
+        worktree_baseline: dict[str, str],
+        precheck: CommandRunResult,
+    ) -> dict[str, Any]:
+        attempts: list[CodexAttemptResult] = []
+        aggregate = TokenUsage()
+        budget_warnings: list[str] = []
+        changed_files: list[str] = []
+        retry_number = 0
+        postcheck: CommandRunResult | None = None
+        while True:
+            budget_decision = self.budgets.check(TokenUsage(), retry_count=retry_number)
+            if budget_decision != BudgetDecision.ALLOWED:
+                self._transition(task.task_id, WorkflowState.HUMAN_REVIEW, "pre-execution budget guard blocked Codex")
+                return self._task_finish(TaskRunResult(
+                    **common, state=WorkflowState.HUMAN_REVIEW.value, end_time=datetime.now(timezone.utc), precheck_result="FAIL", precheck=precheck,
+                    triage_result="CODE_FIX", codex_attempts=attempts, allowed_files=task.allowed_files, changed_files=changed_files,
+                    final_result="HUMAN_REVIEW", human_review_reason=budget_decision.value, error_code=budget_decision.value,
+                ))
+            context_files, context_error = self._load_task_context_files(worktree, task)
+            if context_error:
+                self._transition(task.task_id, WorkflowState.HUMAN_REVIEW, "configured context files unavailable")
+                return self._task_finish(TaskRunResult(
+                    **common, state=WorkflowState.HUMAN_REVIEW.value, end_time=datetime.now(timezone.utc), precheck_result="FAIL", precheck=precheck,
+                    triage_result="INFRASTRUCTURE_FAILURE", codex_attempts=attempts, final_result="HUMAN_REVIEW",
+                    human_review_reason=context_error, error_code="CONTEXT_FILE_UNAVAILABLE",
+                ))
+            work_order = WorkOrder(
+                task_id=task.task_id,
+                goal=f"Fix the deterministic failure for {task.title}.",
+                task_type=task.task_type,
+                allowed_files=task.allowed_files,
+                acceptance_tests=[" ".join(task.postcheck.argv)],
+                max_retry=task.max_retry,
+                needs_codex=True,
+            )
+            excerpt = (precheck.stderr or precheck.stdout or "deterministic precheck failed")[:2000]
+            context = ContextBroker().build(
+                work_order,
+                error_excerpt=excerpt,
+                configuration={"working_directory": str(working_directory), "postcheck_argv": " ".join(task.postcheck.argv), "evaluator_type": task.evaluator_type},
+                retry_number=retry_number,
+                context_files=context_files,
+            )
+            prompt = self._task_prompt(context)
+            self._transition(task.task_id, WorkflowState.TRIAGE, "deterministic triage classified CODE_FIX") if self.state_manager.current.state == WorkflowState.RUNNING_TEST else None
+            self._transition(task.task_id, WorkflowState.CODEX_FIX, f"Codex attempt {retry_number + 1} authorized")
+            self._event(task.task_id, AuditEventType.CONTEXT_CREATED, f"{task.task_id} minimal context package built", details={"context_character_count": len(prompt), "context_byte_count": len(prompt.encode("utf-8")), "context_files": list(context_files)})
+            self._event(task.task_id, AuditEventType.SMOKE_STARTED, f"Codex attempt {retry_number + 1} STARTED", details={"working_directory": str(working_directory)})
+            self._save()
+            execution = self.real_runner.run_worktree_task(working_directory, prompt)
+            diagnostics = execution.diagnostics
+            attempt = CodexAttemptResult(
+                attempt=retry_number + 1, exit_code=execution.exit_code,
+                thread_started=diagnostics.thread_started if diagnostics else False,
+                turn_started=diagnostics.turn_started if diagnostics else False,
+                turn_completed=diagnostics.turn_completed if diagnostics else False,
+                gross_input_tokens=execution.token_usage.gross_input_tokens,
+                cached_input_tokens=execution.token_usage.cached_input_tokens,
+                uncached_input_tokens=execution.token_usage.uncached_input_tokens,
+                output_tokens=execution.token_usage.output_tokens, error_code=execution.error_code,
+            )
+            attempts.append(attempt)
+            aggregate = TokenUsage(
+                input_tokens=aggregate.input_tokens + execution.token_usage.input_tokens,
+                cached_input_tokens=aggregate.cached_input_tokens + execution.token_usage.cached_input_tokens,
+                output_tokens=aggregate.output_tokens + execution.token_usage.output_tokens,
+                available=aggregate.available or execution.token_usage.available,
+            )
+            warning = self._record_project_usage(task.task_id, execution.token_usage)
+            if warning:
+                budget_warnings.append(warning)
+            self._event(task.task_id, AuditEventType.SMOKE_RESULT, f"Codex attempt {attempt.attempt} COMPLETE exit={execution.exit_code if execution.exit_code is not None else 'unavailable'}", details={"attempt": attempt.model_dump(), "status": execution.status})
+            result_common = {
+                **common, "precheck_result": "FAIL", "precheck": precheck, "triage_result": "CODE_FIX", "codex_invoked": True,
+                "codex_attempts": attempts, "codex_exit_code": execution.exit_code,
+                "thread_started": attempt.thread_started, "turn_started": attempt.turn_started, "turn_completed": attempt.turn_completed,
+                "allowed_files": task.allowed_files, "changed_files": changed_files,
+                "gross_input_tokens": aggregate.gross_input_tokens, "cached_input_tokens": aggregate.cached_input_tokens,
+                "uncached_input_tokens": aggregate.uncached_input_tokens, "output_tokens": aggregate.output_tokens,
+                "budget_warning": ",".join(budget_warnings) or None,
+                "context_character_count": len(prompt), "context_byte_count": len(prompt.encode("utf-8")),
+            }
+            if execution.status != "completed" or execution.exit_code != 0 or not attempt.turn_completed:
+                self._transition(task.task_id, WorkflowState.FAILED, "Codex execution failed")
+                return self._task_finish(TaskRunResult(
+                    **result_common, state=WorkflowState.FAILED.value, end_time=datetime.now(timezone.utc), final_result="FAILED",
+                    error_code=execution.error_code or "CODEX_EXECUTION_FAILED",
+                ))
+            current_status = self._project_status_snapshot(worktree)
+            if current_status is None:
+                self._transition(task.task_id, WorkflowState.HUMAN_REVIEW, "worktree status unavailable after Codex")
+                return self._task_finish(TaskRunResult(
+                    **result_common, state=WorkflowState.HUMAN_REVIEW.value, end_time=datetime.now(timezone.utc), final_result="HUMAN_REVIEW",
+                    human_review_reason="worktree status unavailable", error_code="WORKTREE_GIT_UNAVAILABLE",
+                ))
+            changed_files = self._snapshot_changes(worktree_baseline, current_status)
+            scope = ScopeGuard().check(work_order, changed_files)
+            result_common["changed_files"] = changed_files
+            if not scope.allowed:
+                self._event(task.task_id, AuditEventType.CODEX_RESULT, "Scope Guard FAIL", details={"allowed_files": task.allowed_files, "changed_files": changed_files, "out_of_scope": scope.out_of_scope})
+                self._transition(task.task_id, WorkflowState.HUMAN_REVIEW, "Codex changed files outside configured scope")
+                return self._task_finish(TaskRunResult(
+                    **result_common, state=WorkflowState.HUMAN_REVIEW.value, end_time=datetime.now(timezone.utc), scope_guard_result="FAIL",
+                    out_of_scope_files=scope.out_of_scope, final_result="HUMAN_REVIEW", human_review_reason="scope guard failed", error_code="SCOPE_GUARD_FAILED",
+                ))
+            self._event(task.task_id, AuditEventType.CODEX_RESULT, "Scope Guard PASS", details={"changed_files": changed_files})
+            self._transition(task.task_id, WorkflowState.RUNNING_TEST, "scope guard passed")
+            postcheck = self._run_task_command(task.postcheck, working_directory, self._task_artifact_root(common["run_id"], f"postcheck-{attempt.attempt}"))
+            if postcheck.passed:
+                self._event(task.task_id, AuditEventType.TEST_RESULT, "Deterministic POSTCHECK PASS", details=postcheck.model_dump())
+                self._transition(task.task_id, WorkflowState.COMPLETE, "deterministic postcheck passed")
+                self._event(task.task_id, AuditEventType.EVALUATION_RESULT, f"{task.task_id} COMPLETE", details={"deterministic": True, "evaluator_invoked": False})
+                return self._task_finish(TaskRunResult(
+                    **result_common, state=WorkflowState.COMPLETE.value, end_time=datetime.now(timezone.utc), scope_guard_result="PASS",
+                    postcheck_result="PASS", postcheck=postcheck, final_result="COMPLETE",
+                ))
+            self._event(task.task_id, AuditEventType.TEST_RESULT, "Deterministic POSTCHECK FAIL", details=postcheck.model_dump())
+            if retry_number >= task.max_retry:
+                self._transition(task.task_id, WorkflowState.TRIAGE, "postcheck failure requires bounded repair decision")
+                self._transition(task.task_id, WorkflowState.HUMAN_REVIEW, "bounded repair attempts exhausted")
+                return self._task_finish(TaskRunResult(
+                    **result_common, state=WorkflowState.HUMAN_REVIEW.value, end_time=datetime.now(timezone.utc), scope_guard_result="PASS",
+                    postcheck_result="FAIL", postcheck=postcheck, final_result="HUMAN_REVIEW", human_review_reason="bounded repair attempts exhausted", error_code="RETRY_LIMIT_EXCEEDED",
+                ))
+            self.state_manager.increment_retry()
+            retry_number += 1
+
+    def _task_finish(self, result: TaskRunResult) -> dict[str, Any]:
+        self.data.setdefault("task_runs", []).append(result.model_dump(mode="json"))
+        self._save()
+        return result.model_dump(mode="json")
+
+    def _task_source_validation(self, source_root: Path) -> tuple[str | None, dict[str, str], str | None]:
+        validation_error, status = self._validate_project_repository(source_root)
+        if validation_error:
+            return validation_error, {}, None
+        try:
+            completed = subprocess.run(
+                ["git", "-C", str(source_root), "-c", f"safe.directory={source_root}", "rev-parse", "HEAD"],
+                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=10, check=False, shell=False,
+            )
+        except (FileNotFoundError, OSError, subprocess.TimeoutExpired):
+            return "PROJECT_GIT_UNAVAILABLE", {}, None
+        if completed.returncode != 0 or not completed.stdout.strip():
+            return "PROJECT_HEAD_UNAVAILABLE", {}, None
+        return None, status, completed.stdout.strip()
+
+    def _create_task_worktree(self, source_root: Path, head: str, task: ConfiguredTask, run_id: str) -> tuple[Path | None, str | None, str | None]:
+        self.worktree_root.mkdir(parents=True, exist_ok=True)
+        candidate = (self.worktree_root / run_id).resolve()
+        try:
+            candidate.relative_to(self.worktree_root)
+        except ValueError:
+            return None, None, "WORKTREE_PATH_ESCAPE"
+        if candidate.exists():
+            return None, None, "WORKTREE_PATH_ALREADY_EXISTS"
+        branch = f"agent/{task.task_id.lower()}-{run_id[:8]}"
+        try:
+            completed = subprocess.run(
+                ["git", "-C", str(source_root), "-c", f"safe.directory={source_root}", "worktree", "add", "-b", branch, str(candidate), head],
+                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60, check=False, shell=False,
+            )
+        except (FileNotFoundError, OSError, subprocess.TimeoutExpired):
+            return None, None, "WORKTREE_CREATION_FAILED"
+        if completed.returncode != 0 or not candidate.is_dir():
+            return None, None, "WORKTREE_CREATION_FAILED"
+        return candidate, branch, None
+
+    @staticmethod
+    def _task_working_directory(worktree: Path, configured: str) -> Path:
+        directory = (worktree / configured).resolve()
+        try:
+            directory.relative_to(worktree.resolve())
+        except ValueError as exc:
+            raise ValueError("configured task working directory escaped worktree") from exc
+        return directory
+
+    def _task_artifact_root(self, run_id: str, stage: str) -> Path:
+        root = (self.project_root / "state" / "task-artifacts" / run_id / stage).resolve()
+        managed_root = (self.project_root / "state" / "task-artifacts").resolve()
+        try:
+            root.relative_to(managed_root)
+        except ValueError as exc:
+            raise ValueError("task artifact path escaped managed state") from exc
+        return root
+
+    def _run_task_command(self, command: TaskCommand, cwd: Path, artifact_root: Path) -> CommandRunResult:
+        argv = [str(artifact_root) if value == "{artifact_root}" else value for value in command.argv]
+        try:
+            completed = subprocess.run(
+                argv, cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120, check=False, shell=False,
+            )
+        except FileNotFoundError:
+            return CommandRunResult(argv=argv, cwd=str(cwd), error_code="COMMAND_NOT_FOUND")
+        except subprocess.TimeoutExpired as exc:
+            return CommandRunResult(argv=argv, cwd=str(cwd), error_code="COMMAND_TIMEOUT", stdout=self._bounded_text(exc.stdout), stderr=self._bounded_text(exc.stderr))
+        return CommandRunResult(
+            argv=argv, cwd=str(cwd), exit_code=completed.returncode, passed=completed.returncode == 0,
+            stdout=self._bounded_text(completed.stdout), stderr=self._bounded_text(completed.stderr),
+        )
+
+    @staticmethod
+    def _bounded_text(value: str | bytes | None, limit: int = 4000) -> str | None:
+        if value is None:
+            return None
+        if isinstance(value, bytes):
+            value = value.decode("utf-8", errors="replace")
+        return value[:limit] or None
+
+    @staticmethod
+    def _triage_precheck(precheck: CommandRunResult) -> str:
+        if precheck.error_code:
+            return "INFRASTRUCTURE_FAILURE"
+        return "CODE_FIX" if precheck.exit_code == 1 else "FAILED"
+
+    @staticmethod
+    def _task_prompt(context: Any) -> str:
+        context_files = "\n\n".join(f"--- {path} ---\n{content}" for path, content in context.context_files.items())
+        return (
+            f"TASK: {context.task_id}\nGoal: {context.goal}\n\n"
+            f"Failure:\n{context.error_excerpt or 'deterministic precheck failed'}\n\n"
+            f"Acceptance command: {context.configuration['postcheck_argv']}\n"
+            f"Allowed files:\n" + "\n".join(f"- {path}" for path in context.allowed_files) + "\n\n"
+            f"Relevant context:\n{context_files}\n\n"
+            "Solve only this task. Modify only allowed files. Make the smallest reasonable change. "
+            "Do not alter acceptance criteria or weaken tests. Do not modify unrelated files. Do not commit or push. No explanatory essay is required."
+        )
+
+    @staticmethod
+    def _load_task_context_files(worktree: Path, task: ConfiguredTask) -> tuple[dict[str, str], str | None]:
+        remaining = task.context_max_characters
+        contents: dict[str, str] = {}
+        for relative in task.context_files:
+            path = (worktree / relative).resolve()
+            try:
+                path.relative_to(worktree.resolve())
+            except ValueError:
+                return {}, "configured context path escaped worktree"
+            if not path.is_file():
+                return {}, f"configured context file is missing: {relative}"
+            try:
+                content = path.read_text(encoding="utf-8")
+            except (OSError, UnicodeError):
+                return {}, f"configured context file is unreadable: {relative}"
+            if len(content) > remaining:
+                return {}, "configured context files exceed context bound"
+            contents[relative] = content
+            remaining -= len(content)
+        return contents, None
 
     def _repository_files(self) -> set[str] | None:
         try:

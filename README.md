@@ -49,3 +49,11 @@ Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8765/api/run/project-smoke/
 ```
 
 The endpoint captures existing Git changes as a baseline, creates a unique `.ai-control-center-smoke/<run_id>/status.txt` fixture, and permits Codex to change only that fixture from `FAIL` to `PASS`.
+
+## Configured real task execution
+
+Configured tasks are listed without command internals at `GET /api/tasks/configured`. The first task, `PC-001-A`, creates an isolated local Git worktree under Control Center state and runs only its configured deterministic dry-run check. It never writes to the user's LocalLLM-Lab checkout.
+
+```powershell
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8765/api/run/task/PC-001-A | ConvertTo-Json -Depth 15
+```

@@ -1,0 +1,35 @@
+tasks:
+  PC-001-A:
+    task_id: PC-001-A
+    project_id: local_llm_lab
+    title: TH-PAD QA / Shipment quantity consistency
+    task_type: code_fix
+    working_directory: .
+    precheck:
+      argv:
+        - python
+        - scripts/run_process_consistency_smoke.py
+        - --dry-run
+        - --cases
+        - PC-001-A
+        - --output-root
+        - '{artifact_root}'
+    postcheck:
+      argv:
+        - python
+        - scripts/run_process_consistency_smoke.py
+        - --dry-run
+        - --cases
+        - PC-001-A
+        - --output-root
+        - '{artifact_root}'
+    allowed_files:
+      - scripts/run_process_consistency_smoke.py
+      - scripts/process_consistency.py
+    context_files:
+      - scripts/run_process_consistency_smoke.py
+      - scripts/process_consistency.py
+    max_retry: 1
+    requires_codex: true
+    evaluator_type: deterministic
+    context_max_characters: 30000

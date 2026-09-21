@@ -62,3 +62,13 @@ def run_codex_smoke() -> dict:
 @app.post("/api/run/project-smoke/{project_id}")
 def run_project_smoke(project_id: str) -> dict:
     return engine.run_project_smoke(project_id)
+
+
+@app.get("/api/tasks/configured")
+def configured_tasks() -> list[dict]:
+    return engine.configured_tasks()
+
+
+@app.post("/api/run/task/{task_id}")
+def run_task(task_id: str) -> dict:
+    return engine.run_task(task_id)

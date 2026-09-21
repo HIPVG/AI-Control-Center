@@ -1,0 +1,16 @@
+tasks:
+  EXAMPLE-TASK:
+    task_id: EXAMPLE-TASK
+    project_id: example_project
+    title: Example deterministic code fix
+    task_type: code_fix
+    working_directory: .
+    precheck:
+      argv: [python, scripts/check.py]
+    postcheck:
+      argv: [python, scripts/check.py]
+    allowed_files: [scripts/check.py]
+    context_files: [scripts/check.py]
+    max_retry: 1
+    requires_codex: true
+    evaluator_type: deterministic
