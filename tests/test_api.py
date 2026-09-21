@@ -30,3 +30,12 @@ def test_codex_smoke_endpoint_does_not_accept_browser_supplied_commands(client):
     response = client.post("/api/run/codex-smoke", json={"command": "unsafe", "prompt": "unsafe"})
     assert response.status_code == 200
     assert response.json()["error_code"] == "REAL_MODE_REQUIRED"
+
+
+def test_project_smoke_endpoint_accepts_only_configured_path_parameter(client):
+    unknown = client.post("/api/run/project-smoke/not-configured", json={"path": "C:/unsafe", "command": "unsafe", "prompt": "unsafe"})
+    assert unknown.status_code == 200
+    assert unknown.json()["error_code"] == "PROJECT_NOT_CONFIGURED"
+    configured = client.post("/api/run/project-smoke/local_llm_lab", json={"path": "C:/unsafe"})
+    assert configured.status_code == 200
+    assert configured.json()["error_code"] == "REAL_MODE_REQUIRED"

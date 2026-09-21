@@ -1,19 +1,23 @@
 import json
+import hashlib
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Protocol
+from uuid import uuid4
 
 from backend.agents.architect import MockArchitect
 from backend.agents.evaluator import MockEvaluator
 from backend.agents.triage import MockTriage, TriageDecision
 from backend.control.context_broker import ContextBroker
+from backend.control.projects import ProjectRegistry, load_project_registry
 from backend.control.scope_guard import ScopeGuard
 from backend.control.token_budget import BudgetDecision, TokenBudgetManager, load_budget_config
 from backend.models.audit import AuditEvent, AuditEventType
 from backend.models.result import TokenUsage
-from backend.models.runtime import CodexMode, RuntimeConfig, SmokeRunResult, load_runtime_config
+from backend.models.runtime import CodexMode, ProjectSmokeResult, RuntimeConfig, SmokeRunResult, load_runtime_config
 from backend.models.state import RunState, WorkflowState
+from backend.models.task import TaskType, WorkOrder
 from backend.orchestrator.state_machine import StateManager
 from backend.orchestrator.progress import calculate_progress
 from backend.runners.codex import MockCodexRunner, RealCodexRunner, SmokeWorkspace
@@ -47,6 +51,7 @@ class ControlCenterEngine:
         runtime_config: RuntimeConfig | None = None,
         smoke_root: Path | None = None,
         real_runner: RealCodexRunner | None = None,
+        project_registry: ProjectRegistry | None = None,
     ) -> None:
         self.store = state_store
         self.state_manager = StateManager()
@@ -54,6 +59,7 @@ class ControlCenterEngine:
         project_root = Path(__file__).resolve().parents[2]
         self.project_root = project_root
         self.runtime = runtime_config or load_runtime_config(project_root / "config" / "runtime.yaml")
+        self.projects = project_registry or load_project_registry(project_root / "config" / "projects.yaml")
         self.smoke_workspace = SmokeWorkspace(smoke_root or project_root / "state" / "smoke")
         self.real_runner = real_runner or RealCodexRunner(self.runtime.codex)
         self.timeline: list[AuditEvent] = []
@@ -73,6 +79,7 @@ class ControlCenterEngine:
             },
             "progress_tracking_version": 1,
             "token_usage_tracking_version": 1,
+            "project_smoke_results": [],
             "task_start_completed": {"PC-014": 18},
             "task_progress": calculate_progress(task_completed, task_total),
             "current_task": {"task_id": "PC-014", "title": "Evidence Grounding", "completed": task_completed, "total": task_total, "retry": 0, "max_retry": 2},
@@ -294,6 +301,222 @@ class ControlCenterEngine:
             self._event(task_id, event_type, f"Real Codex smoke failed: {acceptance_error}.", details=result.model_dump(mode="json"))
         self._save()
         return result.model_dump(mode="json")
+
+    def run_project_smoke(self, project_id: str) -> dict[str, Any]:
+        """Run the one fixed, deterministic fixture workflow for a configured project."""
+        task_id = "CONTROL-CENTER-SMOKE-001"
+        started = datetime.now(timezone.utc)
+        run_id = uuid4().hex
+        project = self.projects.get(project_id)
+        if project is None:
+            return self._project_smoke_finish(ProjectSmokeResult(
+                run_id=run_id, project_id=project_id, state=WorkflowState.FAILED.value,
+                start_time=started, end_time=datetime.now(timezone.utc), final_result="FAILED",
+                error_code="PROJECT_NOT_CONFIGURED",
+            ))
+        root = project.path.resolve()
+        if self.runtime.codex.mode != CodexMode.REAL:
+            return self._project_smoke_finish(ProjectSmokeResult(
+                run_id=run_id, project_id=project_id, project_path=str(root), state=WorkflowState.FAILED.value,
+                start_time=started, end_time=datetime.now(timezone.utc), final_result="FAILED",
+                error_code="REAL_MODE_REQUIRED",
+            ))
+        validation_error, baseline = self._validate_project_repository(root)
+        if validation_error:
+            return self._project_smoke_finish(ProjectSmokeResult(
+                run_id=run_id, project_id=project_id, project_path=str(root), state=WorkflowState.FAILED.value,
+                start_time=started, end_time=datetime.now(timezone.utc), final_result="FAILED",
+                error_code=validation_error,
+            ))
+        budget_decision = self.budgets.check(TokenUsage(), retry_count=0)
+        if budget_decision != BudgetDecision.ALLOWED:
+            return self._project_smoke_finish(ProjectSmokeResult(
+                run_id=run_id, project_id=project_id, project_path=str(root), state=WorkflowState.FAILED.value,
+                start_time=started, end_time=datetime.now(timezone.utc), final_result="FAILED",
+                error_code=budget_decision.value,
+            ))
+
+        if self.state_manager.current.state != WorkflowState.IDLE:
+            self._transition(task_id, WorkflowState.IDLE, "previous terminal workflow reset")
+        self.state_manager.start_task(task_id)
+        self._transition(task_id, WorkflowState.PLANNING, "configured project smoke started")
+        self._transition(task_id, WorkflowState.PRECHECK, "deterministic fixture precheck")
+        fixture_directory = root / ".ai-control-center-smoke" / run_id
+        target = fixture_directory / "status.txt"
+        fixture_directory.mkdir(parents=True, exist_ok=False)
+        target.write_text("FAIL", encoding="utf-8")
+        fixture_relative = target.relative_to(root).as_posix()
+        setup_state = self._project_status_snapshot(root)
+        if setup_state is None:
+            self._transition(task_id, WorkflowState.FAILED, "repository status became unavailable after fixture setup")
+            return self._project_smoke_finish(ProjectSmokeResult(
+                run_id=run_id, project_id=project_id, project_path=str(root), state=WorkflowState.FAILED.value,
+                start_time=started, end_time=datetime.now(timezone.utc), fixture_path=fixture_relative,
+                final_result="FAILED", error_code="PROJECT_STATUS_UNAVAILABLE",
+            ))
+
+        precheck = self._status_fixture_result(target)
+        if precheck != "FAIL":
+            self._event(task_id, AuditEventType.DETERMINISTIC_CHECK, f"{task_id} PRECHECK unexpected {precheck}", details={"result": precheck})
+            self._transition(task_id, WorkflowState.FAILED, "fixture precheck unexpectedly passed")
+            return self._project_smoke_finish(ProjectSmokeResult(
+                run_id=run_id, project_id=project_id, project_path=str(root), state=WorkflowState.FAILED.value,
+                start_time=started, end_time=datetime.now(timezone.utc), fixture_path=fixture_relative,
+                precheck_result=precheck, final_result="FAILED", error_code="PRECHECK_UNEXPECTED_PASS",
+            ))
+        self._event(task_id, AuditEventType.DETERMINISTIC_CHECK, f"{task_id} PRECHECK FAIL", details={"result": "FAIL", "fixture": fixture_relative})
+        self._transition(task_id, WorkflowState.RUNNING_TEST, "precheck recorded")
+        self._transition(task_id, WorkflowState.TRIAGE, "deterministic fixture requires code change")
+        work_order = WorkOrder(
+            task_id=task_id,
+            goal="Change the isolated status fixture from FAIL to PASS.",
+            task_type=TaskType.CODE_FIX,
+            allowed_files=[fixture_relative],
+            acceptance_tests=["status.txt content equals PASS"],
+            max_retry=0,
+            needs_codex=True,
+        )
+        context = ContextBroker().build(
+            work_order,
+            error_excerpt="status.txt is FAIL.",
+            configuration={"project_id": project_id, "working_directory": str(fixture_directory), "required_final_content": "PASS"},
+        )
+        self._transition(task_id, WorkflowState.CODEX_FIX, "minimal structured work order approved")
+        self._event(task_id, AuditEventType.CONTEXT_CREATED, f"{task_id} minimal context package built", details={"allowed_files": context.allowed_files, "retry_number": context.retry_number})
+        self._event(task_id, AuditEventType.SMOKE_STARTED, "Codex STARTED", details={"project_id": project_id, "fixture": fixture_relative})
+        self._save()
+        execution = self.real_runner.run_isolated_file_change(fixture_directory, target, "PASS")
+        diagnostics = execution.diagnostics
+        self._event(task_id, AuditEventType.SMOKE_RESULT, f"Codex COMPLETE exit={execution.exit_code if execution.exit_code is not None else 'unavailable'}", details={"exit_code": execution.exit_code, "status": execution.status, "token_usage": execution.token_usage.model_dump(), "diagnostics": diagnostics.model_dump(mode="json") if diagnostics else None})
+        result_values = {
+            "run_id": run_id, "project_id": project_id, "project_path": str(root), "fixture_path": fixture_relative,
+            "precheck_result": "FAIL", "codex_invoked": True, "codex_exit_code": execution.exit_code,
+            "thread_started": diagnostics.thread_started if diagnostics else False,
+            "turn_started": diagnostics.turn_started if diagnostics else False,
+            "turn_completed": diagnostics.turn_completed if diagnostics else False,
+            "gross_input_tokens": execution.token_usage.gross_input_tokens,
+            "cached_input_tokens": execution.token_usage.cached_input_tokens,
+            "uncached_input_tokens": execution.token_usage.uncached_input_tokens,
+            "output_tokens": execution.token_usage.output_tokens,
+        }
+        budget_warning = self._record_project_usage(task_id, execution.token_usage)
+        if execution.status != "completed" or execution.exit_code != 0 or not result_values["turn_completed"]:
+            self._transition(task_id, WorkflowState.FAILED, "Codex execution failed")
+            return self._project_smoke_finish(ProjectSmokeResult(
+                **result_values, state=WorkflowState.FAILED.value, start_time=started, end_time=datetime.now(timezone.utc),
+                budget_warning=budget_warning, final_result="FAILED", error_code=execution.error_code or "CODEX_EXECUTION_FAILED",
+            ))
+
+        after_state = self._project_status_snapshot(root)
+        if after_state is None:
+            self._transition(task_id, WorkflowState.HUMAN_REVIEW, "repository status unavailable after Codex execution")
+            return self._project_smoke_finish(ProjectSmokeResult(
+                **result_values, state=WorkflowState.HUMAN_REVIEW.value, start_time=started, end_time=datetime.now(timezone.utc),
+                budget_warning=budget_warning, final_result="HUMAN_REVIEW", error_code="PROJECT_STATUS_UNAVAILABLE",
+            ))
+        runtime_changes = self._snapshot_changes(setup_state, after_state)
+        scope = ScopeGuard().check(work_order, runtime_changes)
+        result_values["changed_files"] = runtime_changes
+        result_values["scope_guard_result"] = "PASS" if scope.allowed else "FAIL"
+        if not scope.allowed:
+            self._event(task_id, AuditEventType.CODEX_RESULT, "Scope Guard FAIL", details={"out_of_scope": scope.out_of_scope, "baseline_file_count": len(baseline)})
+            self._transition(task_id, WorkflowState.HUMAN_REVIEW, "Codex changed files outside the exact fixture scope")
+            return self._project_smoke_finish(ProjectSmokeResult(
+                **result_values, state=WorkflowState.HUMAN_REVIEW.value, start_time=started, end_time=datetime.now(timezone.utc),
+                budget_warning=budget_warning, final_result="HUMAN_REVIEW", error_code="SCOPE_GUARD_FAILED",
+            ))
+        self._event(task_id, AuditEventType.CODEX_RESULT, "Scope Guard PASS", details={"changed_files": runtime_changes, "baseline_file_count": len(baseline)})
+        self._transition(task_id, WorkflowState.RUNNING_TEST, "scope guard passed")
+        postcheck = self._postcheck_status_fixture(target)
+        result_values["postcheck_result"] = postcheck
+        if postcheck != "PASS":
+            self._event(task_id, AuditEventType.TEST_RESULT, "Deterministic POSTCHECK FAIL", details={"result": postcheck})
+            self._transition(task_id, WorkflowState.FAILED, "deterministic postcheck failed")
+            return self._project_smoke_finish(ProjectSmokeResult(
+                **result_values, state=WorkflowState.FAILED.value, start_time=started, end_time=datetime.now(timezone.utc),
+                budget_warning=budget_warning, final_result="FAILED", error_code="POSTCHECK_FAILED",
+            ))
+        self._event(task_id, AuditEventType.TEST_RESULT, "Deterministic POSTCHECK PASS", details={"result": "PASS"})
+        self._transition(task_id, WorkflowState.COMPLETE, "deterministic project smoke passed")
+        self._event(task_id, AuditEventType.EVALUATION_RESULT, f"{task_id} COMPLETE", details={"deterministic": True, "evaluator_invoked": False})
+        return self._project_smoke_finish(ProjectSmokeResult(
+            **result_values, state=WorkflowState.COMPLETE.value, start_time=started, end_time=datetime.now(timezone.utc),
+            budget_warning=budget_warning, final_result="COMPLETE",
+        ))
+
+    def _project_smoke_finish(self, result: ProjectSmokeResult) -> dict[str, Any]:
+        self.data.setdefault("project_smoke_results", []).append(result.model_dump(mode="json"))
+        self._save()
+        return result.model_dump(mode="json")
+
+    def _record_project_usage(self, task_id: str, usage: TokenUsage) -> str | None:
+        decision = self.budgets.record_actual(usage, retry_count=0)
+        if decision == BudgetDecision.ALLOWED:
+            return None
+        self._event(task_id, AuditEventType.TOKEN_BUDGET_WARNING, f"Codex completed over configured budget: {decision.value}.", details={"budget_decision": decision.value, "token_usage": usage.model_dump()})
+        return decision.value
+
+    @staticmethod
+    def _status_fixture_result(target: Path) -> str:
+        try:
+            return target.read_text(encoding="utf-8")
+        except (OSError, UnicodeError):
+            return "MISSING"
+
+    @staticmethod
+    def _postcheck_status_fixture(target: Path) -> str:
+        try:
+            content = target.read_text(encoding="utf-8")
+        except (OSError, UnicodeError):
+            return "FAIL"
+        if content.endswith("\r\n"):
+            content = content[:-2]
+        elif content.endswith("\n"):
+            content = content[:-1]
+        return "PASS" if content == "PASS" else "FAIL"
+
+    def _validate_project_repository(self, root: Path) -> tuple[str | None, dict[str, str]]:
+        if not root.exists():
+            return "PROJECT_PATH_NOT_FOUND", {}
+        if not root.is_dir():
+            return "PROJECT_PATH_NOT_DIRECTORY", {}
+        snapshot = self._project_status_snapshot(root)
+        if snapshot is None:
+            return "PROJECT_GIT_UNAVAILABLE", {}
+        return None, snapshot
+
+    @staticmethod
+    def _snapshot_changes(before: dict[str, str], after: dict[str, str]) -> list[str]:
+        return sorted(path for path, value in after.items() if before.get(path) != value)
+
+    def _project_status_snapshot(self, root: Path) -> dict[str, str] | None:
+        try:
+            probe = subprocess.run(
+                ["git", "-c", f"safe.directory={root}", "rev-parse", "--show-toplevel"],
+                cwd=root, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=10, check=False, shell=False,
+            )
+            if probe.returncode != 0 or Path(probe.stdout.strip()).resolve() != root.resolve():
+                return None
+            status = subprocess.run(
+                ["git", "-c", f"safe.directory={root}", "status", "--porcelain", "--untracked-files=all"],
+                cwd=root, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=10, check=False, shell=False,
+            )
+        except (FileNotFoundError, OSError, subprocess.TimeoutExpired):
+            return None
+        if status.returncode != 0:
+            return None
+        snapshot: dict[str, str] = {}
+        for line in status.stdout.splitlines():
+            if len(line) < 4:
+                continue
+            path = line[3:].replace("\\", "/")
+            candidate = root / path
+            try:
+                digest = hashlib.sha256(candidate.read_bytes()).hexdigest() if candidate.is_file() else "non-file"
+            except OSError:
+                digest = "unreadable"
+            snapshot[path] = f"{line[:2]}:{digest}"
+        return snapshot
 
     def _repository_files(self) -> set[str] | None:
         try:

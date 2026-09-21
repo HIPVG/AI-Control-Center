@@ -57,3 +57,8 @@ def run_mock() -> dict:
 @app.post("/api/run/codex-smoke")
 def run_codex_smoke() -> dict:
     return engine.run_codex_smoke()
+
+
+@app.post("/api/run/project-smoke/{project_id}")
+def run_project_smoke(project_id: str) -> dict:
+    return engine.run_project_smoke(project_id)

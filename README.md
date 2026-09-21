@@ -35,3 +35,17 @@ The real smoke is started only by the fixed endpoint below; it accepts no comman
 ```powershell
 Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8765/api/run/codex-smoke
 ```
+
+## Configured LocalLLM-Lab smoke
+
+`config/projects.yaml` contains the only external project target accepted by this workflow: `local_llm_lab` at `C:\LocalLLM-Lab`. With `config/runtime.yaml` set to `mode: real`, start Uvicorn as a normal Windows user (not inside a Codex development task) and call the fixed endpoint:
+
+```powershell
+python -m uvicorn backend.app:app --host 127.0.0.1 --port 8765
+```
+
+```powershell
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8765/api/run/project-smoke/local_llm_lab
+```
+
+The endpoint captures existing Git changes as a baseline, creates a unique `.ai-control-center-smoke/<run_id>/status.txt` fixture, and permits Codex to change only that fixture from `FAIL` to `PASS`.

@@ -1,0 +1,5 @@
+projects:
+  local_llm_lab:
+    name: LocalLLM-Lab
+    path: C:\LocalLLM-Lab
+    default_branch: main

@@ -2,6 +2,7 @@ import pytest
 from pydantic import ValidationError
 
 from backend.models.task import TaskType, WorkOrder
+from backend.control.scope_guard import ScopeGuard
 from backend.orchestrator.engine import ControlCenterEngine, StateStore
 from backend.orchestrator.progress import calculate_progress
 
@@ -9,6 +10,11 @@ from backend.orchestrator.progress import calculate_progress
 def test_structured_model_rejects_unsafe_scope_path():
     with pytest.raises(ValidationError):
         WorkOrder(task_id="T", goal="x", task_type=TaskType.CODE_FIX, allowed_files=["../secret"], acceptance_tests=["pytest"])
+
+
+def test_scope_guard_preserves_leading_dot_in_safe_fixture_directory():
+    work_order = WorkOrder(task_id="T", goal="x", task_type=TaskType.CODE_FIX, allowed_files=[".fixture/status.txt"], acceptance_tests=["pytest"])
+    assert ScopeGuard().check(work_order, [".fixture/status.txt"]).allowed
 
 
 def test_progress_values_are_independent_and_in_range():

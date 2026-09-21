@@ -1,4 +1,5 @@
 projects:
   example_project:
+    name: Example Project
     path: C:\\Example-Project
     default_branch: main
