@@ -32,6 +32,12 @@ class DayRunner:
 
     def view(self) -> dict[str, Any]:
         value = self.snapshot.model_dump(mode="json")
+        current = next(
+            (item for item in self.snapshot.queue if item.state == QueueTaskState.RUNNING),
+            next((item for item in self.snapshot.queue if item.state in {QueueTaskState.PENDING, QueueTaskState.READY, QueueTaskState.REPAIR_PENDING}), None),
+        )
+        value["current_task"] = current.model_dump(mode="json") if current else None
+        value["current_routing"] = self.snapshot.model_routing_decisions[-1].model_dump(mode="json") if self.snapshot.model_routing_decisions else None
         value["token_totals"] = {
             "architect": self.snapshot.token_usage["architect"].total_tokens,
             "codex": self.snapshot.token_usage["codex"].total_tokens,
@@ -107,13 +113,13 @@ class DayRunner:
             return
         architect = self.architects.get(plan.architect_provider)
         if architect is None:
-            self._human_review("SYSTEM", "ARCHITECT_PROVIDER_NOT_CONFIGURED")
+            self._human_review("SYSTEM", "ARCHITECT_PROVIDER_NOT_CONFIGURED", routing=routing, failure_type="provider_configuration")
             return
         self.snapshot.architect_calls += 1
         try:
             decision = architect.choose(self._architect_request(plan, routing), ProviderExecutionConfig.from_routing_decision(routing))
         except RuntimeError as exc:
-            self._human_review("SYSTEM", f"ARCHITECT_PROVIDER_ERROR:{type(exc).__name__}")
+            self._human_review("SYSTEM", f"ARCHITECT_PROVIDER_ERROR:{type(exc).__name__}", routing=routing, failure_type="provider_error")
             return
         self._add_usage("architect", decision.token_usage)
         self._add_profile_usage(routing, decision.token_usage, decision.diagnostics)
@@ -126,14 +132,14 @@ class DayRunner:
             if self._all_successful():
                 self._complete()
             else:
-                self._human_review("SYSTEM", "ARCHITECT_PREMATURE_DAY_COMPLETE")
+                self._human_review("SYSTEM", "ARCHITECT_PREMATURE_DAY_COMPLETE", routing=routing, failure_type="architect_decision")
             return
         item = self._eligible_item(decision.task_id)
         if item is None:
-            self._human_review("SYSTEM", "ARCHITECT_INVALID_TASK")
+            self._human_review("SYSTEM", "ARCHITECT_INVALID_TASK", routing=routing, failure_type="architect_decision")
             return
         if decision.decision == "HUMAN_REVIEW":
-            self._human_review(item.task_id, decision.reason)
+            self._human_review(item.task_id, decision.reason, routing=routing, failure_type="architect_decision")
             return
         if decision.decision == "SKIP_TASK":
             item.state, item.final_result = QueueTaskState.SKIPPED, "SKIPPED"
@@ -176,7 +182,7 @@ class DayRunner:
         self._add_usage("codex", usage)
         if result.get("codex_invoked"):
             if not codex_routes:
-                self._human_review(item.task_id, "CODEX_ROUTING_DECISION_MISSING", result=result)
+                self._human_review(item.task_id, "CODEX_ROUTING_DECISION_MISSING", result=result, failure_type="routing_contract")
                 return
             self._add_profile_usage(codex_routes[-1], usage, result.get("diagnostics", {}))
         else:
@@ -194,7 +200,7 @@ class DayRunner:
             self._evaluate_semantic(plan, item, task, result)
             return
         elif final == "HUMAN_REVIEW":
-            self._human_review(item.task_id, result.get("human_review_reason") or result.get("error_code") or "TASK_REQUIRES_REVIEW", result=result)
+            self._human_review(item.task_id, result.get("human_review_reason") or result.get("error_code") or "TASK_REQUIRES_REVIEW", result=result, routing=codex_routes[-1] if codex_routes else None, failure_type=result.get("error_code") or "task_execution")
             return
         else:
             item.state, item.final_result, item.last_error = QueueTaskState.FAILED, final or "FAILED", result.get("error_code")
@@ -205,7 +211,7 @@ class DayRunner:
 
     def _evaluate_semantic(self, plan: DayPlan, item: QueuedTask, task: ConfiguredTask, result: dict[str, Any]) -> None:
         if result.get("postcheck_result") == "FAIL" or result.get("scope_guard_result") == "FAIL":
-            self._human_review(item.task_id, "DETERMINISTIC_SAFETY_FAILURE", result=result)
+            self._human_review(item.task_id, "DETERMINISTIC_SAFETY_FAILURE", result=result, failure_type="deterministic_safety")
             return
         if self.snapshot.evaluator_calls >= plan.max_evaluator_calls:
             self._stop("MAX_EVALUATOR_CALLS_REACHED")
@@ -222,14 +228,14 @@ class DayRunner:
             return
         evaluator = self.evaluators.get(plan.evaluator_provider)
         if evaluator is None:
-            self._human_review(item.task_id, "EVALUATOR_PROVIDER_NOT_CONFIGURED", result=result)
+            self._human_review(item.task_id, "EVALUATOR_PROVIDER_NOT_CONFIGURED", result=result, routing=routing, failure_type="provider_configuration")
             return
         self.snapshot.evaluator_calls += 1
         item.evaluator_invoked = True
         try:
             evaluation = evaluator.evaluate(self._evaluator_request(task, item, result, routing), ProviderExecutionConfig.from_routing_decision(routing))
         except RuntimeError as exc:
-            self._human_review(item.task_id, f"EVALUATOR_PROVIDER_ERROR:{type(exc).__name__}", result=result)
+            self._human_review(item.task_id, f"EVALUATOR_PROVIDER_ERROR:{type(exc).__name__}", result=result, routing=routing, failure_type="provider_error")
             return
         self._add_usage("evaluator", evaluation.token_usage)
         self._add_profile_usage(routing, evaluation.token_usage, evaluation.diagnostics)
@@ -244,7 +250,7 @@ class DayRunner:
             self._execute_one(plan, item, repair_instruction=evaluation.repair_instruction, previous_failure_type=FailureType.REASONING)
             return
         else:
-            self._human_review(item.task_id, evaluation.reason or "SEMANTIC_EVALUATION_REQUIRES_REVIEW", result=result)
+            self._human_review(item.task_id, evaluation.reason or "SEMANTIC_EVALUATION_REQUIRES_REVIEW", result=result, routing=routing, failure_type="semantic_evaluation")
             return
         self.snapshot.tasks_processed_this_run += 1
         self._update_progress()
@@ -318,7 +324,7 @@ class DayRunner:
         self.snapshot.model_routing_decisions.append(decision)
         self._audit("SYSTEM", "DAY_MODEL_ROUTING", decision.model_dump(mode="json"))
         if decision.outcome != "SELECTED":
-            self._human_review("SYSTEM", f"MODEL_ROUTER:{decision.selection_reason}")
+            self._human_review("SYSTEM", f"MODEL_ROUTER:{decision.selection_reason}", routing=decision, failure_type="model_routing")
             return None
         self._save()
         return decision
@@ -390,14 +396,28 @@ class DayRunner:
         self._audit("SYSTEM", "DAY_STOPPED", {"reason": reason})
         self._save()
 
-    def _human_review(self, task_id: str, reason: str, *, result: dict[str, Any] | None = None) -> None:
+    def _human_review(
+        self,
+        task_id: str,
+        reason: str,
+        *,
+        result: dict[str, Any] | None = None,
+        routing: RoutingDecision | None = None,
+        failure_type: str | None = None,
+    ) -> None:
         item = next((candidate for candidate in self.snapshot.queue if candidate.task_id == task_id), None)
         if item:
             item.state, item.last_error = QueueTaskState.HUMAN_REVIEW, reason
         result = result or {}
-        self.snapshot.human_review_queue.append(HumanReviewItem(plan_id=self.snapshot.plan_id, task_id=task_id, reason=reason, summary=result.get("human_review_reason"), changed_files=result.get("changed_files", []), result_reference=result.get("run_id")))
+        review = HumanReviewItem(
+            plan_id=self.snapshot.plan_id, task_id=task_id, reason=reason,
+            summary=result.get("human_review_reason"), changed_files=result.get("changed_files", []),
+            result_reference=result.get("run_id"), routing_profile_id=routing.profile_id if routing else None,
+            failure_type=failure_type,
+        )
+        self.snapshot.human_review_queue.append(review)
         self.snapshot.state, self.snapshot.stop_reason = DayRunState.HUMAN_REVIEW, reason
-        self._audit(task_id, "DAY_HUMAN_REVIEW", {"reason": reason})
+        self._audit(task_id, "DAY_HUMAN_REVIEW", review.model_dump(mode="json"))
         self._save()
 
     def _plan(self) -> DayPlan | None:

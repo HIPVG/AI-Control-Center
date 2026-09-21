@@ -1,0 +1,12 @@
+{
+  "roadmap_version": 1,
+  "current_milestone": "M6",
+  "completed_milestones": ["M0", "M1", "M2", "M3", "M4", "M5", "M7", "M8", "M9", "M11", "M12", "M13", "M14", "M15"],
+  "blocked_milestones": [],
+  "human_gate": "REAL_ARCHITECT_SINGLE_STEP_VALIDATION",
+  "latest_test_result": "130 passed, 2 warnings",
+  "latest_commit": "a8e37a5aa54f6ee8ff951f6f35a4767e440c9026",
+  "remote_push_state": "pending",
+  "safe_semantic_task_found": false,
+  "updated_at": "2026-09-21T00:00:00+09:00"
+}

@@ -5,6 +5,7 @@ import pytest
 from backend.agents.day_providers import MockDayArchitect, MockSemanticEvaluator, OpenAIDayArchitect, OpenAISemanticEvaluator, ProviderConfigurationError, ProviderTimeoutError
 from backend.control.plans import load_plan_registry
 from backend.control.orchestration import load_orchestration_config
+from backend.control.model_router import ModelRouter, load_model_profile_registry
 from backend.control.tasks import ConfiguredTask, TaskCommand, TaskRegistry
 from backend.models.day import DayExecutionMode, DayPlan, DayPlanRegistry, DayRunSnapshot, DayRunState, QueuedTask, SemanticEvaluation
 from backend.models.orchestration import ProviderBudget, ProviderSettings
@@ -33,6 +34,7 @@ def test_multi_task_plan_loads_without_reinterpreting_historical_plan():
     plans = load_plan_registry(Path("config/plans.yaml"))
     assert plans.get("week1-day3-local-llm").task_ids == ["PC-001-A"]
     assert plans.get("week1-day3-local-llm-v2").task_ids == ["PC-001-A", "PC-001-C", "PC-002-A"]
+    assert plans.get("week1-day3-local-llm-v2-real-architect").continuous_mode_supported is False
     config = load_orchestration_config(Path("config/orchestration.yaml"))
     assert config.orchestration.architect.provider == "mock"
     assert config.orchestration.evaluator.provider == "mock"
@@ -41,9 +43,13 @@ def test_multi_task_plan_loads_without_reinterpreting_historical_plan():
 def test_provider_environment_overrides_are_explicit_and_do_not_require_credentials(monkeypatch):
     monkeypatch.setenv("AI_CONTROL_CENTER_ARCHITECT_PROVIDER", "openai")
     monkeypatch.setenv("AI_CONTROL_CENTER_ARCHITECT_MODEL", "configured-test-model")
+    monkeypatch.setenv("AI_CONTROL_CENTER_EVALUATOR_PROVIDER", "openai")
+    monkeypatch.setenv("AI_CONTROL_CENTER_EVALUATOR_MODEL", "configured-evaluator-model")
     config = load_orchestration_config(Path("config/orchestration.yaml"))
     assert config.orchestration.architect.provider == "openai"
     assert config.orchestration.architect.model == "configured-test-model"
+    assert config.orchestration.evaluator.provider == "openai"
+    assert config.orchestration.evaluator.model == "configured-evaluator-model"
 
 
 def test_mock_provider_diagnostics_report_mock_without_a_model():
@@ -197,6 +203,41 @@ def test_openai_provider_fails_closed_without_credentials_and_exposes_typed_time
     responses = FakeResponses([type("APITimeout", (Exception,), {})()])
     with pytest.raises(ProviderTimeoutError):
         OpenAIDayArchitect(ProviderSettings(provider="openai", model="test", max_transient_retries=0), client_factory=lambda **kwargs: FakeClient(responses)).choose({"eligible_tasks": []}, execution)
+
+
+def test_real_architect_plan_without_credentials_enters_human_review_without_mock_or_codex(monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    task = configured_task("A")
+    plan = DayPlan(plan_id="real", title="real", task_ids=["A"], architect_provider="openai", evaluator_provider="mock", continuous_mode_supported=False)
+    day = DayRunner(
+        DayPlanRegistry(plans={"real": plan}), TaskRegistry(tasks={"A": task}),
+        lambda *_args, **_kwargs: pytest.fail("Codex must not be invoked when the Architect is unavailable"),
+        architects={"openai": OpenAIDayArchitect()},
+        model_router=ModelRouter(load_model_profile_registry(Path("config/model_profiles.yaml"))),
+        provider_budgets={role: ProviderBudget(daily_input_tokens=100000, daily_output_tokens=100000) for role in ("architect", "evaluator", "codex")},
+    )
+    result = day.start("real")
+    assert result["state"] == "HUMAN_REVIEW"
+    assert result["codex_calls"] == 0
+    review = result["human_review_queue"][0]
+    assert review["failure_type"] == "provider_error"
+    assert review["routing_profile_id"] == "standard"
+
+
+def test_interrupted_day_preserves_structured_state_and_requires_explicit_resume():
+    persisted = []
+    saved = DayRunSnapshot(
+        plan_id="mock-day", state=DayRunState.RUNNING, mode=DayExecutionMode.CONTINUOUS,
+        queue=[QueuedTask(task_id="A", attempts=1)], architect_calls=1, codex_calls=0,
+        deterministic_zero_usage_task_ids=["A"], day_progress=50, overall_progress=50,
+    ).model_dump(mode="json")
+    day = make_runner([configured_task("A")], complete_no_change, saved=saved, persisted=persisted)
+    restored = day.view()
+    assert restored["state"] == "PAUSED"
+    assert restored["stop_reason"] == "INTERRUPTED_REQUIRES_RESUME"
+    assert restored["queue"][0]["attempts"] == 1
+    assert restored["mode"] == "continuous"
+    assert persisted[-1]["state"] == "PAUSED"
 
 
 def test_interrupted_state_pauses_and_persists_meaningful_transitions():

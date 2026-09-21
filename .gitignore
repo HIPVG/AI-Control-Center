@@ -6,5 +6,7 @@ state/*.json
 state/codex-sqlite/
 state/smoke/
 logs/*
+config/runtime.local.yaml
+config/budget.local.yaml
 !state/.gitkeep
 !logs/.gitkeep

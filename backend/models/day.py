@@ -117,6 +117,8 @@ class HumanReviewItem(BaseModel):
     summary: str | None = None
     changed_files: list[str] = Field(default_factory=list)
     result_reference: str | None = None
+    routing_profile_id: str | None = None
+    failure_type: str | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 

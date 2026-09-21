@@ -155,7 +155,6 @@ class FaultRepairResult(BaseModel):
 
 
 def load_runtime_config(path: Path) -> RuntimeConfig:
-    if not path.exists():
-        return RuntimeConfig()
-    import yaml
-    return RuntimeConfig.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")) or {})
+    from backend.control.config_layers import load_yaml_layers
+
+    return RuntimeConfig.model_validate(load_yaml_layers(path))

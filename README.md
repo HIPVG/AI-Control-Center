@@ -39,10 +39,19 @@ The mock Day plan can then be run one deterministic task at a time:
 Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/api/day/start/week1-day3-local-llm-v2?mode=single-step | ConvertTo-Json -Depth 20
 ```
 
-`config/model_profiles.yaml` defines the logical reasoning profiles. Real
-providers remain opt-in through `OPENAI_API_KEY` and explicit
-`config/orchestration.yaml` model configuration; no credential or network call
-is made during normal mock validation.
+`config/model_profiles.yaml` defines the logical reasoning profiles and their
+concrete provider mappings. Real providers remain opt-in through
+`OPENAI_API_KEY`; the Router, not provider configuration, selects the actual
+model and reasoning effort. No credential or network call is made during normal
+mock validation.
+
+## Local runtime overrides
+
+Tracked `config/runtime.yaml` and `config/budget.yaml` are safe defaults.
+Ordinary local operation reads optional ignored overrides afterwards:
+`config/runtime.local.yaml` and `config/budget.local.yaml`. Copy the matching
+`.example.yaml` file to create a local override; local values must never be
+committed.
 
 ## Real Codex smoke
 

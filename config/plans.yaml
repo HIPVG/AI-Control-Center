@@ -39,7 +39,7 @@ plans:
     architect_provider: openai
     evaluator_provider: mock
     single_step_default: true
-    continuous_mode_supported: true
+    continuous_mode_supported: false
     validation_day: 3
     max_tasks_per_run: 3
     max_codex_calls: 3
@@ -58,7 +58,7 @@ plans:
     architect_provider: openai
     evaluator_provider: mock
     single_step_default: true
-    continuous_mode_supported: true
+    continuous_mode_supported: false
     validation_day: 3
     max_tasks_per_run: 3
     max_codex_calls: 3

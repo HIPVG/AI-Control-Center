@@ -78,11 +78,7 @@ class TokenBudgetManager:
 
 
 def load_budget_config(path: Path) -> BudgetConfig:
-    """Read optional YAML configuration while retaining safe defaults."""
-    if not path.exists():
-        return BudgetConfig()
-    try:
-        import yaml
-        return BudgetConfig.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")) or {})
-    except (ImportError, OSError, ValueError):
-        return BudgetConfig()
+    """Load deterministic defaults followed by an optional local override."""
+    from backend.control.config_layers import load_yaml_layers
+
+    return BudgetConfig.model_validate(load_yaml_layers(path))
