@@ -1,10 +1,11 @@
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.orchestrator.engine import ControlCenterEngine, JsonStateStore
+from backend.models.day import DayExecutionMode
 
 ROOT = Path(__file__).resolve().parent.parent
 engine = ControlCenterEngine(JsonStateStore(ROOT / "state" / "control-center.json"), ROOT / "config" / "budget.yaml")
@@ -60,13 +61,13 @@ def day_status() -> dict:
 
 
 @app.post("/api/day/start/{plan_id}")
-def start_day(plan_id: str) -> dict:
-    return engine.start_day(plan_id)
+def start_day(plan_id: str, mode: DayExecutionMode = Query(DayExecutionMode.SINGLE_STEP)) -> dict:
+    return engine.start_day(plan_id, mode=mode)
 
 
 @app.post("/api/day/resume")
-def resume_day() -> dict:
-    return engine.resume_day()
+def resume_day(mode: DayExecutionMode | None = Query(None)) -> dict:
+    return engine.resume_day(mode=mode)
 
 
 @app.post("/api/day/stop")

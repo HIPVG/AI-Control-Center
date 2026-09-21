@@ -20,10 +20,15 @@ def test_required_endpoints_are_available(client):
     assert client.get("/").status_code == 200
 
 
-def test_day_endpoints_accept_only_configured_plan_ids_and_keep_continuous_mode_disabled(client):
+def test_day_endpoints_accept_only_configured_plan_ids(client):
     assert client.post("/api/day/start/not-configured", json={"command": "unsafe"}).json()["error_code"] == "PLAN_NOT_CONFIGURED"
     assert client.post("/api/day/resume", json={"single_step": False}).json()["error_code"] == "NO_DAY_PLAN"
     assert client.post("/api/day/stop").status_code == 200
+
+
+def test_day_mode_is_a_typed_query_not_a_browser_supplied_configuration_object(client):
+    assert client.post("/api/day/start/not-configured?mode=continuous").json()["error_code"] == "PLAN_NOT_CONFIGURED"
+    assert client.post("/api/day/start/not-configured?mode=unsafe").status_code == 422
 
 
 def test_status_includes_timeline_for_dashboard_rendering(client):

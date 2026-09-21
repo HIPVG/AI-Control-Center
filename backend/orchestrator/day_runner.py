@@ -3,7 +3,8 @@ from typing import Any, Callable, Protocol
 
 from backend.agents.day_providers import DayArchitect, DayEvaluator, MockDayArchitect, MockSemanticEvaluator
 from backend.control.tasks import ConfiguredTask, TaskRegistry
-from backend.models.day import DayPlan, DayPlanRegistry, DayRunSnapshot, DayRunState, HumanReviewItem, QueueTaskState, QueuedTask
+from backend.models.day import DayExecutionMode, DayPlan, DayPlanRegistry, DayRunSnapshot, DayRunState, HumanReviewItem, QueueTaskState, QueuedTask
+from backend.models.orchestration import ProviderBudget
 from backend.models.result import TokenUsage
 
 
@@ -12,186 +13,272 @@ class DayTaskExecutor(Protocol):
 
 
 class DayRunner:
-    """Persistent, single-step scheduler that delegates execution to the guarded engine."""
+    """Persistent scheduler; it delegates every build action to the guarded task engine."""
 
-    def __init__(
-        self,
-        plans: DayPlanRegistry,
-        tasks: TaskRegistry,
-        execute_task: DayTaskExecutor,
-        *,
-        architects: dict[str, DayArchitect] | None = None,
-        evaluators: dict[str, DayEvaluator] | None = None,
-        persist: Callable[[dict[str, Any]], None] | None = None,
-        audit: Callable[[str, str, dict[str, Any]], None] | None = None,
-        saved: dict[str, Any] | None = None,
-    ) -> None:
+    def __init__(self, plans: DayPlanRegistry, tasks: TaskRegistry, execute_task: DayTaskExecutor, *, architects: dict[str, DayArchitect] | None = None, evaluators: dict[str, DayEvaluator] | None = None, provider_budgets: dict[str, ProviderBudget] | None = None, persist: Callable[[dict[str, Any]], None] | None = None, audit: Callable[[str, str, dict[str, Any]], None] | None = None, saved: dict[str, Any] | None = None) -> None:
         self.plans, self.tasks, self.execute_task = plans, tasks, execute_task
         self.architects = architects or {"mock": MockDayArchitect()}
         self.evaluators = evaluators or {"mock": MockSemanticEvaluator()}
-        self.persist = persist
-        self.audit = audit
+        self.provider_budgets = provider_budgets or {"architect": ProviderBudget(), "evaluator": ProviderBudget()}
+        self.persist, self.audit = persist, audit
         self.snapshot = DayRunSnapshot.model_validate(saved or {})
         if self.snapshot.state == DayRunState.RUNNING:
-            self.snapshot.state = DayRunState.PAUSED
-            self.snapshot.stop_reason = "INTERRUPTED_REQUIRES_RESUME"
+            self.snapshot.state, self.snapshot.stop_reason = DayRunState.PAUSED, "INTERRUPTED_REQUIRES_RESUME"
             self._save()
 
     def view(self) -> dict[str, Any]:
-        return self.snapshot.model_dump(mode="json")
+        value = self.snapshot.model_dump(mode="json")
+        value["token_totals"] = {
+            "architect": self.snapshot.token_usage["architect"].total_tokens,
+            "codex": self.snapshot.token_usage["codex"].total_tokens,
+            "evaluator": self.snapshot.token_usage["evaluator"].total_tokens,
+            "day_total": sum(usage.total_tokens for usage in self.snapshot.token_usage.values()),
+        }
+        return value
 
-    def start(self, plan_id: str, *, single_step: bool | None = None) -> dict[str, Any]:
+    def start(self, plan_id: str, *, mode: DayExecutionMode = DayExecutionMode.SINGLE_STEP) -> dict[str, Any]:
         plan = self.plans.get(plan_id)
         if plan is None:
             return {"error_code": "PLAN_NOT_CONFIGURED", **self.view()}
+        if mode == DayExecutionMode.CONTINUOUS and not plan.continuous_mode_supported:
+            return {"error_code": "CONTINUOUS_MODE_NOT_SUPPORTED", **self.view()}
         missing = [task_id for task_id in plan.task_ids if self.tasks.get(task_id) is None]
         if missing:
             return {"error_code": "PLAN_TASK_NOT_CONFIGURED", "missing_task_ids": missing, **self.view()}
-        self.snapshot = DayRunSnapshot(plan_id=plan_id, state=DayRunState.RUNNING, queue=[QueuedTask(task_id=task_id) for task_id in plan.task_ids])
-        self._audit("SYSTEM", "DAY_PLAN_STARTED", {"plan_id": plan_id, "task_ids": plan.task_ids})
+        self.snapshot = DayRunSnapshot(plan_id=plan_id, state=DayRunState.RUNNING, mode=mode, queue=[QueuedTask(task_id=task_id) for task_id in plan.task_ids])
+        self._audit("SYSTEM", "DAY_PLAN_STARTED", {"plan_id": plan_id, "mode": mode.value, "task_ids": plan.task_ids})
         self._save()
-        return self.step(single_step=plan.single_step_default if single_step is None else single_step)
+        return self._advance(plan)
 
-    def resume(self, *, single_step: bool | None = None) -> dict[str, Any]:
+    def resume(self, *, mode: DayExecutionMode | None = None) -> dict[str, Any]:
         plan = self._plan()
         if plan is None:
             return {"error_code": "NO_DAY_PLAN", **self.view()}
-        if self.snapshot.state not in {DayRunState.RUNNING, DayRunState.PAUSED, DayRunState.STOPPED}:
+        selected_mode = mode or self.snapshot.mode
+        if selected_mode == DayExecutionMode.CONTINUOUS and not plan.continuous_mode_supported:
+            return {"error_code": "CONTINUOUS_MODE_NOT_SUPPORTED", **self.view()}
+        if self.snapshot.state not in {DayRunState.PAUSED, DayRunState.STOPPED}:
             return {"error_code": "DAY_NOT_RESUMABLE", **self.view()}
-        self.snapshot.state = DayRunState.RUNNING
-        self.snapshot.stop_reason = None
+        self.snapshot.state, self.snapshot.stop_reason, self.snapshot.mode, self.snapshot.tasks_processed_this_run = DayRunState.RUNNING, None, selected_mode, 0
         self._save()
-        return self.step(single_step=plan.single_step_default if single_step is None else single_step)
+        return self._advance(plan)
 
     def stop(self) -> dict[str, Any]:
-        if self.snapshot.state == DayRunState.RUNNING:
-            self.snapshot.state = DayRunState.STOPPED
-            self.snapshot.stop_reason = "STOP_REQUESTED"
-            for item in self.snapshot.queue:
-                if item.state == QueueTaskState.RUNNING:
-                    item.state = QueueTaskState.STOPPED
-            self._audit("SYSTEM", "DAY_STOPPED", {"reason": self.snapshot.stop_reason})
-            self._save()
+        if self.snapshot.state in {DayRunState.RUNNING, DayRunState.PAUSED}:
+            self._stop("STOP_REQUESTED")
         return self.view()
 
-    def step(self, *, single_step: bool = True) -> dict[str, Any]:
-        plan = self._plan()
-        if plan is None:
-            return {"error_code": "NO_DAY_PLAN", **self.view()}
-        if not single_step:
-            return {"error_code": "CONTINUOUS_MODE_NOT_SUPPORTED", **self.view()}
-        if self.snapshot.state != DayRunState.RUNNING:
-            return {"error_code": "DAY_NOT_RUNNING", **self.view()}
+    def _advance(self, plan: DayPlan) -> dict[str, Any]:
+        while self.snapshot.state == DayRunState.RUNNING:
+            if self.snapshot.tasks_processed_this_run >= plan.max_tasks_per_run:
+                self._stop("MAX_TASKS_PER_RUN_REACHED")
+                break
+            self._process_one(plan)
+            if self.snapshot.mode == DayExecutionMode.SINGLE_STEP and self.snapshot.state == DayRunState.RUNNING:
+                if self._all_successful():
+                    self._complete()
+                else:
+                    self.snapshot.state, self.snapshot.stop_reason = DayRunState.PAUSED, "SINGLE_STEP_COMPLETE"
+                    self._save()
+                break
+        return self.view()
+
+    def _process_one(self, plan: DayPlan) -> None:
         if self.snapshot.architect_calls >= plan.max_architect_calls:
-            return self._human_review("SYSTEM", "ARCHITECT_CALL_LIMIT_EXCEEDED")
+            self._stop("MAX_ARCHITECT_CALLS_REACHED")
+            return
+        if not self._provider_precheck("architect", self.snapshot.architect_calls):
+            return
         architect = self.architects.get(plan.architect_provider)
         if architect is None:
-            return self._human_review("SYSTEM", "ARCHITECT_PROVIDER_NOT_CONFIGURED")
+            self._human_review("SYSTEM", "ARCHITECT_PROVIDER_NOT_CONFIGURED")
+            return
         self.snapshot.architect_calls += 1
         try:
-            decision = architect.choose(self.snapshot.queue)
+            decision = architect.choose(self._architect_request(plan))
         except RuntimeError as exc:
-            return self._human_review("SYSTEM", f"ARCHITECT_ERROR:{exc}")
+            self._human_review("SYSTEM", f"ARCHITECT_PROVIDER_ERROR:{type(exc).__name__}")
+            return
         self._add_usage("architect", decision.token_usage)
-        self._audit("SYSTEM", "DAY_ARCHITECT_DECISION", {"task_id": decision.task_id, "reason": decision.reason})
-        item = next((candidate for candidate in self.snapshot.queue if candidate.task_id == decision.task_id and candidate.state in {QueueTaskState.PENDING, QueueTaskState.READY, QueueTaskState.REPAIR_PENDING}), None)
+        self._provider_overage("architect")
+        self._audit("SYSTEM", "DAY_ARCHITECT_DECISION", {"decision": decision.decision, "task_id": decision.task_id, "reason": decision.reason, "diagnostics": decision.diagnostics})
+        if decision.decision == "STOP_DAY":
+            self._stop("ARCHITECT_STOP_DAY")
+            return
+        if decision.decision == "DAY_COMPLETE":
+            if self._all_successful():
+                self._complete()
+            else:
+                self._human_review("SYSTEM", "ARCHITECT_PREMATURE_DAY_COMPLETE")
+            return
+        item = self._eligible_item(decision.task_id)
         if item is None:
-            if all(candidate.state in {QueueTaskState.PASS, QueueTaskState.COMPLETE_NO_CHANGE} for candidate in self.snapshot.queue):
-                self.snapshot.state = DayRunState.COMPLETE
-                self.snapshot.stop_reason = "ALL_TASKS_TERMINAL"
-                self._save()
-                return self.view()
-            return self._human_review("SYSTEM", "ARCHITECT_SELECTED_INELIGIBLE_TASK")
-        return self._execute_one(plan, item)
+            self._human_review("SYSTEM", "ARCHITECT_INVALID_TASK")
+            return
+        if decision.decision == "HUMAN_REVIEW":
+            self._human_review(item.task_id, decision.reason)
+            return
+        if decision.decision == "SKIP_TASK":
+            item.state, item.final_result = QueueTaskState.SKIPPED, "SKIPPED"
+            self.snapshot.tasks_processed_this_run += 1
+            self._update_progress()
+            self._audit(item.task_id, "DAY_TASK_RESULT", {"final_result": "SKIPPED", "reason": decision.reason})
+            self._after_task(plan)
+            return
+        self._execute_one(plan, item)
 
-    def _execute_one(self, plan: DayPlan, item: QueuedTask, repair_instruction: str | None = None) -> dict[str, Any]:
+    def _execute_one(self, plan: DayPlan, item: QueuedTask, repair_instruction: str | None = None) -> None:
         task = self.tasks.get(item.task_id)
         assert task is not None
         remaining_codex = plan.max_codex_calls - self.snapshot.codex_calls
         if task.requires_codex and remaining_codex <= 0:
-            return self._human_review(item.task_id, "CODEX_CALL_LIMIT_EXCEEDED")
-        item.state = QueueTaskState.RUNNING
-        item.attempts += 1
-        item.updated_at = datetime.now(timezone.utc)
+            self._stop("MAX_CODEX_CALLS_REACHED")
+            return
+        item.state, item.attempts, item.updated_at = QueueTaskState.RUNNING, item.attempts + 1, datetime.now(timezone.utc)
         self._save()
         result = self.execute_task(item.task_id, max_codex_attempts=remaining_codex, repair_instruction=repair_instruction)
-        self._audit(item.task_id, "DAY_TASK_RESULT", {"final_result": result.get("final_result"), "codex_invoked": result.get("codex_invoked", False), "error_code": result.get("error_code")})
         self.snapshot.codex_calls += len(result.get("codex_attempts", []))
-        self._add_usage("codex", TokenUsage(
-            input_tokens=int(result.get("gross_input_tokens", 0)), cached_input_tokens=int(result.get("cached_input_tokens", 0)),
-            output_tokens=int(result.get("output_tokens", 0)), available=bool(result.get("codex_invoked")),
-        ))
+        self._add_usage("codex", TokenUsage(input_tokens=int(result.get("gross_input_tokens", 0)), cached_input_tokens=int(result.get("cached_input_tokens", 0)), output_tokens=int(result.get("output_tokens", 0)), available=bool(result.get("codex_invoked"))))
+        self._audit(item.task_id, "DAY_TASK_RESULT", {"final_result": result.get("final_result"), "codex_invoked": result.get("codex_invoked", False), "error_code": result.get("error_code"), "result_reference": result.get("run_id")})
         final = result.get("final_result")
         if final == "COMPLETE_NO_CHANGE":
             item.state, item.final_result = QueueTaskState.COMPLETE_NO_CHANGE, final
         elif final == "COMPLETE" and task.evaluator_type == "deterministic":
             item.state, item.final_result = QueueTaskState.PASS, final
         elif final == "COMPLETE" and task.evaluator_type == "semantic":
-            return self._evaluate_semantic(plan, item, task, result)
+            self._evaluate_semantic(plan, item, task, result)
+            return
         elif final == "HUMAN_REVIEW":
-            return self._human_review(item.task_id, result.get("human_review_reason") or result.get("error_code") or "TASK_REQUIRES_REVIEW")
+            self._human_review(item.task_id, result.get("human_review_reason") or result.get("error_code") or "TASK_REQUIRES_REVIEW", result=result)
+            return
         else:
             item.state, item.final_result, item.last_error = QueueTaskState.FAILED, final or "FAILED", result.get("error_code")
-            self.snapshot.state, self.snapshot.stop_reason = DayRunState.FAILED, "TASK_FAILED"
-        self._finalize_step()
-        return self.view()
+            self.snapshot.failed_tasks += 1
+        self.snapshot.tasks_processed_this_run += 1
+        self._update_progress()
+        self._after_task(plan)
 
-    def _evaluate_semantic(self, plan: DayPlan, item: QueuedTask, task: ConfiguredTask, result: dict[str, Any]) -> dict[str, Any]:
+    def _evaluate_semantic(self, plan: DayPlan, item: QueuedTask, task: ConfiguredTask, result: dict[str, Any]) -> None:
+        if result.get("postcheck_result") == "FAIL" or result.get("scope_guard_result") == "FAIL":
+            self._human_review(item.task_id, "DETERMINISTIC_SAFETY_FAILURE", result=result)
+            return
         if self.snapshot.evaluator_calls >= plan.max_evaluator_calls:
-            return self._human_review(item.task_id, "EVALUATOR_CALL_LIMIT_EXCEEDED")
+            self._stop("MAX_EVALUATOR_CALLS_REACHED")
+            return
+        if not self._provider_precheck("evaluator", self.snapshot.evaluator_calls):
+            return
         evaluator = self.evaluators.get(plan.evaluator_provider)
         if evaluator is None:
-            return self._human_review(item.task_id, "EVALUATOR_PROVIDER_NOT_CONFIGURED")
+            self._human_review(item.task_id, "EVALUATOR_PROVIDER_NOT_CONFIGURED", result=result)
+            return
         self.snapshot.evaluator_calls += 1
         item.evaluator_invoked = True
         try:
-            evaluation = evaluator.evaluate(task_id=item.task_id, metrics=task.evaluation_metrics, result=self._bounded_result(result))
+            evaluation = evaluator.evaluate(self._evaluator_request(task, item, result))
         except RuntimeError as exc:
-            return self._human_review(item.task_id, f"EVALUATOR_ERROR:{exc}")
+            self._human_review(item.task_id, f"EVALUATOR_PROVIDER_ERROR:{type(exc).__name__}", result=result)
+            return
         self._add_usage("evaluator", evaluation.token_usage)
-        self._audit(item.task_id, "DAY_EVALUATION_RESULT", {"decision": evaluation.decision, "score": evaluation.score, "blocking_issues": evaluation.blocking_issues})
-        if evaluation.decision == "PASS":
+        self._provider_overage("evaluator")
+        self._audit(item.task_id, "DAY_EVALUATION_RESULT", {"decision": evaluation.decision, "metrics": evaluation.metrics, "blocking_issues": evaluation.blocking_issues, "diagnostics": evaluation.diagnostics})
+        if evaluation.decision in {"PASS", "NOT_REQUIRED"}:
             item.state, item.final_result = QueueTaskState.PASS, "COMPLETE"
         elif evaluation.decision == "REPAIR" and item.repair_loops < plan.max_repair_loops_per_task:
             item.repair_loops += 1
             item.state = QueueTaskState.REPAIR_PENDING
-            return self._execute_one(plan, item, repair_instruction=evaluation.repair_instruction)
+            self._save()
+            self._execute_one(plan, item, repair_instruction=evaluation.repair_instruction)
+            return
         else:
-            return self._human_review(item.task_id, "SEMANTIC_EVALUATION_REQUIRES_REVIEW")
-        self._finalize_step()
-        return self.view()
+            self._human_review(item.task_id, evaluation.reason or "SEMANTIC_EVALUATION_REQUIRES_REVIEW", result=result)
+            return
+        self.snapshot.tasks_processed_this_run += 1
+        self._update_progress()
+        self._after_task(plan)
+
+    def _after_task(self, plan: DayPlan) -> None:
+        if self.snapshot.failed_tasks > plan.max_failed_tasks:
+            self._stop("MAX_FAILED_TASKS_REACHED")
+        elif self._all_successful():
+            self._complete()
+        elif self.snapshot.mode == DayExecutionMode.CONTINUOUS:
+            self._save()
+
+    def _provider_precheck(self, role: str, call_count: int) -> bool:
+        budget = self.provider_budgets[role]
+        usage = self.snapshot.token_usage[role]
+        if call_count >= budget.max_calls or usage.input_tokens >= budget.daily_input_tokens or usage.output_tokens >= budget.daily_output_tokens:
+            self._stop(f"{role.upper()}_BUDGET_GUARD")
+            return False
+        return True
+
+    def _provider_overage(self, role: str) -> None:
+        budget, usage = self.provider_budgets[role], self.snapshot.token_usage[role]
+        if usage.input_tokens > budget.daily_input_tokens or usage.output_tokens > budget.daily_output_tokens:
+            warning = f"{role.upper()}_POST_RUN_BUDGET_OVERAGE"
+            if warning not in self.snapshot.budget_warnings:
+                self.snapshot.budget_warnings.append(warning)
+
+    def _architect_request(self, plan: DayPlan) -> dict[str, Any]:
+        eligible = [item for item in self.snapshot.queue if item.state in {QueueTaskState.PENDING, QueueTaskState.READY, QueueTaskState.REPAIR_PENDING}]
+        return {
+            "plan_id": plan.plan_id, "validation_day": plan.validation_day,
+            "eligible_tasks": [{"task_id": item.task_id, "title": self.tasks.get(item.task_id).title, "task_type": self.tasks.get(item.task_id).task_type.value, "evaluator_type": self.tasks.get(item.task_id).evaluator_type, "repair_loops": item.repair_loops} for item in eligible],
+            "queue": [{"task_id": item.task_id, "state": item.state.value, "final_result": item.final_result} for item in self.snapshot.queue],
+            "completed": [item.task_id for item in self.snapshot.queue if item.state in {QueueTaskState.PASS, QueueTaskState.COMPLETE_NO_CHANGE, QueueTaskState.SKIPPED}],
+            "review": [{"task_id": item.task_id, "reason": item.reason} for item in self.snapshot.human_review_queue],
+            "remaining_budgets": {"architect_calls": plan.max_architect_calls - self.snapshot.architect_calls, "evaluator_calls": plan.max_evaluator_calls - self.snapshot.evaluator_calls, "codex_calls": plan.max_codex_calls - self.snapshot.codex_calls},
+            "stop_conditions": {"max_tasks_per_run": plan.max_tasks_per_run, "max_failed_tasks": plan.max_failed_tasks},
+        }
+
+    def _evaluator_request(self, task: ConfiguredTask, item: QueuedTask, result: dict[str, Any]) -> dict[str, Any]:
+        return {"task_id": task.task_id, "task_goal": task.title, "acceptance_criteria": " ".join(task.postcheck.argv), "precheck": result.get("precheck_result"), "postcheck": result.get("postcheck_result"), "scope_guard": result.get("scope_guard_result"), "changed_files": result.get("changed_files", []), "evidence": self._bounded_result(result), "rubric": {"metrics": task.evaluation_metrics}, "repair_attempt": item.repair_loops}
 
     @staticmethod
     def _bounded_result(result: dict[str, Any]) -> dict[str, Any]:
-        allowed = ("task_id", "final_result", "precheck_result", "postcheck_result", "changed_files", "error_code")
-        return {key: result.get(key) for key in allowed}
+        return {key: result.get(key) for key in ("task_id", "final_result", "precheck_result", "postcheck_result", "scope_guard_result", "changed_files", "error_code")}
 
-    def _finalize_step(self) -> None:
-        if all(item.state in {QueueTaskState.PASS, QueueTaskState.COMPLETE_NO_CHANGE} for item in self.snapshot.queue):
-            self.snapshot.state, self.snapshot.stop_reason = DayRunState.COMPLETE, "ALL_TASKS_TERMINAL"
+    def _eligible_item(self, task_id: str | None) -> QueuedTask | None:
+        return next((item for item in self.snapshot.queue if item.task_id == task_id and item.state in {QueueTaskState.PENDING, QueueTaskState.READY, QueueTaskState.REPAIR_PENDING}), None)
+
+    def _all_successful(self) -> bool:
+        return bool(self.snapshot.queue) and all(item.state in {QueueTaskState.PASS, QueueTaskState.COMPLETE_NO_CHANGE, QueueTaskState.SKIPPED} for item in self.snapshot.queue)
+
+    def _update_progress(self) -> None:
+        total = len(self.snapshot.queue)
+        complete = sum(item.state in {QueueTaskState.PASS, QueueTaskState.COMPLETE_NO_CHANGE, QueueTaskState.SKIPPED} for item in self.snapshot.queue)
+        progress = round(complete / total * 100, 2) if total else 0
+        self.snapshot.day_progress = progress
+        self.snapshot.overall_progress = progress
         self._save()
 
-    def _human_review(self, task_id: str, reason: str) -> dict[str, Any]:
+    def _complete(self) -> None:
+        self.snapshot.state, self.snapshot.stop_reason = DayRunState.COMPLETE, "ALL_TASKS_TERMINAL"
+        self._update_progress()
+        self._audit("SYSTEM", "DAY_COMPLETE", {"plan_id": self.snapshot.plan_id, "day_progress": self.snapshot.day_progress})
+        self._save()
+
+    def _stop(self, reason: str) -> None:
+        self.snapshot.state, self.snapshot.stop_reason = DayRunState.STOPPED, reason
+        self._audit("SYSTEM", "DAY_STOPPED", {"reason": reason})
+        self._save()
+
+    def _human_review(self, task_id: str, reason: str, *, result: dict[str, Any] | None = None) -> None:
         item = next((candidate for candidate in self.snapshot.queue if candidate.task_id == task_id), None)
         if item:
             item.state, item.last_error = QueueTaskState.HUMAN_REVIEW, reason
-        self.snapshot.human_review_queue.append(HumanReviewItem(task_id=task_id, reason=reason))
-        self._audit(task_id, "DAY_HUMAN_REVIEW", {"reason": reason})
+        result = result or {}
+        self.snapshot.human_review_queue.append(HumanReviewItem(plan_id=self.snapshot.plan_id, task_id=task_id, reason=reason, summary=result.get("human_review_reason"), changed_files=result.get("changed_files", []), result_reference=result.get("run_id")))
         self.snapshot.state, self.snapshot.stop_reason = DayRunState.HUMAN_REVIEW, reason
+        self._audit(task_id, "DAY_HUMAN_REVIEW", {"reason": reason})
         self._save()
-        return self.view()
 
     def _plan(self) -> DayPlan | None:
         return self.plans.get(self.snapshot.plan_id) if self.snapshot.plan_id else None
 
     def _add_usage(self, role: str, usage: TokenUsage) -> None:
         previous = self.snapshot.token_usage[role]
-        self.snapshot.token_usage[role] = TokenUsage(
-            input_tokens=previous.input_tokens + usage.input_tokens,
-            cached_input_tokens=previous.cached_input_tokens + usage.cached_input_tokens,
-            output_tokens=previous.output_tokens + usage.output_tokens,
-            available=previous.available or usage.available,
-        )
+        self.snapshot.token_usage[role] = TokenUsage(input_tokens=previous.input_tokens + usage.input_tokens, cached_input_tokens=previous.cached_input_tokens + usage.cached_input_tokens, output_tokens=previous.output_tokens + usage.output_tokens, available=previous.available or usage.available)
 
     def _save(self) -> None:
         self.snapshot.updated_at = datetime.now(timezone.utc)

@@ -80,12 +80,14 @@ def test_no_eligible_failure_requires_human_review_after_all_candidates():
     assert len(calls) == 3
 
 
-def test_real_task_registry_does_not_invent_a_failing_case():
+def test_real_task_registry_contains_only_explicitly_configured_cases():
     from backend.control.tasks import load_task_registry
 
     tasks = load_task_registry(Path("config/tasks.yaml"))
     assert tasks.get("PC-001-A") is not None
-    assert tasks.get("PC-002-A") is None
+    assert tasks.get("PC-001-C") is not None
+    assert tasks.get("PC-002-A") is not None
+    assert tasks.get("PC-999-A") is None
 
 
 def test_engine_discovery_persists_no_candidate_human_review(tmp_path, monkeypatch):

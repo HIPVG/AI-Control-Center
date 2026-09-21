@@ -1,0 +1,19 @@
+orchestration:
+  architect:
+    provider: mock
+    model: null
+    timeout_seconds: 30
+    max_transient_retries: 1
+  evaluator:
+    provider: mock
+    model: null
+    timeout_seconds: 30
+    max_transient_retries: 1
+  architect_budget:
+    daily_input_tokens: 150000
+    daily_output_tokens: 20000
+    max_calls: 10
+  evaluator_budget:
+    daily_input_tokens: 150000
+    daily_output_tokens: 20000
+    max_calls: 10

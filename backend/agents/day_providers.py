@@ -1,31 +1,41 @@
-"""Small, structured role providers for autonomous-day orchestration.
-
-The OpenAI implementations are deliberately opt-in: construction and tests do
-not access the network, and a missing API key fails closed before a request.
-"""
+"""Isolated, typed Architect and Evaluator providers for Day orchestration."""
 
 import json
 import os
-from typing import Any, Protocol
-from urllib.error import URLError
-from urllib.request import Request, urlopen
+import re
+from time import monotonic
+from typing import Any, Callable, Protocol
 
-from backend.models.day import ArchitectDecision, QueuedTask, SemanticEvaluation
+from backend.models.day import ArchitectDecision, SemanticEvaluation
+from backend.models.orchestration import ProviderSettings
 from backend.models.result import TokenUsage
 
 
+class ProviderConfigurationError(RuntimeError):
+    pass
+
+
+class ProviderTimeoutError(RuntimeError):
+    pass
+
+
+class ProviderRequestError(RuntimeError):
+    pass
+
+
 class DayArchitect(Protocol):
-    def choose(self, queue: list[QueuedTask]) -> ArchitectDecision: ...
+    def choose(self, request: dict[str, Any]) -> ArchitectDecision: ...
 
 
 class DayEvaluator(Protocol):
-    def evaluate(self, *, task_id: str, metrics: list[str], result: dict[str, Any]) -> SemanticEvaluation: ...
+    def evaluate(self, request: dict[str, Any]) -> SemanticEvaluation: ...
 
 
 class MockDayArchitect:
-    def choose(self, queue: list[QueuedTask]) -> ArchitectDecision:
-        candidate = next((item for item in queue if item.state.value in {"PENDING", "READY", "REPAIR_PENDING"}), None)
-        return ArchitectDecision(task_id=candidate.task_id if candidate else None, reason="first trusted ready queue item")
+    def choose(self, request: dict[str, Any]) -> ArchitectDecision:
+        eligible = request.get("eligible_tasks", [])
+        task_id = eligible[0]["task_id"] if eligible else None
+        return ArchitectDecision(decision="RUN_TASK" if task_id else "DAY_COMPLETE", task_id=task_id, reason="first trusted eligible queue item")
 
 
 class MockSemanticEvaluator:
@@ -34,70 +44,96 @@ class MockSemanticEvaluator:
     def __init__(self, decisions: dict[str, SemanticEvaluation] | None = None) -> None:
         self.decisions = decisions or {}
 
-    def evaluate(self, *, task_id: str, metrics: list[str], result: dict[str, Any]) -> SemanticEvaluation:
-        return self.decisions.get(task_id, SemanticEvaluation(decision="PASS", score={metric: 5.0 for metric in metrics}))
-
-
-class OpenAIProviderNotConfigured(RuntimeError):
-    pass
+    def evaluate(self, request: dict[str, Any]) -> SemanticEvaluation:
+        task_id = str(request["task_id"])
+        metrics = request.get("rubric", {}).get("metrics", [])
+        return self.decisions.get(task_id, SemanticEvaluation(decision="PASS", reason="mock semantic pass", metrics={metric: 5.0 for metric in metrics}))
 
 
 class _OpenAIStructuredProvider:
-    def __init__(self, *, model: str | None = None, api_key: str | None = None) -> None:
-        self.model = model or os.environ.get("OPENAI_DAY_MODEL")
-        self.api_key = api_key or os.environ.get("OPENAI_API_KEY")
+    """Lazy SDK client: app startup remains safe without credentials or SDK use."""
 
-    def _request(self, instructions: str, payload: dict[str, Any], schema_name: str, schema: dict[str, Any]) -> tuple[dict[str, Any], TokenUsage]:
-        if not self.api_key or not self.model:
-            raise OpenAIProviderNotConfigured("OPENAI_API_KEY and OPENAI_DAY_MODEL are required for the opt-in provider")
-        request_body = {
-            "model": self.model,
-            "store": False,
-            "instructions": instructions,
-            "input": json.dumps(payload, ensure_ascii=False),
-            "text": {"format": {"type": "json_schema", "name": schema_name, "strict": True, "schema": schema}},
-        }
-        request = Request(
-            "https://api.openai.com/v1/responses",
-            data=json.dumps(request_body).encode("utf-8"),
-            headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"},
-            method="POST",
-        )
+    provider_name = "openai"
+
+    def __init__(self, settings: ProviderSettings | None = None, *, client_factory: Callable[..., Any] | None = None) -> None:
+        self.settings = settings or ProviderSettings(provider="openai")
+        self.client_factory = client_factory
+
+    def _client(self) -> Any:
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if not api_key or not self.settings.model:
+            raise ProviderConfigurationError("OPENAI_API_KEY and configured model are required")
+        if self.client_factory:
+            return self.client_factory(api_key=api_key, timeout=self.settings.timeout_seconds, max_retries=0)
         try:
-            with urlopen(request, timeout=30) as response:  # nosec B310 - fixed HTTPS endpoint
-                decoded = json.loads(response.read().decode("utf-8"))
-        except (OSError, URLError, ValueError) as exc:
-            raise RuntimeError("OpenAI structured provider request failed") from exc
-        if decoded.get("status") != "completed":
-            raise RuntimeError("OpenAI structured provider returned a non-completed response")
-        output_text = decoded.get("output_text")
-        if not isinstance(output_text, str):
-            raise RuntimeError("OpenAI structured provider returned no structured text")
-        usage = decoded.get("usage") or {}
-        cached = (usage.get("input_tokens_details") or {}).get("cached_tokens", 0)
-        return json.loads(output_text), TokenUsage(
-            input_tokens=int(usage.get("input_tokens", 0)), cached_input_tokens=int(cached),
-            output_tokens=int(usage.get("output_tokens", 0)), available=bool(usage),
-        )
+            from openai import OpenAI
+        except ImportError as exc:
+            raise ProviderConfigurationError("OpenAI Python SDK is not installed") from exc
+        return OpenAI(api_key=api_key, timeout=self.settings.timeout_seconds, max_retries=0)
+
+    def _request(self, *, instructions: str, payload: dict[str, Any], result_type: type[ArchitectDecision] | type[SemanticEvaluation]) -> tuple[dict[str, Any], TokenUsage, dict[str, object]]:
+        started = monotonic()
+        client = self._client()
+        last_error: Exception | None = None
+        for attempt in range(self.settings.max_transient_retries + 1):
+            try:
+                response = client.responses.create(
+                    model=self.settings.model,
+                    store=False,
+                    instructions=instructions,
+                    input=json.dumps(payload, ensure_ascii=False),
+                    text={"format": {"type": "json_schema", "name": result_type.__name__.lower(), "strict": True, "schema": result_type.model_json_schema()}},
+                )
+                output_text = _read(response, "output_text")
+                if not isinstance(output_text, str):
+                    raise ProviderRequestError("provider returned no structured output")
+                parsed = json.loads(output_text)
+                usage = _token_usage(_read(response, "usage"))
+                return parsed, usage, {"provider": self.provider_name, "model": self.settings.model, "duration_ms": round((monotonic() - started) * 1000, 2), "attempts": attempt + 1, "success": True}
+            except (json.JSONDecodeError, ValueError) as exc:
+                raise ProviderRequestError("provider returned invalid structured output") from exc
+            except ProviderRequestError:
+                raise
+            except Exception as exc:  # SDK exceptions are normalized at this boundary.
+                last_error = exc
+                if not _is_transient(exc) or attempt >= self.settings.max_transient_retries:
+                    if "timeout" in type(exc).__name__.lower():
+                        raise ProviderTimeoutError("provider request timed out") from exc
+                    raise ProviderRequestError("provider request failed") from exc
+        raise ProviderRequestError("provider request failed") from last_error
 
 
 class OpenAIDayArchitect(_OpenAIStructuredProvider):
-    def choose(self, queue: list[QueuedTask]) -> ArchitectDecision:
-        payload, usage = self._request(
-            "Select exactly one trusted queue task_id, or null when no task is eligible. Do not plan or execute work.",
-            {"queue": [{"task_id": item.task_id, "state": item.state.value} for item in queue]},
-            "architect_decision",
-            {"type": "object", "additionalProperties": False, "properties": {"task_id": {"type": ["string", "null"]}, "reason": {"type": "string"}}, "required": ["task_id", "reason"]},
+    def choose(self, request: dict[str, Any]) -> ArchitectDecision:
+        parsed, usage, diagnostics = self._request(
+            instructions="Choose only from eligible configured task IDs. Do not create tasks, commands, paths, budgets, or acceptance criteria.",
+            payload=request, result_type=ArchitectDecision,
         )
-        return ArchitectDecision.model_validate({**payload, "token_usage": usage})
+        return ArchitectDecision.model_validate({**parsed, "token_usage": usage, "diagnostics": diagnostics})
 
 
 class OpenAISemanticEvaluator(_OpenAIStructuredProvider):
-    def evaluate(self, *, task_id: str, metrics: list[str], result: dict[str, Any]) -> SemanticEvaluation:
-        payload, usage = self._request(
-            "Evaluate only the supplied bounded result against the named metrics. Return PASS, REPAIR, or HUMAN_REVIEW.",
-            {"task_id": task_id, "metrics": metrics, "result": result},
-            "semantic_evaluation",
-            {"type": "object", "additionalProperties": False, "properties": {"decision": {"type": "string", "enum": ["PASS", "REPAIR", "HUMAN_REVIEW"]}, "score": {"type": "object", "additionalProperties": {"type": "number"}}, "blocking_issues": {"type": "array", "items": {"type": "string"}}, "repair_instruction": {"type": ["string", "null"]}}, "required": ["decision", "score", "blocking_issues", "repair_instruction"]},
+    def evaluate(self, request: dict[str, Any]) -> SemanticEvaluation:
+        parsed, usage, diagnostics = self._request(
+            instructions="Evaluate only the supplied bounded evidence and trusted rubric. Return no commands, paths, or replacement acceptance criteria.",
+            payload=request, result_type=SemanticEvaluation,
         )
-        return SemanticEvaluation.model_validate({**payload, "token_usage": usage})
+        result = SemanticEvaluation.model_validate({**parsed, "token_usage": usage, "diagnostics": diagnostics})
+        if result.repair_instruction and (len(result.repair_instruction) > 1000 or "\n" in result.repair_instruction or re.search(r"(?i)(\\\\|/|--|\\b(?:python|powershell|cmd|git)\\b|\\.py\\b)", result.repair_instruction)):
+            raise ProviderRequestError("repair instruction exceeds bounded plain-text policy")
+        return result
+
+
+def _read(value: Any, name: str) -> Any:
+    return value.get(name) if isinstance(value, dict) else getattr(value, name, None)
+
+
+def _token_usage(usage: Any) -> TokenUsage:
+    details = _read(usage, "input_tokens_details") or {}
+    cached = _read(details, "cached_tokens") or 0
+    return TokenUsage(input_tokens=int(_read(usage, "input_tokens") or 0), cached_input_tokens=int(cached), output_tokens=int(_read(usage, "output_tokens") or 0), available=usage is not None)
+
+
+def _is_transient(exc: Exception) -> bool:
+    name = type(exc).__name__.lower()
+    return any(token in name for token in ("timeout", "connection", "rate", "internalserver"))

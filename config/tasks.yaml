@@ -33,3 +33,35 @@ tasks:
     requires_codex: true
     evaluator_type: deterministic
     context_max_characters: 30000
+  PC-001-C:
+    task_id: PC-001-C
+    project_id: local_llm_lab
+    title: TH-PAD QA / Shipment quantity normal control
+    task_type: code_fix
+    working_directory: .
+    precheck:
+      argv: [python, scripts/run_process_consistency_smoke.py, --dry-run, --cases, PC-001-C, --output-root, '{artifact_root}']
+    postcheck:
+      argv: [python, scripts/run_process_consistency_smoke.py, --dry-run, --cases, PC-001-C, --output-root, '{artifact_root}']
+    allowed_files: [scripts/run_process_consistency_smoke.py, scripts/process_consistency.py]
+    context_files: [scripts/run_process_consistency_smoke.py, scripts/process_consistency.py]
+    max_retry: 1
+    requires_codex: true
+    evaluator_type: deterministic
+    context_max_characters: 30000
+  PC-002-A:
+    task_id: PC-002-A
+    project_id: local_llm_lab
+    title: TH-SHEET QA / Shipment quantity anomaly
+    task_type: code_fix
+    working_directory: .
+    precheck:
+      argv: [python, scripts/run_process_consistency_smoke.py, --dry-run, --cases, PC-002-A, --output-root, '{artifact_root}']
+    postcheck:
+      argv: [python, scripts/run_process_consistency_smoke.py, --dry-run, --cases, PC-002-A, --output-root, '{artifact_root}']
+    allowed_files: [scripts/run_process_consistency_smoke.py, scripts/process_consistency.py]
+    context_files: [scripts/run_process_consistency_smoke.py, scripts/process_consistency.py]
+    max_retry: 1
+    requires_codex: true
+    evaluator_type: deterministic
+    context_max_characters: 30000

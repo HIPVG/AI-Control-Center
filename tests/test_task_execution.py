@@ -88,10 +88,10 @@ def command_results(engine, values):
 def test_configured_real_task_loads_and_metadata_is_safe():
     registry = load_task_registry(Path("config/tasks.yaml"))
     assert registry.get("PC-001-A").project_id == "local_llm_lab"
-    assert registry.metadata() == [{
-        "task_id": "PC-001-A", "project_id": "local_llm_lab", "title": "TH-PAD QA / Shipment quantity consistency",
-        "task_type": "code_fix", "evaluator_type": "deterministic",
-    }]
+    metadata = registry.metadata()
+    assert [item["task_id"] for item in metadata] == ["PC-001-A", "PC-001-C", "PC-002-A"]
+    assert all(set(item) == {"task_id", "project_id", "title", "task_type", "evaluator_type"} for item in metadata)
+    assert all(item["project_id"] == "local_llm_lab" and item["evaluator_type"] == "deterministic" for item in metadata)
 
 
 def test_unknown_task_and_real_mode_are_rejected_without_worktree_or_codex(tmp_path):

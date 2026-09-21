@@ -11,6 +11,7 @@ from backend.agents.day_providers import MockDayArchitect, MockSemanticEvaluator
 from backend.agents.evaluator import MockEvaluator
 from backend.agents.triage import MockTriage, TriageDecision
 from backend.control.context_broker import ContextBroker
+from backend.control.orchestration import load_orchestration_config
 from backend.control.faults import FaultProfile, FaultRegistry, load_fault_registry, locate_qa_shipment_gt_operator
 from backend.control.projects import ProjectRegistry, load_project_registry
 from backend.control.plans import load_plan_registry
@@ -19,6 +20,7 @@ from backend.control.tasks import ConfiguredTask, TaskCommand, TaskRegistry, loa
 from backend.control.scope_guard import ScopeGuard
 from backend.control.token_budget import BudgetDecision, TokenBudgetManager, load_budget_config
 from backend.models.audit import AuditEvent, AuditEventType
+from backend.models.day import DayExecutionMode
 from backend.models.result import TokenUsage
 from backend.models.runtime import CodexAttemptResult, CodexMode, CommandRunResult, FaultRepairResult, ProjectSmokeResult, RuntimeConfig, SmokeRunResult, TaskRunResult, load_runtime_config
 from backend.models.state import RunState, WorkflowState
@@ -73,6 +75,7 @@ class ControlCenterEngine:
         self.projects = project_registry or load_project_registry(project_root / "config" / "projects.yaml")
         self.tasks = task_registry or load_task_registry(project_root / "config" / "tasks.yaml")
         self.plans = plan_registry or load_plan_registry(project_root / "config" / "plans.yaml")
+        self.orchestration = load_orchestration_config(project_root / "config" / "orchestration.yaml")
         self.discoveries = discovery_registry or load_discovery_registry(project_root / "config" / "discovery.yaml")
         self.faults = fault_registry or load_fault_registry(project_root / "config" / "faults.yaml")
         self.worktree_root = (worktree_root or project_root / "state" / "worktrees").resolve()
@@ -82,8 +85,9 @@ class ControlCenterEngine:
         self._load()
         self.day_runner = DayRunner(
             self.plans, self.tasks, self._run_day_task,
-            architects={"mock": MockDayArchitect(), "openai": OpenAIDayArchitect()},
-            evaluators={"mock": MockSemanticEvaluator(), "openai": OpenAISemanticEvaluator()},
+            architects={"mock": MockDayArchitect(), "openai": OpenAIDayArchitect(self.orchestration.orchestration.architect)},
+            evaluators={"mock": MockSemanticEvaluator(), "openai": OpenAISemanticEvaluator(self.orchestration.orchestration.evaluator)},
+            provider_budgets={"architect": self.orchestration.orchestration.architect_budget, "evaluator": self.orchestration.orchestration.evaluator_budget},
             persist=self._save_day_state, audit=self._day_audit,
             saved=self.data.get("day_orchestration"),
         )
@@ -275,11 +279,11 @@ class ControlCenterEngine:
     def configured_plans(self) -> list[dict[str, object]]:
         return self.plans.metadata()
 
-    def start_day(self, plan_id: str, *, single_step: bool | None = None) -> dict[str, Any]:
-        return self.day_runner.start(plan_id, single_step=single_step)
+    def start_day(self, plan_id: str, *, mode: DayExecutionMode = DayExecutionMode.SINGLE_STEP) -> dict[str, Any]:
+        return self.day_runner.start(plan_id, mode=mode)
 
-    def resume_day(self, *, single_step: bool | None = None) -> dict[str, Any]:
-        return self.day_runner.resume(single_step=single_step)
+    def resume_day(self, *, mode: DayExecutionMode | None = None) -> dict[str, Any]:
+        return self.day_runner.resume(mode=mode)
 
     def stop_day(self) -> dict[str, Any]:
         return self.day_runner.stop()
