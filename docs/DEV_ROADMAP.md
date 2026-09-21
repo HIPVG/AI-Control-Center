@@ -26,9 +26,9 @@ branch. Status is tracked in `docs/DEV_PROGRESS.json`.
 | M18 | Dashboard v2 | M17 external validation | real Day state, routing, tokens, queue visible and executable from UI | DASHBOARD_V2_EXTERNAL_VALIDATION | COMPLETE |
 | M19 | Architect context efficiency | M17 validation telemetry | isolated non-repository role workspace, compact context, character telemetry | no | COMPLETE |
 | M20 | Real continuous Codex-Core Day | M18 | trusted multi-task Day completes end-to-end without per-task human action | REAL_CODEX_CORE_CONTINUOUS_VALIDATION | COMPLETE |
-| M21 | Exception-driven escalation | M20 | auto-resolve/retry/replan routine failure classes; human only for true authority/external boundaries | BATCH_WITH_M22_EXTERNAL_VALIDATION | IMPLEMENTED |
-| M22 | Real LocalLLM experiment integration | M21 implementation | run an existing trusted LocalLLM-Lab experiment through Control Center, preserve experiment-vs-code semantics, capture artifacts/telemetry | ESCALATION_AND_REAL_LOCAL_LLM_VALIDATION | HUMAN_GATE |
-| M23 | PowerShell-free daily operation | M18, M22 | auto-start/service behavior and dashboard start/resume/stop/health controls | ZERO_COMMAND_DAILY_OPERATION_VALIDATION | ROADMAP |
+| M21 | Exception-driven escalation | M20 | auto-resolve/retry/replan routine failure classes; human only for true authority/external boundaries | BATCH_WITH_M22_EXTERNAL_VALIDATION | COMPLETE |
+| M22 | Real LocalLLM experiment integration | M21 implementation | run an existing trusted LocalLLM-Lab experiment through Control Center, preserve experiment-vs-code semantics, capture artifacts/telemetry | ESCALATION_AND_REAL_LOCAL_LLM_VALIDATION | COMPLETE |
+| M23 | PowerShell-free daily operation | M18, M22 | auto-start/service behavior and dashboard start/resume/stop/health controls | ZERO_COMMAND_DAILY_OPERATION_VALIDATION | IN_PROGRESS |
 | M24 | Goal-to-Plan | M21, M22 | bounded goal intake → Codex plan → deterministic policy validation → execution | GOAL_TO_PLAN_EXTERNAL_VALIDATION | ROADMAP |
 | M25 | Self-repair and bounded replan | M21, M24 | classify failure → retry/repair/review/replan automatically within limits | AUTONOMOUS_RECOVERY_VALIDATION | ROADMAP |
 | M26 | Automated Git completion | M25 | verified work can commit/push agent branch and prepare PR; no automatic main merge | AUTO_GIT_PR_VALIDATION | ROADMAP |
@@ -75,3 +75,16 @@ for a separate human stop. The combined external validation should verify both:
 
 This batching does not waive either acceptance criterion; it only removes an
 unnecessary intermediate human interruption.
+
+
+External combined M21/M22 validation passed on 2026-09-22:
+- isolated transient Architect validation completed successfully on the normal server;
+- isolated missing-runtime validation showed HUMAN_REVIEW state with typed EXTERNAL_ACTION_REQUIRED, retry count 0, action "No retry", and normal Day unchanged;
+- trusted LocalLLM experiment completed through the existing LocalLLM-Lab runner;
+- engine/model: ollama / qwen3-8b-q4:latest;
+- responses: 4, successes: 4, failures: 0;
+- result artifact reference was recorded under LocalLLM-Lab results/process-consistency;
+- Builder invoked: false;
+- classification: completed.
+
+This closes M21 and M22 and advances development to M23 PowerShell-free daily operation.
