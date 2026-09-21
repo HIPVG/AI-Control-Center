@@ -58,3 +58,9 @@ def test_discovery_endpoint_accepts_only_a_configured_discovery_id(client):
     response = client.post("/api/tasks/discover-failing/not-configured", json={"command": "unsafe", "cases": ["unsafe"]})
     assert response.status_code == 200
     assert response.json()["error_code"] == "DISCOVERY_NOT_CONFIGURED"
+
+
+def test_fault_repair_endpoint_accepts_only_a_configured_fault_id(client):
+    response = client.post("/api/run/fault-repair/not-configured", json={"target_file": "unsafe", "mutation": "unsafe"})
+    assert response.status_code == 200
+    assert response.json()["error_code"] == "FAULT_NOT_CONFIGURED"

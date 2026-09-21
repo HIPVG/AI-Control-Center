@@ -10,6 +10,7 @@ from backend.agents.architect import MockArchitect
 from backend.agents.evaluator import MockEvaluator
 from backend.agents.triage import MockTriage, TriageDecision
 from backend.control.context_broker import ContextBroker
+from backend.control.faults import FaultProfile, FaultRegistry, load_fault_registry
 from backend.control.projects import ProjectRegistry, load_project_registry
 from backend.control.task_discovery import DeterministicTaskDiscovery, DiscoveryRegistry, FailingTaskDiscoveryResult, load_discovery_registry
 from backend.control.tasks import ConfiguredTask, TaskCommand, TaskRegistry, load_task_registry
@@ -17,7 +18,7 @@ from backend.control.scope_guard import ScopeGuard
 from backend.control.token_budget import BudgetDecision, TokenBudgetManager, load_budget_config
 from backend.models.audit import AuditEvent, AuditEventType
 from backend.models.result import TokenUsage
-from backend.models.runtime import CodexAttemptResult, CodexMode, CommandRunResult, ProjectSmokeResult, RuntimeConfig, SmokeRunResult, TaskRunResult, load_runtime_config
+from backend.models.runtime import CodexAttemptResult, CodexMode, CommandRunResult, FaultRepairResult, ProjectSmokeResult, RuntimeConfig, SmokeRunResult, TaskRunResult, load_runtime_config
 from backend.models.state import RunState, WorkflowState
 from backend.models.task import TaskType, WorkOrder
 from backend.orchestrator.state_machine import StateManager
@@ -56,6 +57,7 @@ class ControlCenterEngine:
         project_registry: ProjectRegistry | None = None,
         task_registry: TaskRegistry | None = None,
         discovery_registry: DiscoveryRegistry | None = None,
+        fault_registry: FaultRegistry | None = None,
         worktree_root: Path | None = None,
     ) -> None:
         self.store = state_store
@@ -67,6 +69,7 @@ class ControlCenterEngine:
         self.projects = project_registry or load_project_registry(project_root / "config" / "projects.yaml")
         self.tasks = task_registry or load_task_registry(project_root / "config" / "tasks.yaml")
         self.discoveries = discovery_registry or load_discovery_registry(project_root / "config" / "discovery.yaml")
+        self.faults = fault_registry or load_fault_registry(project_root / "config" / "faults.yaml")
         self.worktree_root = (worktree_root or project_root / "state" / "worktrees").resolve()
         self.smoke_workspace = SmokeWorkspace(smoke_root or project_root / "state" / "smoke")
         self.real_runner = real_runner or RealCodexRunner(self.runtime.codex)
@@ -90,6 +93,7 @@ class ControlCenterEngine:
             "project_smoke_results": [],
             "task_runs": [],
             "task_discoveries": [],
+            "fault_repair_runs": [],
             "task_start_completed": {"PC-014": 18},
             "task_progress": calculate_progress(task_completed, task_total),
             "current_task": {"task_id": "PC-014", "title": "Evidence Grounding", "completed": task_completed, "total": task_total, "retry": 0, "max_retry": 2},
@@ -300,6 +304,342 @@ class ControlCenterEngine:
         self.data.setdefault("task_discoveries", []).append(result.model_dump(mode="json"))
         self._save()
         return result.model_dump(mode="json")
+
+    def run_fault_repair(self, fault_id: str) -> dict[str, Any]:
+        """Validate a trusted repair path without ever mutating the source checkout."""
+        started = datetime.now(timezone.utc)
+        run_id = uuid4().hex
+        profile = self.faults.get(fault_id)
+        if profile is None:
+            return self._fault_finish(FaultRepairResult(
+                run_id=run_id, fault_id=fault_id, task_id="unconfigured", project_id="unconfigured",
+                state=WorkflowState.FAILED.value, final_result="FAILED", error_code="FAULT_NOT_CONFIGURED",
+            ))
+        common: dict[str, Any] = {
+            "run_id": run_id, "fault_id": profile.fault_id, "task_id": profile.task_id,
+            "project_id": profile.project_id, "target_file": profile.target_file,
+        }
+        if self.runtime.codex.mode != CodexMode.REAL:
+            return self._fault_finish(FaultRepairResult(
+                **common, state=WorkflowState.FAILED.value, final_result="FAILED", error_code="REAL_MODE_REQUIRED",
+            ))
+        project = self.projects.get(profile.project_id)
+        if project is None:
+            return self._fault_finish(FaultRepairResult(
+                **common, state=WorkflowState.FAILED.value, final_result="FAILED", error_code="PROJECT_NOT_CONFIGURED",
+            ))
+        source_root = project.path.resolve()
+        validation_error, source_status, source_head = self._task_source_validation(source_root)
+        if validation_error or source_head is None:
+            return self._fault_finish(FaultRepairResult(
+                **common, state=WorkflowState.FAILED.value, final_result="FAILED", error_code=validation_error or "PROJECT_HEAD_UNAVAILABLE",
+            ))
+        if profile.target_file in source_status:
+            return self._fault_finish(FaultRepairResult(
+                **common, source_head_sha=source_head, state=WorkflowState.HUMAN_REVIEW.value, final_result="HUMAN_REVIEW",
+                human_review_reason="source target file is already dirty", error_code="SOURCE_TASK_DEPENDENCY_DIRTY",
+            ))
+        source_target = (source_root / profile.target_file).resolve()
+        try:
+            source_target.relative_to(source_root)
+            original_target = source_target.read_bytes()
+        except (ValueError, OSError):
+            return self._fault_finish(FaultRepairResult(
+                **common, source_head_sha=source_head, state=WorkflowState.HUMAN_REVIEW.value, final_result="HUMAN_REVIEW",
+                human_review_reason="configured fault target is unavailable", error_code="FAULT_TARGET_UNAVAILABLE",
+            ))
+        if self.state_manager.current.state != WorkflowState.IDLE:
+            self._transition(profile.task_id, WorkflowState.IDLE, "previous terminal workflow reset")
+        self.state_manager.start_task(profile.task_id)
+        self._transition(profile.task_id, WorkflowState.PLANNING, "controlled fault repair started")
+        worktree, branch, worktree_error = self._create_fault_worktree(source_root, source_head, profile, run_id)
+        if worktree_error or worktree is None:
+            self._transition(profile.task_id, WorkflowState.HUMAN_REVIEW, "isolated worktree creation failed")
+            return self._fault_finish(FaultRepairResult(
+                **common, source_head_sha=source_head, state=WorkflowState.HUMAN_REVIEW.value, final_result="HUMAN_REVIEW",
+                human_review_reason="isolated worktree could not be created", error_code=worktree_error or "WORKTREE_CREATION_FAILED",
+            ))
+        common["worktree_path"] = str(worktree)
+        self._event(profile.task_id, AuditEventType.SMOKE_STARTED, f"{profile.task_id} WORKTREE CREATED", details={"fault_id": profile.fault_id, "worktree": str(worktree), "branch": branch, "source_head_sha": source_head})
+        try:
+            working_directory = self._task_working_directory(worktree, profile.working_directory)
+        except ValueError:
+            self._transition(profile.task_id, WorkflowState.HUMAN_REVIEW, "fault working directory escaped worktree")
+            return self._fault_finish(FaultRepairResult(
+                **common, source_head_sha=source_head, state=WorkflowState.HUMAN_REVIEW.value, final_result="HUMAN_REVIEW",
+                human_review_reason="configured working directory escaped worktree", error_code="WORKTREE_PATH_ESCAPE",
+            ))
+        self._transition(profile.task_id, WorkflowState.PRECHECK, "clean worktree baseline")
+        baseline = self._run_task_command(profile.baseline, working_directory, self._fault_artifact_root(run_id, "baseline"))
+        if not baseline.passed:
+            self._event(profile.task_id, AuditEventType.DETERMINISTIC_CHECK, f"{profile.task_id} BASELINE FAIL", details=baseline.model_dump())
+            self._transition(profile.task_id, WorkflowState.HUMAN_REVIEW, "baseline did not pass")
+            return self._fault_finish(FaultRepairResult(
+                **common, source_head_sha=source_head, baseline_result="FAIL", baseline=baseline,
+                state=WorkflowState.HUMAN_REVIEW.value, final_result="HUMAN_REVIEW", human_review_reason="clean worktree baseline failed", error_code="BASELINE_FAILED",
+            ))
+        self._event(profile.task_id, AuditEventType.DETERMINISTIC_CHECK, f"{profile.task_id} BASELINE PASS", details=baseline.model_dump())
+        injected, injection_error = self._inject_fault(worktree, profile)
+        if not injected:
+            self._transition(profile.task_id, WorkflowState.HUMAN_REVIEW, "trusted fault injection could not be applied")
+            return self._fault_finish(FaultRepairResult(
+                **common, source_head_sha=source_head, baseline_result="PASS", baseline=baseline,
+                state=WorkflowState.HUMAN_REVIEW.value, final_result="HUMAN_REVIEW", human_review_reason="trusted fault injection failed", error_code=injection_error,
+            ))
+        injection_status = self._project_status_snapshot(worktree)
+        if injection_status is None:
+            self._transition(profile.task_id, WorkflowState.HUMAN_REVIEW, "worktree status unavailable after fault injection")
+            return self._fault_finish(FaultRepairResult(
+                **common, source_head_sha=source_head, baseline_result="PASS", baseline=baseline, fault_injected=True,
+                state=WorkflowState.HUMAN_REVIEW.value, final_result="HUMAN_REVIEW", human_review_reason="worktree status unavailable", error_code="WORKTREE_GIT_UNAVAILABLE",
+            ))
+        self._event(profile.task_id, AuditEventType.DETERMINISTIC_CHECK, f"{profile.task_id} FAULT INJECTED", details={"target_file": profile.target_file})
+        precheck = self._run_task_command(profile.postcheck, working_directory, self._fault_artifact_root(run_id, "precheck"))
+        self._transition(profile.task_id, WorkflowState.RUNNING_TEST, "faulted deterministic precheck")
+        if precheck.passed:
+            self._event(profile.task_id, AuditEventType.DETERMINISTIC_CHECK, f"{profile.task_id} PRECHECK unexpected PASS", details=precheck.model_dump())
+            self._transition(profile.task_id, WorkflowState.FAILED, "fault injection did not fail its deterministic check")
+            return self._fault_finish(FaultRepairResult(
+                **common, source_head_sha=source_head, baseline_result="PASS", baseline=baseline, fault_injected=True,
+                precheck_result="PASS", precheck=precheck, state=WorkflowState.FAILED.value, final_result="FAILED", error_code="FAULT_INJECTION_INVALID",
+            ))
+        if not self._is_expected_fault_failure(precheck, profile):
+            self._event(profile.task_id, AuditEventType.TRIAGE, f"{profile.task_id} PRECHECK infrastructure or unexpected failure", details=precheck.model_dump())
+            self._transition(profile.task_id, WorkflowState.TRIAGE, "precheck failure classified")
+            self._transition(profile.task_id, WorkflowState.HUMAN_REVIEW, "fault precheck was not the configured code failure")
+            return self._fault_finish(FaultRepairResult(
+                **common, source_head_sha=source_head, baseline_result="PASS", baseline=baseline, fault_injected=True,
+                precheck_result="FAIL", precheck=precheck, triage_result="INFRASTRUCTURE_FAILURE" if precheck.error_code else "UNEXPECTED_FAILURE",
+                state=WorkflowState.HUMAN_REVIEW.value, final_result="HUMAN_REVIEW", human_review_reason="fault precheck did not match expected deterministic evidence",
+                error_code=precheck.error_code or "PRECHECK_UNEXPECTED_FAILURE",
+            ))
+        self._event(profile.task_id, AuditEventType.DETERMINISTIC_CHECK, f"{profile.task_id} PRECHECK FAIL", details=precheck.model_dump())
+        self._transition(profile.task_id, WorkflowState.TRIAGE, "fault precheck classified CODE_FIX")
+        return self._run_fault_codex_attempts(profile, common, source_head, original_target, working_directory, worktree, injection_status, baseline, precheck)
+
+    def _fault_finish(self, result: FaultRepairResult) -> dict[str, Any]:
+        self.data.setdefault("fault_repair_runs", []).append(result.model_dump(mode="json"))
+        self._save()
+        return result.model_dump(mode="json")
+
+    def _run_fault_codex_attempts(
+        self,
+        profile: FaultProfile,
+        common: dict[str, Any],
+        source_head: str,
+        original_target: bytes,
+        working_directory: Path,
+        worktree: Path,
+        injection_status: dict[str, str],
+        baseline: CommandRunResult,
+        precheck: CommandRunResult,
+    ) -> dict[str, Any]:
+        attempts: list[CodexAttemptResult] = []
+        aggregate = TokenUsage()
+        retry_number = 0
+        while True:
+            budget = self.budgets.check(TokenUsage(), retry_count=retry_number)
+            if budget != BudgetDecision.ALLOWED:
+                self._transition(profile.task_id, WorkflowState.HUMAN_REVIEW, "pre-execution budget guard blocked Codex")
+                return self._fault_finish(FaultRepairResult(
+                    **common, source_head_sha=source_head, baseline_result="PASS", baseline=baseline, fault_injected=True,
+                    precheck_result="FAIL", precheck=precheck, triage_result="CODE_FIX", codex_attempts=attempts,
+                    token_usage=aggregate, state=WorkflowState.HUMAN_REVIEW.value, final_result="HUMAN_REVIEW",
+                    human_review_reason=budget.value, error_code=budget.value,
+                ))
+            context_files, context_error = self._load_fault_context_files(worktree, profile)
+            if context_error:
+                self._transition(profile.task_id, WorkflowState.HUMAN_REVIEW, "configured context file unavailable")
+                return self._fault_finish(FaultRepairResult(
+                    **common, source_head_sha=source_head, baseline_result="PASS", baseline=baseline, fault_injected=True,
+                    precheck_result="FAIL", precheck=precheck, triage_result="INFRASTRUCTURE_FAILURE", codex_attempts=attempts,
+                    token_usage=aggregate, state=WorkflowState.HUMAN_REVIEW.value, final_result="HUMAN_REVIEW",
+                    human_review_reason=context_error, error_code="CONTEXT_FILE_UNAVAILABLE",
+                ))
+            work_order = WorkOrder(
+                task_id=profile.task_id,
+                goal=f"Restore deterministic correctness for {profile.base_case}.",
+                task_type=TaskType.CODE_FIX,
+                allowed_files=profile.allowed_files,
+                acceptance_tests=[" ".join(profile.postcheck.argv)],
+                max_retry=profile.max_retry,
+                needs_codex=True,
+            )
+            excerpt = (precheck.stderr or precheck.stdout or "deterministic precheck failed")[:2000]
+            context = ContextBroker().build(
+                work_order, error_excerpt=excerpt,
+                configuration={"working_directory": str(working_directory), "postcheck_argv": " ".join(profile.postcheck.argv), "base_case": profile.base_case},
+                retry_number=retry_number, context_files=context_files,
+            )
+            prompt = self._task_prompt(context)
+            self._transition(profile.task_id, WorkflowState.CODEX_FIX, f"Codex attempt {retry_number + 1} authorized")
+            self._event(profile.task_id, AuditEventType.CONTEXT_CREATED, f"{profile.task_id} minimal context package built", details={"context_character_count": len(prompt), "context_byte_count": len(prompt.encode("utf-8")), "context_files": list(context_files)})
+            self._save()
+            execution = self.real_runner.run_worktree_task(working_directory, prompt)
+            diagnostics = execution.diagnostics
+            attempt = CodexAttemptResult(
+                attempt=retry_number + 1, exit_code=execution.exit_code,
+                thread_started=diagnostics.thread_started if diagnostics else False,
+                turn_started=diagnostics.turn_started if diagnostics else False,
+                turn_completed=diagnostics.turn_completed if diagnostics else False,
+                gross_input_tokens=execution.token_usage.gross_input_tokens, cached_input_tokens=execution.token_usage.cached_input_tokens,
+                uncached_input_tokens=execution.token_usage.uncached_input_tokens, output_tokens=execution.token_usage.output_tokens,
+                error_code=execution.error_code,
+            )
+            attempts.append(attempt)
+            aggregate = TokenUsage(input_tokens=aggregate.input_tokens + execution.token_usage.input_tokens, cached_input_tokens=aggregate.cached_input_tokens + execution.token_usage.cached_input_tokens, output_tokens=aggregate.output_tokens + execution.token_usage.output_tokens, available=aggregate.available or execution.token_usage.available)
+            self._record_project_usage(profile.task_id, execution.token_usage)
+            self._event(profile.task_id, AuditEventType.CODEX_RESULT, f"Codex attempt {attempt.attempt} COMPLETE", details={"attempt": attempt.model_dump(), "status": execution.status})
+            if execution.status != "completed" or execution.exit_code != 0 or not attempt.turn_completed:
+                self._transition(profile.task_id, WorkflowState.FAILED, "Codex execution failed")
+                return self._fault_finish(FaultRepairResult(
+                    **common, source_head_sha=source_head, baseline_result="PASS", baseline=baseline, fault_injected=True,
+                    precheck_result="FAIL", precheck=precheck, triage_result="CODE_FIX", codex_invoked=True, codex_attempts=attempts,
+                    token_usage=aggregate, context_character_count=len(prompt), context_byte_count=len(prompt.encode("utf-8")),
+                    state=WorkflowState.FAILED.value, final_result="FAILED", error_code=execution.error_code or "CODEX_EXECUTION_FAILED",
+                ))
+            current_status = self._project_status_snapshot(worktree)
+            if current_status is None:
+                self._transition(profile.task_id, WorkflowState.HUMAN_REVIEW, "worktree status unavailable after Codex")
+                return self._fault_finish(FaultRepairResult(
+                    **common, source_head_sha=source_head, baseline_result="PASS", baseline=baseline, fault_injected=True,
+                    precheck_result="FAIL", precheck=precheck, triage_result="CODE_FIX", codex_invoked=True, codex_attempts=attempts,
+                    token_usage=aggregate, state=WorkflowState.HUMAN_REVIEW.value, final_result="HUMAN_REVIEW",
+                    human_review_reason="worktree status unavailable", error_code="WORKTREE_GIT_UNAVAILABLE",
+                ))
+            repair_delta = self._snapshot_status_delta(injection_status, current_status)
+            scope = ScopeGuard().check(work_order, repair_delta)
+            if not scope.allowed:
+                self._event(profile.task_id, AuditEventType.CODEX_RESULT, "Scope Guard FAIL", details={"injected_file": profile.target_file, "repair_delta_files": repair_delta, "out_of_scope": scope.out_of_scope})
+                self._transition(profile.task_id, WorkflowState.HUMAN_REVIEW, "Codex changed files outside configured repair scope")
+                return self._fault_finish(FaultRepairResult(
+                    **common, source_head_sha=source_head, baseline_result="PASS", baseline=baseline, fault_injected=True,
+                    precheck_result="FAIL", precheck=precheck, triage_result="CODE_FIX", codex_invoked=True, codex_attempts=attempts,
+                    repair_delta_files=repair_delta, scope_guard_result="FAIL", token_usage=aggregate, context_character_count=len(prompt), context_byte_count=len(prompt.encode("utf-8")),
+                    state=WorkflowState.HUMAN_REVIEW.value, final_result="HUMAN_REVIEW", human_review_reason="scope guard failed", error_code="SCOPE_GUARD_FAILED",
+                ))
+            self._event(profile.task_id, AuditEventType.CODEX_RESULT, "Scope Guard PASS", details={"injected_file": profile.target_file, "repair_delta_files": repair_delta})
+            self._transition(profile.task_id, WorkflowState.RUNNING_TEST, "scope guard passed")
+            postcheck = self._run_task_command(profile.postcheck, working_directory, self._fault_artifact_root(common["run_id"], f"postcheck-{attempt.attempt}"))
+            if not postcheck.passed:
+                self._event(profile.task_id, AuditEventType.TEST_RESULT, "Deterministic POSTCHECK FAIL", details=postcheck.model_dump())
+                if retry_number >= profile.max_retry:
+                    self._transition(profile.task_id, WorkflowState.TRIAGE, "postcheck failure requires bounded repair decision")
+                    self._transition(profile.task_id, WorkflowState.HUMAN_REVIEW, "bounded repair attempts exhausted")
+                    return self._fault_finish(FaultRepairResult(
+                        **common, source_head_sha=source_head, baseline_result="PASS", baseline=baseline, fault_injected=True,
+                        precheck_result="FAIL", precheck=precheck, triage_result="CODE_FIX", codex_invoked=True, codex_attempts=attempts,
+                        repair_delta_files=repair_delta, scope_guard_result="PASS", postcheck_result="FAIL", postcheck=postcheck, token_usage=aggregate,
+                        context_character_count=len(prompt), context_byte_count=len(prompt.encode("utf-8")), state=WorkflowState.HUMAN_REVIEW.value,
+                        final_result="HUMAN_REVIEW", human_review_reason="bounded repair attempts exhausted", error_code="RETRY_LIMIT_EXCEEDED",
+                    ))
+                self._transition(profile.task_id, WorkflowState.TRIAGE, "deterministic postcheck failed")
+                self.state_manager.increment_retry()
+                retry_number += 1
+                continue
+            self._event(profile.task_id, AuditEventType.TEST_RESULT, "Deterministic POSTCHECK PASS", details=postcheck.model_dump())
+            self._transition(profile.task_id, WorkflowState.EVALUATING, "deterministic postcheck passed")
+            target = (worktree / profile.target_file).resolve()
+            try:
+                original_match = target.read_bytes() == original_target
+            except OSError:
+                original_match = False
+            if not original_match:
+                self._transition(profile.task_id, WorkflowState.HUMAN_REVIEW, "passing repair differs from original clean source")
+                return self._fault_finish(FaultRepairResult(
+                    **common, source_head_sha=source_head, baseline_result="PASS", baseline=baseline, fault_injected=True,
+                    precheck_result="FAIL", precheck=precheck, triage_result="CODE_FIX", codex_invoked=True, codex_attempts=attempts,
+                    repair_delta_files=repair_delta, scope_guard_result="PASS", postcheck_result="PASS", postcheck=postcheck, original_file_match=False, token_usage=aggregate,
+                    context_character_count=len(prompt), context_byte_count=len(prompt.encode("utf-8")), state=WorkflowState.HUMAN_REVIEW.value,
+                    final_result="HUMAN_REVIEW", human_review_reason="passing repair differs from original clean source", error_code="ORIGINAL_FILE_MISMATCH",
+                ))
+            self._transition(profile.task_id, WorkflowState.COMPLETE, "postcheck passed and original file was restored")
+            return self._fault_finish(FaultRepairResult(
+                **common, source_head_sha=source_head, baseline_result="PASS", baseline=baseline, fault_injected=True,
+                precheck_result="FAIL", precheck=precheck, triage_result="CODE_FIX", codex_invoked=True, codex_attempts=attempts,
+                repair_delta_files=repair_delta, scope_guard_result="PASS", postcheck_result="PASS", postcheck=postcheck, original_file_match=True, token_usage=aggregate,
+                context_character_count=len(prompt), context_byte_count=len(prompt.encode("utf-8")), state=WorkflowState.COMPLETE.value, final_result="COMPLETE",
+            ))
+
+    def _create_fault_worktree(self, source_root: Path, head: str, profile: FaultProfile, run_id: str) -> tuple[Path | None, str | None, str | None]:
+        self.worktree_root.mkdir(parents=True, exist_ok=True)
+        candidate = (self.worktree_root / run_id).resolve()
+        try:
+            candidate.relative_to(self.worktree_root)
+        except ValueError:
+            return None, None, "WORKTREE_PATH_ESCAPE"
+        if candidate.exists():
+            return None, None, "WORKTREE_PATH_ALREADY_EXISTS"
+        branch = f"agent/{profile.task_id.lower()}-{run_id[:8]}"
+        try:
+            completed = subprocess.run(
+                ["git", "-C", str(source_root), "-c", f"safe.directory={source_root}", "worktree", "add", "-b", branch, str(candidate), head],
+                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60, check=False, shell=False,
+            )
+        except (FileNotFoundError, OSError, subprocess.TimeoutExpired):
+            return None, None, "WORKTREE_CREATION_FAILED"
+        if completed.returncode != 0 or not candidate.is_dir():
+            return None, None, "WORKTREE_CREATION_FAILED"
+        return candidate, branch, None
+
+    @staticmethod
+    def _inject_fault(worktree: Path, profile: FaultProfile) -> tuple[bool, str | None]:
+        target = (worktree / profile.target_file).resolve()
+        try:
+            target.relative_to(worktree.resolve())
+            content = target.read_bytes()
+            expected = profile.expected_original.encode("utf-8")
+            injected = profile.injected_text.encode("utf-8")
+        except (ValueError, OSError, UnicodeError):
+            return False, "FAULT_TARGET_UNAVAILABLE"
+        if content.count(expected) != 1 and b"\n" in expected:
+            crlf_expected = expected.replace(b"\n", b"\r\n")
+            if content.count(crlf_expected) == 1:
+                expected = crlf_expected
+                injected = injected.replace(b"\n", b"\r\n")
+        if content.count(expected) != 1:
+            return False, "FAULT_SOURCE_MISMATCH"
+        try:
+            target.write_bytes(content.replace(expected, injected, 1))
+        except OSError:
+            return False, "FAULT_INJECTION_WRITE_FAILED"
+        return True, None
+
+    @staticmethod
+    def _is_expected_fault_failure(precheck: CommandRunResult, profile: FaultProfile) -> bool:
+        evidence = (precheck.stdout or "") + "\n" + (precheck.stderr or "")
+        return not precheck.error_code and precheck.exit_code == profile.expected_precheck_exit_code and profile.expected_precheck_text in evidence
+
+    @staticmethod
+    def _load_fault_context_files(worktree: Path, profile: FaultProfile) -> tuple[dict[str, str], str | None]:
+        remaining = profile.context_max_characters
+        contents: dict[str, str] = {}
+        for relative in profile.context_files:
+            path = (worktree / relative).resolve()
+            try:
+                path.relative_to(worktree.resolve())
+                content = path.read_text(encoding="utf-8")
+            except (ValueError, OSError, UnicodeError):
+                return {}, f"configured context file is unavailable: {relative}"
+            if len(content) > remaining:
+                return {}, "configured context files exceed context bound"
+            contents[relative] = content
+            remaining -= len(content)
+        return contents, None
+
+    def _fault_artifact_root(self, run_id: str, stage: str) -> Path:
+        root = (self.project_root / "state" / "fault-repair-artifacts" / run_id / stage).resolve()
+        managed_root = (self.project_root / "state" / "fault-repair-artifacts").resolve()
+        try:
+            root.relative_to(managed_root)
+        except ValueError as exc:
+            raise ValueError("fault artifact path escaped managed state") from exc
+        return root
+
+    @staticmethod
+    def _snapshot_status_delta(before: dict[str, str], after: dict[str, str]) -> list[str]:
+        """Report both additions and removals relative to the injected-fault baseline."""
+        return sorted(path for path in set(before) | set(after) if before.get(path) != after.get(path))
 
     def run_codex_smoke(self) -> dict[str, Any]:
         task_id = "CODEX-SMOKE"

@@ -77,3 +77,8 @@ def run_task(task_id: str) -> dict:
 @app.post("/api/tasks/discover-failing/{discovery_id}")
 def discover_failing_task(discovery_id: str) -> dict:
     return engine.discover_failing_task(discovery_id)
+
+
+@app.post("/api/run/fault-repair/{fault_id}")
+def run_fault_repair(fault_id: str) -> dict:
+    return engine.run_fault_repair(fault_id)

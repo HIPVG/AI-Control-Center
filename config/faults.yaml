@@ -1,0 +1,23 @@
+faults:
+  PC-001-A-CONTROLLED-FAULT:
+    fault_id: PC-001-A-CONTROLLED-FAULT
+    project_id: local_llm_lab
+    task_id: PC-001-A-FAULT-REPAIR
+    base_case: PC-001-A
+    title: TH-PAD QA / Shipment quantity controlled repair
+    working_directory: .
+    target_file: scripts/process_consistency.py
+    fault_type: QA shipment anomaly threshold comparison
+    fault_description: Controlled worktree-only narrowing of the QA shipment anomaly predicate.
+    expected_original: "        anomalous=difference>0\\n"
+    injected_text: "        anomalous=0<difference<60\\n"
+    baseline:
+      argv: [python, scripts/validate_process_consistency_cases.py]
+    postcheck:
+      argv: [python, scripts/validate_process_consistency_cases.py]
+    allowed_files: [scripts/process_consistency.py]
+    context_files: [scripts/process_consistency.py]
+    max_retry: 1
+    context_max_characters: 30000
+    expected_precheck_exit_code: 1
+    expected_precheck_text: case_semantics

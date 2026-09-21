@@ -4,7 +4,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
-from backend.models.result import ExecutionResult
+from backend.models.result import ExecutionResult, TokenUsage
 
 
 class CodexMode(str, Enum):
@@ -116,6 +116,38 @@ class TaskRunResult(BaseModel):
     uncached_input_tokens: int = Field(default=0, ge=0)
     output_tokens: int = Field(default=0, ge=0)
     budget_warning: str | None = None
+    final_result: str
+    human_review_reason: str | None = None
+    error_code: str | None = None
+
+
+class FaultRepairResult(BaseModel):
+    """Persisted evidence for one controlled, worktree-only repair validation."""
+
+    run_id: str
+    fault_id: str
+    task_id: str
+    project_id: str
+    source_head_sha: str | None = None
+    worktree_path: str | None = None
+    target_file: str | None = None
+    baseline_result: str = "not_run"
+    baseline: CommandRunResult | None = None
+    fault_injected: bool = False
+    precheck_result: str = "not_run"
+    precheck: CommandRunResult | None = None
+    triage_result: str = "not_run"
+    codex_invoked: bool = False
+    codex_attempts: list[CodexAttemptResult] = Field(default_factory=list)
+    repair_delta_files: list[str] = Field(default_factory=list)
+    scope_guard_result: str = "not_run"
+    postcheck_result: str = "not_run"
+    postcheck: CommandRunResult | None = None
+    original_file_match: bool | None = None
+    token_usage: TokenUsage = Field(default_factory=TokenUsage)
+    context_character_count: int = 0
+    context_byte_count: int = 0
+    state: str
     final_result: str
     human_review_reason: str | None = None
     error_code: str | None = None
