@@ -33,6 +33,7 @@ branch. Status is tracked in `docs/DEV_PROGRESS.json`.
 | M25 | Self-repair, bounded replan, and autonomous next action | M21, M24 | recover/replan failures within limits and continue the obvious trusted success path without another typed Goal | AUTONOMOUS_RECOVERY_AND_CONTINUE_VALIDATION | COMPLETE |
 | M26 | Automated Git completion | M25 | verified work can commit/push agent branch and prepare PR; no automatic main merge | AUTO_GIT_PR_VALIDATION | IN_PROGRESS |
 | M27 | Zero-Touch Control Loop | M20–M26 | one goal/start → complete or genuine escalation, with no routine relay/PowerShell | ZERO_TOUCH_EXTERNAL_VALIDATION | ROADMAP |
+| M28 | Japanese Dashboard / UX polish | M27 | localize Dashboard labels/messages while preserving English API/state/audit identifiers | JAPANESE_UI_EXTERNAL_VALIDATION | ROADMAP |
 
 M10 is deliberately non-blocking: a real semantic task must not be invented.
 
@@ -158,3 +159,9 @@ External M25 validation passed on 2026-09-22:
 - Continue autonomously executed the trusted recommendation without a new Goal and completed with RESULT_RECORDED.
 
 This closes M25 and advances development to M26 Automated Git completion.
+
+
+M28 is a presentation-only milestone after Zero-Touch validation. Dashboard labels,
+help text, buttons, and user-facing status messages may be localized to Japanese,
+while API contracts, enum/state values, audit event identifiers, and internal
+logic remain English and unchanged.
