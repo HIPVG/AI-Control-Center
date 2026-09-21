@@ -1,6 +1,6 @@
 {
   "roadmap_version": 4,
-  "current_milestone": "M29_WEEK1_DAY4_7_AUTONOMOUS_EXECUTION",
+  "current_milestone": "M29_LOCALLLM_DAY1_14_AUTONOMOUS_EXECUTION",
   "completed_milestones": [
     "M0",
     "M1",
@@ -32,7 +32,7 @@
     "M28"
   ],
   "blocked_milestones": [],
-  "human_gate": "WEEK1_DAY4_7_AUTONOMOUS_VALIDATION",
+  "human_gate": "DAY1_14_BATCH_AUTHORITY_REVIEW",
   "latest_test_result": "183 passed, 3 warnings",
   "latest_commit": "6e690463b28bd586e9151653b237844d217cc4bc",
   "remote_push_state": "pushed",
@@ -227,7 +227,7 @@
   },
   "roadmap_complete": false,
   "m29_status": "IN_PROGRESS",
-  "m29_policy_doc": "docs/WEEK1_DAY4_7_AUTONOMOUS.md",
+  "m29_policy_doc": "docs/LOCALLLM_DAY1_14_AUTONOMOUS.md",
   "m29_days": [
     4,
     5,
@@ -255,7 +255,7 @@
     "cross_family_models_status": "DESIGN_ONLY_UNREVIEWED_RUNTIME_NAME_MISSING",
     "expected_boundary_after_adapter": "APPROVED_CROSS_FAMILY_RUNTIME_MISSING_OR_EQUIVALENT"
   },
-  "m29_execution_policy": "BATCH_BLOCKER_SWEEP_THEN_AUTOREPAIR",
+  "m29_execution_policy": "DETERMINE_FIRST_INCOMPLETE_DAY_THEN_SWEEP_ALL_REMAINING_DAYS",
   "m29_pre_authorized_repairs": [
     "HARNESS_CODE_DEFECT",
     "RUNNER_ADAPTER",
@@ -270,11 +270,14 @@
   "m29_current_failure": {
     "classification": "HARNESS_FAILURE",
     "artifact": "C:\\LocalLLM-Lab\\results\\experiments\\EXP-20260921T220217-5542f4aa55",
-    "manifest_status": "preparing",
-    "response_count": 0,
-    "terminal_json": false,
-    "repair_authorized": true,
-    "controlled_rerun_authorized_after_fix": true
+    "status": "PRESERVE_AND_REPAIR_ONLY_IF_RELEVANT_TO_CURRENT_RUNBOOK",
+    "repair_authorized": true
   },
-  "m29_human_gate_policy": "BATCH_ONLY_GENUINE_AUTHORITY_OR_EXTERNAL_BLOCKERS_AFTER_SWEEP"
+  "m29_human_gate_policy": "ONE_BATCH_AFTER_AUTO_RESOLVABLE_BLOCKERS",
+  "m29_source_of_truth": {
+    "execution_sequence": "LocalLLM-Lab/docs/runbooks/work-plan-day1-14.md",
+    "architecture": "LocalLLM-Lab/docs/architecture/decision-reasoning-architecture.md",
+    "handoff": "LocalLLM-Lab/docs/handoff/handoff-2026-09-18.md"
+  },
+  "m29_previous_week1_day4_7_sequence": "SUPERSEDED_FOR_CURRENT_SEQUENCING"
 }
