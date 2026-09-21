@@ -152,5 +152,12 @@
       "goal_required": false,
       "outcome": "RESULT_RECORDED"
     }
-  }
+  },
+  "final_milestone": "M28_JAPANESE_DASHBOARD_UX_POLISH",
+  "m28_status": "ROADMAP",
+  "m28_scope": [
+    "JAPANESE_DASHBOARD_LABELS",
+    "JAPANESE_USER_FACING_MESSAGES",
+    "PRESERVE_ENGLISH_API_ENUM_AUDIT_IDENTIFIERS"
+  ]
 }
