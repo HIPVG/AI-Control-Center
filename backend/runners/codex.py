@@ -170,6 +170,15 @@ class RealCodexRunner(CodexRunner):
                 error_code="CODEX_HOME_NOT_FOUND",
                 diagnostics=self._diagnostics(command, smoke_directory, executable_path=executable_path),
             )
+        codex_sqlite_home = self.resolve_codex_sqlite_home()
+        if codex_sqlite_home is None:
+            return ExecutionResult(
+                status="failed",
+                test_result="not_run",
+                summary="Configured Codex SQLite directory was not found.",
+                error_code="CODEX_SQLITE_HOME_NOT_FOUND",
+                diagnostics=self._diagnostics(command, smoke_directory, executable_path=executable_path),
+            )
         try:
             completed = subprocess.run(
                 command,
@@ -182,7 +191,7 @@ class RealCodexRunner(CodexRunner):
                 check=False,
                 shell=False,
                 stdin=subprocess.DEVNULL,
-                env=self._process_environment(codex_home),
+                env=self._process_environment(codex_home, codex_sqlite_home),
             )
         except FileNotFoundError:
             return ExecutionResult(
@@ -289,13 +298,24 @@ class RealCodexRunner(CodexRunner):
         return candidate.resolve() if candidate.is_dir() else None
 
     @staticmethod
-    def _process_environment(codex_home: Path | None = None) -> dict[str, str]:
+    def resolve_codex_sqlite_home() -> Path | None:
+        configured = os.environ.get("CODEX_SQLITE_HOME")
+        candidate = Path(configured) if configured else Path(__file__).resolve().parents[2] / "state" / "codex-sqlite"
+        return candidate.resolve() if candidate.is_dir() else None
+
+    @staticmethod
+    def _process_environment(
+        codex_home: Path | None = None,
+        codex_sqlite_home: Path | None = None,
+    ) -> dict[str, str]:
         """Preserve the inherited environment and supply Codex's verified home."""
         environment = os.environ.copy()
         if not environment.get("HOME") and environment.get("USERPROFILE"):
             environment["HOME"] = environment["USERPROFILE"]
         if codex_home is not None:
             environment["CODEX_HOME"] = str(codex_home)
+        if codex_sqlite_home is not None:
+            environment["CODEX_SQLITE_HOME"] = str(codex_sqlite_home)
         return environment
 
     @staticmethod

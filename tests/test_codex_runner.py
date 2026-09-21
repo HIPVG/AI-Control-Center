@@ -17,9 +17,12 @@ def real_config(executable="codex"):
 @pytest.fixture(autouse=True)
 def verified_codex_home(monkeypatch, tmp_path):
     home = tmp_path / "codex-home"
+    sqlite_home = tmp_path / "codex-sqlite"
     home.mkdir()
+    sqlite_home.mkdir()
     monkeypatch.setenv("CODEX_HOME", str(home))
-    return home
+    monkeypatch.setenv("CODEX_SQLITE_HOME", str(sqlite_home))
+    return home, sqlite_home
 
 
 def test_default_runtime_mode_is_mock():
@@ -125,6 +128,7 @@ def test_real_smoke_uses_workspace_write_with_controlled_process_arguments(monke
     assert captured["kwargs"]["stdin"] == subprocess.DEVNULL
     assert isinstance(captured["kwargs"]["env"], dict)
     assert captured["kwargs"]["env"]["CODEX_HOME"].endswith("codex-home")
+    assert captured["kwargs"]["env"]["CODEX_SQLITE_HOME"].endswith("codex-sqlite")
     assert result.diagnostics.stdout_event_count == 3
     assert result.diagnostics.executable_path.endswith("codex.exe")
     assert result.diagnostics.thread_started
@@ -168,7 +172,9 @@ def test_windows_profile_is_mapped_to_home_for_codex(monkeypatch):
 
 def test_environment_preserves_inherited_values_and_sets_verified_codex_home(monkeypatch, tmp_path):
     home = tmp_path / "verified-codex-home"
+    sqlite_home = tmp_path / "verified-codex-sqlite"
     home.mkdir()
+    sqlite_home.mkdir()
     monkeypatch.delenv("HOME", raising=False)
     monkeypatch.setenv("USERPROFILE", r"C:\\Users\\control-center")
     monkeypatch.setenv("PATH", r"C:\\Windows\\System32")
@@ -176,8 +182,9 @@ def test_environment_preserves_inherited_values_and_sets_verified_codex_home(mon
     monkeypatch.setenv("HOMEPATH", r"\\Users\\control-center")
     monkeypatch.setenv("LOCALAPPDATA", r"C:\\Users\\control-center\\AppData\\Local")
     monkeypatch.setenv("APPDATA", r"C:\\Users\\control-center\\AppData\\Roaming")
-    environment = RealCodexRunner._process_environment(home)
+    environment = RealCodexRunner._process_environment(home, sqlite_home)
     assert environment["CODEX_HOME"] == str(home)
+    assert environment["CODEX_SQLITE_HOME"] == str(sqlite_home)
     assert environment["HOME"] == r"C:\\Users\\control-center"
     assert environment["USERPROFILE"] == r"C:\\Users\\control-center"
     assert environment["PATH"] == r"C:\\Windows\\System32"
@@ -201,6 +208,23 @@ def test_missing_explicit_codex_home_is_rejected_without_starting_subprocess(mon
     run = workspace.create_run()
     result = RealCodexRunner(real_config()).run_smoke(run, workspace.result_path(run))
     assert result.error_code == "CODEX_HOME_NOT_FOUND"
+    assert not called
+
+
+def test_missing_codex_sqlite_home_is_rejected_without_starting_subprocess(monkeypatch, tmp_path):
+    called = False
+
+    def unexpected_run(*args, **kwargs):
+        nonlocal called
+        called = True
+        raise AssertionError("subprocess must not start")
+
+    monkeypatch.setenv("CODEX_SQLITE_HOME", str(tmp_path / "missing-codex-sqlite"))
+    monkeypatch.setattr("backend.runners.codex.subprocess.run", unexpected_run)
+    workspace = SmokeWorkspace(tmp_path / "smoke")
+    run = workspace.create_run()
+    result = RealCodexRunner(real_config()).run_smoke(run, workspace.result_path(run))
+    assert result.error_code == "CODEX_SQLITE_HOME_NOT_FOUND"
     assert not called
 
 
