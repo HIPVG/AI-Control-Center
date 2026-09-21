@@ -9,7 +9,7 @@ let gitCandidates = [];
 
 function renderZeroTouch(runs, action) {
   const latest = runs.at(-1); const continueButton = byId("continue-zero-touch");
-  continueButton.disabled = !["RUN_TRUSTED_EXPERIMENT", "COMPLETE_VERIFIED_WORK"].includes(action?.action_type);
+  continueButton.disabled = !["RUN_TRUSTED_EXPERIMENT", "RUN_WEEK1_DAY", "COMPLETE_VERIFIED_WORK"].includes(action?.action_type);
   byId("zero-touch-evidence").replaceChildren(...(latest ? [
     keyValue("最終状態", latest.status),
     keyValue("操作", latest.action_type ?? latest.target_type ?? "実行前にポリシーで拒否"),
@@ -78,7 +78,7 @@ function renderNextAction(action) {
   byId("next-action-summary").textContent = action?.summary ?? "信頼できる継続操作はありません。";
   byId("next-action-reason").textContent = action?.reason ?? "信頼できる状態を確認しています。";
   byId("next-action-policy").textContent = `ポリシー: ${action?.policy_result ?? "UNKNOWN"}。推論が必要: ${action?.reasoning_required ? "はい" : "いいえ"}。`;
-  continueButton.disabled = action?.action_type !== "RUN_TRUSTED_EXPERIMENT" || Boolean(action?.human_attention_required);
+  continueButton.disabled = !["RUN_TRUSTED_EXPERIMENT", "RUN_WEEK1_DAY"].includes(action?.action_type) || Boolean(action?.human_attention_required);
 }
 
 function node(tag, text, className) {
@@ -176,6 +176,10 @@ function render(status) {
     keyValue("Builder invoked", experiment.builder_invoked ? "true" : "false"),
     keyValue("Classification", experiment.classification_reason),
   ] : [keyValue("Status", "Awaiting experiment") ]));
+  const week1 = status.week1_days ?? [];
+  byId("week1-evidence").replaceChildren(...(week1.length ? week1.map((item) =>
+    keyValue(`Day ${item.day}`, `${item.status}${item.reason_code ? ` · ${item.reason_code}` : ""}`)
+  ) : [keyValue("状態", "Day 4 の推奨操作を待機中")]));
   byId("task-queue").replaceChildren(...(day.queue?.length ? day.queue : [{ task_id: "No tasks", state: "–", final_result: "" }]).map((item) => {
     const row = document.createElement("li");
     row.append(node("strong", item.task_id), node("span", item.state), node("small", item.final_result ?? ""));

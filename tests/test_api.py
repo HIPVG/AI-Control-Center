@@ -67,6 +67,7 @@ def test_dashboard_v2_uses_only_configured_day_plan_api_contracts(client):
     assert 'id="zero-touch-evidence"' in html
     assert 'id="runtime-readiness-title"' in html
     assert 'id="runtime-readiness-detail"' in html
+    assert 'id="week1-evidence"' in html
     assert "診断・詳細操作" in html
     assert "自律運用センター" in html
     assert 'id="validation-evidence"' in html
@@ -98,6 +99,7 @@ def test_dashboard_v2_uses_only_configured_day_plan_api_contracts(client):
     assert "builder_invoked" in script
     assert "GIT_" in script
     assert "ZERO_TOUCH_" in script
+    assert "RUN_WEEK1_DAY" in script
     assert "/api/run/mock" not in script
     assert "innerHTML" not in script
 
@@ -117,10 +119,10 @@ def test_zero_touch_start_accepts_only_the_bounded_goal_field(client):
 
 def test_continue_endpoint_uses_only_current_trusted_policy(client, monkeypatch):
     action = client.get("/api/next-action").json()
-    assert action["action_type"] == "RUN_TRUSTED_EXPERIMENT"
-    monkeypatch.setattr(control_app.engine, "run_experiment", lambda experiment_id: {"experiment_id": experiment_id, "outcome": "RESULT_RECORDED"})
+    assert action["action_type"] == "RUN_WEEK1_DAY"
+    monkeypatch.setattr(control_app.engine, "run_week1_day", lambda day: {"day": day, "status": "COMPLETE", "reason_code": "TEST_ONLY"})
     result = client.post("/api/next-action/continue", json={"command": "unsafe", "target_id": "unsafe"}).json()
-    assert result["result"]["experiment_id"] == "local_llm_process_consistency_smoke"
+    assert result["result"]["day"] == 4
 
 
 def test_git_completion_endpoint_rejects_unknown_run_id_without_browser_supplied_git_data(client):

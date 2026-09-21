@@ -253,6 +253,16 @@ M28 implementation is ready for external validation:
   `EXTERNAL_ACTION_REQUIRED` without installation, model download, cloud
   fallback, browser-supplied command/path, experiment retry, or Builder work.
 
+M29 implementation is ready for external validation:
+- Recommended next action advances the persisted Week 1 Day 4-7 sequence
+  without another Goal entry;
+- Day 4/5 missing model or benchmark capabilities stop with typed
+  `EXTERNAL_ACTION_REQUIRED`; Day 6 preserves the runbook's preparation-only
+  context policy; Day 7 produces a bounded advisory and
+  `HUMAN_DECISION_REQUIRED`;
+- all capabilities are read from fixed LocalLLM-Lab configuration and no model,
+  benchmark, context, or cloud authority is added.
+
 
 External M28 validation passed on 2026-09-22:
 - the Dashboard is Japanese and Zero-Touch-first;

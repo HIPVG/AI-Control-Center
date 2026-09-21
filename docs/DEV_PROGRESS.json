@@ -33,7 +33,7 @@
   ],
   "blocked_milestones": [],
   "human_gate": "WEEK1_DAY4_7_AUTONOMOUS_VALIDATION",
-  "latest_test_result": "181 passed, 3 warnings",
+  "latest_test_result": "183 passed, 3 warnings",
   "latest_commit": "6e690463b28bd586e9151653b237844d217cc4bc",
   "remote_push_state": "pushed",
   "safe_semantic_task_found": false,
@@ -240,5 +240,7 @@
     "NO_BENCHMARK_INSTALL",
     "NO_UNAPPROVED_CONTEXT_EXPANSION",
     "NO_CLOUD_FALLBACK"
-  ]
+  ],
+  "m29_implementation": "READY_FOR_EXTERNAL_VALIDATION",
+  "m29_control_contract": "docs/WEEK1_DAY4_7_CONTROL.md"
 }

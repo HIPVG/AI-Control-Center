@@ -26,12 +26,14 @@ from backend.control.goal_policy import propose_goal
 from backend.control.next_action import recommend_next_action
 from backend.control.git_completion import GitCompletionService
 from backend.control.local_runtime import ApprovedLocalRuntimeService
+from backend.control.week1_program import Week1Program
 from backend.models.goal import GoalPlan, GoalPlanStatus
 from backend.models.experiment import ExperimentOutcome, ExperimentRun
 from backend.models.local_runtime import LocalRuntimeReadinessState
 from backend.models.next_action import NextActionType
 from backend.models.git_completion import GitCompletionCandidate, GitCompletionResult, GitCompletionStatus
 from backend.models.zero_touch import ZeroTouchRun, ZeroTouchStatus
+from backend.models.week1 import Week1DayStatus
 from backend.control.projects import ProjectRegistry, load_project_registry
 from backend.control.plans import load_plan_registry
 from backend.control.task_discovery import DeterministicTaskDiscovery, DiscoveryRegistry, FailingTaskDiscoveryResult, load_discovery_registry
@@ -102,6 +104,9 @@ class ControlCenterEngine:
         self.discoveries = discovery_registry or load_discovery_registry(project_root / "config" / "discovery.yaml")
         self.faults = fault_registry or load_fault_registry(project_root / "config" / "faults.yaml")
         self.experiments = load_experiments(project_root / "config" / "experiments.yaml")
+        local_llm = self.projects.get("local_llm_lab")
+        self.week1_program = Week1Program(local_llm.path if local_llm else project_root / "missing-local-llm")
+        self.week1_enabled = bool(local_llm and (local_llm.path / "docs" / "week1-runbook.md").is_file())
         self.local_runtime_service = local_runtime_service or ApprovedLocalRuntimeService()
         self.worktree_root = (worktree_root or project_root / "state" / "worktrees").resolve()
         self.smoke_workspace = SmokeWorkspace(smoke_root or project_root / "state" / "smoke")
@@ -170,6 +175,7 @@ class ControlCenterEngine:
             "git_completions": [],
             "zero_touch_runs": [],
             "runtime_readiness": None,
+            "week1_days": [],
             "task_start_completed": {"PC-014": 18},
             "task_progress": calculate_progress(task_completed, task_total),
             "current_task": {"task_id": "PC-014", "title": "Evidence Grounding", "completed": task_completed, "total": task_total, "retry": 0, "max_retry": 2},
@@ -331,6 +337,7 @@ class ControlCenterEngine:
             "git_completion_candidates": self.git_completion_candidates(),
             "zero_touch": self.zero_touch_runs(),
             "runtime_readiness": self.data.get("runtime_readiness"),
+            "week1_days": self.data.get("week1_days", []),
         }
 
     def runtime_view(self) -> dict[str, Any]:
@@ -380,7 +387,35 @@ class ControlCenterEngine:
         return list(self.data["goal_plans"])
 
     def next_action(self) -> dict[str, Any]:
+        week1 = self._week1_next_action()
+        if week1 is not None:
+            return week1
         return recommend_next_action(self.data["experiment_runs"], set(self.experiments), self.git_completion_candidates(), self.data["zero_touch_runs"]).model_dump(mode="json")
+
+    def _week1_next_action(self) -> dict[str, Any] | None:
+        if not self.week1_enabled:
+            return None
+        records = self.data.get("week1_days", [])
+        latest = records[-1] if records else None
+        if latest and latest["status"] in {Week1DayStatus.EXTERNAL_ACTION_REQUIRED.value, Week1DayStatus.HUMAN_DECISION_REQUIRED.value}:
+            return {"action_type": latest["status"], "target_id": None, "summary": "Week 1 requires external action." if latest["status"] == Week1DayStatus.EXTERNAL_ACTION_REQUIRED.value else "Week 1 next-phase direction requires a human decision.", "reason": latest.get("reason_code") or latest["status"], "reasoning_required": False, "human_attention_required": True, "policy_result": latest["status"]}
+        completed = {item["day"] for item in records if item["status"] == Week1DayStatus.COMPLETE.value}
+        day = next((value for value in Week1Program.DAYS if value not in completed), None)
+        if day is None:
+            return None
+        return {"action_type": NextActionType.RUN_WEEK1_DAY.value, "target_id": f"week1-day{day}", "summary": f"Continue Week 1 Day {day} through the approved LocalLLM-Lab program.", "reason": "No new Goal is required for the next approved Week 1 action.", "reasoning_required": False, "human_attention_required": False, "policy_result": "WEEK1_APPROVED_SEQUENCE"}
+
+    def run_week1_day(self, day: int) -> dict[str, Any]:
+        if day not in Week1Program.DAYS:
+            return {"error_code": "WEEK1_DAY_NOT_CONFIGURED"}
+        if any(item["status"] in {Week1DayStatus.EXTERNAL_ACTION_REQUIRED.value, Week1DayStatus.HUMAN_DECISION_REQUIRED.value} for item in self.data["week1_days"]):
+            return {"error_code": "WEEK1_ATTENTION_UNRESOLVED"}
+        result = self.week1_program.run(day, self.data["week1_days"])
+        payload = result.model_dump(mode="json")
+        self.data["week1_days"].append(payload)
+        self._event("WEEK1", AuditEventType.WEEK1_DAY_RESULT, f"Week 1 Day {day}: {result.status.value} ({result.reason_code}).", details=payload)
+        self._save()
+        return payload
 
     def continue_autonomously(self) -> dict[str, Any]:
         """Execute only the current policy-approved, configured continuation."""
@@ -389,6 +424,10 @@ class ControlCenterEngine:
             return {"error_code": "NEXT_ACTION_REQUIRES_ATTENTION", "next_action": action}
         if action["action_type"] == NextActionType.COMPLETE_VERIFIED_WORK.value:
             result = self.complete_verified_work(action["target_id"])
+        elif action["action_type"] == NextActionType.RUN_WEEK1_DAY.value:
+            result = self.run_week1_day(int(action["target_id"].removeprefix("week1-day")))
+            if result["status"] != Week1DayStatus.COMPLETE.value:
+                return {"error_code": result["status"], "next_action": action, "result": result}
         elif action["action_type"] == NextActionType.RUN_TRUSTED_EXPERIMENT.value:
             readiness = self._preflight_local_runtime()
             if readiness["state"] == LocalRuntimeReadinessState.EXTERNAL_ACTION_REQUIRED.value:
