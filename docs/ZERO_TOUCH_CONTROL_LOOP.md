@@ -63,7 +63,9 @@ Status: externally validated.
 A human can start a trusted Codex-Core single step from the dashboard and observe real state.
 
 ### A2 — Continuous zero-touch Day
-A trusted plan runs end-to-end without per-task human actions. Bounded retry/recovery is automatic.
+Status: externally validated.
+
+A trusted three-task Codex-Core plan resumed from 33.33% and completed to 100% without per-task human actions. Builder, Independent Evaluator, and Human Review remained unused because all three deterministic prechecks passed. Bounded failure recovery remains the next stage.
 
 ### A3 — Recovery and replanning
 Failures are classified. Retry, repair, reviewer guidance, and bounded replan occur automatically where policy permits.
