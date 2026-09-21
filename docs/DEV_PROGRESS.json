@@ -1,6 +1,6 @@
 {
   "roadmap_version": 4,
-  "current_milestone": "M28_JAPANESE_DASHBOARD_UX_POLISH",
+  "current_milestone": "COMPLETE",
   "completed_milestones": [
     "M0",
     "M1",
@@ -28,10 +28,11 @@
     "M24",
     "M25",
     "M26",
-    "M27"
+    "M27",
+    "M28"
   ],
   "blocked_milestones": [],
-  "human_gate": "JAPANESE_UI_AND_RUNTIME_READINESS_VALIDATION",
+  "human_gate": null,
   "latest_test_result": "181 passed, 3 warnings",
   "latest_commit": "6e690463b28bd586e9151653b237844d217cc4bc",
   "remote_push_state": "pushed",
@@ -43,7 +44,7 @@
     "uncached_input_tokens": 18454,
     "output_tokens": 82
   },
-  "updated_at": "2026-09-22T07:40:00+09:00",
+  "updated_at": "2026-09-22T08:00:00+09:00",
   "real_codex_core_continuous_validation": "PASSED",
   "continuous_runtime_evidence": {
     "start_progress_percent": 33.33,
@@ -156,7 +157,7 @@
     }
   },
   "final_milestone": "M28_JAPANESE_DASHBOARD_UX_POLISH",
-  "m28_status": "READY_FOR_EXTERNAL_VALIDATION",
+  "m28_status": "COMPLETE",
   "m28_scope": [
     "JAPANESE_DASHBOARD_LABELS",
     "JAPANESE_USER_FACING_MESSAGES",
@@ -206,5 +207,23 @@
     "Run one bounded trusted LocalLLM goal with Ollama already running; confirm READY or STARTED and completion.",
     "Stop Ollama, repeat the trusted goal, and confirm automatic bounded startup then completion.",
     "If startup is intentionally unavailable, confirm EXTERNAL_ACTION_REQUIRED with no cloud fallback or Builder invocation."
-  ]
+  ],
+  "m28_external_validation": "PASSED",
+  "m28_runtime_evidence": {
+    "dashboard_language": "ja",
+    "zero_touch_primary": true,
+    "diagnostics_demoted": true,
+    "runtime_state_latest": "READY",
+    "local_llm_outcome": "RESULT_RECORDED",
+    "engine": "ollama",
+    "model": "qwen3-8b-q4:latest",
+    "response_count": 4,
+    "success_count": 4,
+    "failed_count": 0,
+    "builder_invoked": false,
+    "runtime_install": false,
+    "model_install": false,
+    "cloud_fallback": false
+  },
+  "roadmap_complete": true
 }
