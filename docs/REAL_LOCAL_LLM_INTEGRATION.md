@@ -164,3 +164,20 @@ The combined gate must validate both the M21 controlled escalation scenarios and
 This milestone deliberately arrives before PowerShell-free polish and Goal-to-Plan.
 
 Reason: once real LocalLLM experiments flow through the Control Center, subsequent autonomy work can be driven by actual experiment failures and decisions rather than synthetic orchestration scenarios.
+
+
+## External validation result
+
+Status: PASSED on 2026-09-22.
+
+Observed through Dashboard:
+- Outcome: RESULT_RECORDED
+- Engine/model: ollama / qwen3-8b-q4:latest
+- Responses: 4
+- Success: 4
+- Failed: 0
+- Artifact reference recorded
+- Builder invoked: false
+- Classification: completed
+
+The missing-runtime companion validation also showed EXTERNAL_ACTION_REQUIRED with zero retry and normal Day unchanged. The real LocalLLM integration milestone is therefore complete.
