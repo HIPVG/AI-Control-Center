@@ -24,7 +24,7 @@ ChatGPT remains useful as an optional strategic adviser, but must not be require
 
 A normal work session should require:
 
-- one human goal or one trusted plan start;
+- one initial human goal/start, then routine continuation without repeated Goal entry;
 - zero copy/paste handoffs between ChatGPT and Codex;
 - zero routine PowerShell commands;
 - zero routine Human Review stops;
@@ -98,10 +98,11 @@ Normal use should become:
 
 1. Control Center starts automatically with Windows.
 2. User opens the dashboard.
-3. User chooses a trusted plan or enters a goal.
-4. User selects Run.
-5. Control Center runs until complete or a genuine escalation occurs.
-6. User receives a concise completion/attention report.
+3. Control Center proposes the next trusted action from current state.
+4. User normally selects **Continue autonomously**.
+5. Control Center runs, recovers, and replans until complete or a genuine escalation occurs.
+6. User enters a free-form Goal only when intentionally changing direction.
+7. User receives a concise completion/attention report.
 
 No routine PowerShell interaction should be necessary.
 
