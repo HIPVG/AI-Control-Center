@@ -53,6 +53,10 @@ class AuditEventType(str, Enum):
     WEEK1_DAY_RESULT = "WEEK1_DAY_RESULT"
     LOCAL_LLM_DAY_STARTED = "LOCAL_LLM_DAY_STARTED"
     LOCAL_LLM_DAY_COMPLETE = "LOCAL_LLM_DAY_COMPLETE"
+    LOCAL_LLM_CODEX_HANDOFF_READY = "LOCAL_LLM_CODEX_HANDOFF_READY"
+    # Retained only to read state written by the earlier candidate-card UI.
+    LOCAL_LLM_REPAIR_CARD_PENDING = "LOCAL_LLM_REPAIR_CARD_PENDING"
+    LOCAL_LLM_REPAIR_CARD_VERIFIED = "LOCAL_LLM_REPAIR_CARD_VERIFIED"
     # Retained solely to read older persisted audit records; the Day Runner UI
     # intentionally exposes no scenario controls.
     SCENARIO_ACTIVATED = "SCENARIO_ACTIVATED"

@@ -72,6 +72,8 @@ def test_production_launcher_is_cwd_independent_and_writes_bounded_startup_codes
     launcher = Path("scripts/start.ps1").read_text(encoding="utf-8")
     assert "$RepositoryRoot = Split-Path -Parent $PSScriptRoot" in launcher
     assert "Set-Location -LiteralPath $RepositoryRoot" in launcher
+    assert "[Console]::OutputEncoding = $Utf8NoBom" in launcher
+    assert "$env:PYTHONUTF8 = '1'" in launcher
     assert "Get-Command python.exe -CommandType Application -All" in launcher
     assert "$PythonPath = $null" in launcher
     assert "& $PythonPath -m uvicorn" in launcher

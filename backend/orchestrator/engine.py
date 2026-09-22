@@ -11,7 +11,8 @@ from uuid import uuid4
 
 from backend.agents.architect import MockArchitect
 from backend.agents.day_providers import (
-    CodexArchitectProvider, CodexReviewerProvider, MockCodexArchitectProvider,
+    CodexArchitectProvider, CodexDayContractPlanner, CodexReviewerProvider, MockCodexArchitectProvider,
+    MockDayContractPlanner,
     MockDayArchitect, MockSemanticEvaluator, OpenAIDayArchitect, OpenAISemanticEvaluator,
     ProviderRequestError,
 )
@@ -118,6 +119,10 @@ class ControlCenterEngine:
             if self.runtime.codex.mode == CodexMode.REAL else MockCodexArchitectProvider()
         )
         self.codex_reviewer = CodexReviewerProvider(self.real_runner, role_workspace)
+        self.local_llm_contract_planner = (
+            CodexDayContractPlanner(self.real_runner, role_workspace, set(self.tasks.tasks))
+            if self.runtime.codex.mode == CodexMode.REAL else MockDayContractPlanner()
+        )
         self.timeline: list[AuditEvent] = []
         self._load()
         self.day_runner = DayRunner(
@@ -145,6 +150,8 @@ class ControlCenterEngine:
             saved=self.data.get("local_llm_day_runner"),
             persist=self._save_local_llm_day_state,
             audit=self._local_llm_day_audit,
+            planner=self.local_llm_contract_planner.plan,
+            work_order_executor=self._execute_local_llm_day_work_order,
         )
 
     @staticmethod
@@ -182,8 +189,8 @@ class ControlCenterEngine:
             "git_completions": [],
             "zero_touch_runs": [],
             "runtime_readiness": None,
-            "local_llm_day_runner": {},
             "week1_days": [],
+            "local_llm_day_runner": {},
             "task_start_completed": {"PC-014": 18},
             "task_progress": calculate_progress(task_completed, task_total),
             "current_task": {"task_id": "PC-014", "title": "Evidence Grounding", "completed": task_completed, "total": task_total, "retry": 0, "max_retry": 2},
@@ -345,8 +352,8 @@ class ControlCenterEngine:
             "git_completion_candidates": self.git_completion_candidates(),
             "zero_touch": self.zero_touch_runs(),
             "runtime_readiness": self.data.get("runtime_readiness"),
-            "local_llm_day": self.local_llm_day_program.view(),
             "week1_days": self.data.get("week1_days", []),
+            "local_llm_day": self.local_llm_day_program.view(),
         }
 
     def runtime_view(self) -> dict[str, Any]:
@@ -420,6 +427,14 @@ class ControlCenterEngine:
         if any(item["status"] in {Week1DayStatus.EXTERNAL_ACTION_REQUIRED.value, Week1DayStatus.HUMAN_DECISION_REQUIRED.value} for item in self.data["week1_days"]):
             return {"error_code": "WEEK1_ATTENTION_UNRESOLVED"}
         result = self.week1_program.run(day, self.data["week1_days"])
+        if day == 4 and result.status == Week1DayStatus.COMPLETE:
+            experiment = self.run_experiment("week1_day4_cross_family")
+            if experiment["outcome"] != ExperimentOutcome.RESULT_RECORDED.value:
+                result.status = Week1DayStatus.EXTERNAL_ACTION_REQUIRED
+                result.reason_code = experiment["outcome"]
+                result.evidence["experiment_outcome"] = experiment["outcome"]
+            else:
+                result.evidence["artifact_path"] = experiment.get("artifact_path") or "unavailable"
         payload = result.model_dump(mode="json")
         self.data["week1_days"].append(payload)
         self._event("WEEK1", AuditEventType.WEEK1_DAY_RESULT, f"Week 1 Day {day}: {result.status.value} ({result.reason_code}).", details=payload)
@@ -628,7 +643,10 @@ class ControlCenterEngine:
         if not root or not runner or not runner.is_file() or not runner.is_relative_to(root):
             result = ExperimentRun(experiment_id=experiment_id, project_id=definition.project_id, started_at=started, completed_at=datetime.now(timezone.utc), outcome=ExperimentOutcome.CONFIGURATION_BLOCKED, classification_reason="TRUSTED_RUNNER_UNAVAILABLE")
             return self._finish_experiment(result)
-        command = [sys.executable, str(runner), "--engine", "ollama", "--model", definition.model, "--cases", ",".join(definition.cases), "--timeout", str(definition.timeout_seconds), "--output-root", definition.output_root]
+        if runner.name == "run_experiment.py" and experiment_id == "week1_day4_cross_family":
+            command = [sys.executable, str(runner), "--profile", "week1-day4-cross-family", "--models", definition.model, "--output-root", definition.output_root]
+        else:
+            command = [sys.executable, str(runner), "--engine", "ollama", "--model", definition.model, "--cases", ",".join(definition.cases), "--timeout", str(definition.timeout_seconds), "--output-root", definition.output_root]
         try:
             completed = subprocess.run(command, cwd=root, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=definition.timeout_seconds + 30, check=False)
             payload = json.loads(completed.stdout.strip().splitlines()[-1]) if completed.stdout.strip() else {}
@@ -689,11 +707,15 @@ class ControlCenterEngine:
 
     def day_status(self) -> dict[str, Any]:
         return self.day_runner.view()
+
     def local_llm_days(self) -> list[dict[str, object]]:
         return self.local_llm_day_program.days()
 
     def local_llm_day_status(self) -> dict[str, object]:
         return self.local_llm_day_program.view()
+
+    def smoke_local_llm_day(self, day: int) -> dict[str, object]:
+        return self.local_llm_day_program.smoke(day)
 
     def start_local_llm_day(self, day: int) -> dict[str, object]:
         return self.local_llm_day_program.start(day)
@@ -704,6 +726,7 @@ class ControlCenterEngine:
     def repair_and_go_local_llm_day(self) -> dict[str, object]:
         return self.local_llm_day_program.repair_and_go()
 
+
     def stop_local_llm_day(self) -> dict[str, object]:
         return self.local_llm_day_program.stop()
 
@@ -713,6 +736,30 @@ class ControlCenterEngine:
 
     def _local_llm_day_audit(self, task_id: str, event_name: str, details: dict[str, object]) -> None:
         self._event(task_id, AuditEventType(event_name), f"LocalLLM Day runner: {event_name}", details=details)
+
+    def _execute_local_llm_day_work_order(self, work_order: dict[str, object]) -> dict[str, object]:
+        """Bridge Day work items into the existing guarded task engine.
+
+        The bridge deliberately accepts only a configured task ID.  It never
+        turns a model proposal into a command, source path, or direct edit.
+        """
+        kind = work_order.get("kind")
+        if kind == "EVIDENCE_CHECK":
+            return {"final_result": "COMPLETE", "evidence": {}, "inspection": "inventory only"}
+        if kind != "ENGINE_WORK_ORDER":
+            return {"final_result": "FAILED", "error_code": "DAY_WORK_ORDER_REQUIRES_CONFIGURED_ENGINE_TASK", "issue_classification": "IMPLEMENTATION_DEFECT"}
+        task_id = work_order.get("engine_task_id")
+        if not isinstance(task_id, str) or self.tasks.get(task_id) is None:
+            return {"final_result": "FAILED", "error_code": "DAY_ENGINE_TASK_NOT_CONFIGURED", "issue_classification": "MISSING_EXTERNAL_AUTHORITY"}
+        result = self._run_day_task(task_id)
+        if result.get("final_result") not in {"COMPLETE", "COMPLETE_NO_CHANGE"}:
+            return {**result, "issue_classification": "IMPLEMENTATION_DEFECT" if result.get("triage_result") == "CODE_FIX" else "INSUFFICIENT_EVIDENCE"}
+        criterion_ids = work_order.get("criterion_ids")
+        evidence = {
+            criterion_id: {"engine_task_id": task_id, "run_id": result.get("run_id"), "postcheck_result": result.get("postcheck_result")}
+            for criterion_id in criterion_ids if isinstance(criterion_id, str)
+        } if isinstance(criterion_ids, list) else {}
+        return {"final_result": result["final_result"], "evidence": evidence, "engine_result": {key: result.get(key) for key in ("run_id", "postcheck_result", "scope_guard_result", "changed_files")}}
 
     def _run_day_task(self, task_id: str, max_codex_attempts: int | None = None, repair_instruction: str | None = None, codex_routing_selector: Callable[[int, int], object | None] | None = None) -> dict[str, Any]:
         # The current configured real task set is deterministic. Semantic task

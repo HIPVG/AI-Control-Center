@@ -23,6 +23,14 @@ try {
         exit 1
     }
     Set-Location -LiteralPath $RepositoryRoot
+    # A hidden Windows PowerShell host otherwise inherits the legacy console
+    # code page.  Child checks that exchange JSON with pwsh must agree on
+    # UTF-8, just as they do in the interactive development shell.
+    $Utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+    [Console]::OutputEncoding = $Utf8NoBom
+    $global:OutputEncoding = $Utf8NoBom
+    $env:PYTHONUTF8 = '1'
+    $env:PYTHONIOENCODING = 'utf-8'
     Write-StartupDiagnostic 'REPOSITORY_ROOT_READY'
 
     $pythonCandidates = @(

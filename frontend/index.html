@@ -16,6 +16,7 @@
       <section class="control" aria-label="Day Runner controls">
         <label for="day-selector">Day</label>
         <select id="day-selector" aria-label="Select Day 1 through Day 14"></select>
+        <button id="smoke" type="button">Smoke</button>
         <button id="go" type="button">Go</button>
         <button id="repair-and-go" type="button">修復＆GO</button>
         <button id="stop" class="secondary" type="button">Stop</button>
@@ -23,6 +24,7 @@
         <button id="git-push" class="secondary" type="button" disabled>Git Push</button>
       </section>
       <p id="git-push-status" class="push-status" aria-live="polite">Checking verified Git work…</p>
+      <p id="run-indicator" class="run-indicator" aria-live="assertive" hidden><span aria-hidden="true"></span><strong>実行中</strong> <span id="run-indicator-detail"></span></p>
       <section class="status" aria-live="polite">
         <p class="eyebrow">Current activity</p>
         <h2 id="state">IDLE</h2>
@@ -30,11 +32,35 @@
         <div class="meter" aria-label="Day progress"><i id="progress-meter"></i></div>
         <p id="progress">0%</p>
       </section>
+      <section class="workboard" aria-live="polite">
+        <p class="eyebrow">Day work board</p>
+        <ol id="day-work-items"></ol>
+      </section>
+      <section class="workboard" aria-live="polite">
+        <p class="eyebrow">Repair knowledge</p>
+        <p>Codex maintains this JSON-backed catalog as semantic guidance. LocalLLM must still propose a scoped edit and pass its tests.</p>
+        <ul id="repair-knowledge"></ul>
+      </section>
+      <section class="result" aria-live="polite">
+        <p class="eyebrow">Codex handoff</p>
+        <dl id="codex-handoff"></dl>
+      </section>
       <section class="result">
         <p class="eyebrow">Final result</p>
         <h2 id="result-title">No Day has run yet.</h2>
         <p id="result-summary">Select a Day and press Go.</p>
         <dl id="result-evidence"></dl>
+      </section>
+      <section class="result">
+        <p class="eyebrow">Smoke result</p>
+        <h2 id="smoke-title">No Smoke has run yet.</h2>
+        <p id="smoke-summary">Run Smoke before Go to inspect the selected Day.</p>
+        <dl id="smoke-evidence"></dl>
+      </section>
+      <section class="recommendation" aria-live="polite">
+        <p class="eyebrow">Recommended action</p>
+        <h2 id="recommended-action">Go</h2>
+        <p id="recommended-action-reason">Select a configured Day and run its trusted checks.</p>
       </section>
     </main>
     <script src="/static/app.js"></script>

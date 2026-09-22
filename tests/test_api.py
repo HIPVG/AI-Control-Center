@@ -45,12 +45,17 @@ def test_dashboard_is_the_single_local_llm_day_runner(client):
     assert [day["day"] for day in days] == list(range(1, 15))
     html = (control_app.ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     script = (control_app.ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
-    for control in ("day-selector", "go", "repair-and-go", "stop", "resume", "git-push", "state", "activity", "result-title"):
+    for control in ("day-selector", "smoke", "go", "repair-and-go", "stop", "resume", "git-push", "state", "activity", "run-indicator", "run-indicator-detail", "day-work-items", "repair-knowledge", "codex-handoff", "result-title", "smoke-title", "smoke-summary", "recommended-action", "recommended-action-reason"):
         assert f'id="{control}"' in html
     assert "goal-input" not in html
     assert "scenario" not in html.lower()
     assert "/api/local-llm/day/" in script
+    assert "/smoke" in script
     assert "repair-and-go" in script
+    assert 'recommendation.action_id !== "REPAIR_AND_GO"' in script
+    assert "SMOKE_PASS" in script
+    assert '"SUCCESS"' in script
+    assert "codex-resolution" not in script
     assert "/api/git/candidates" in script
     assert "/api/git/complete/" in script
     assert "/api/goals" not in script

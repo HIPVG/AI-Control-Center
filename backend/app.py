@@ -98,6 +98,11 @@ def local_llm_day_status() -> dict:
     return engine.local_llm_day_status()
 
 
+@app.post("/api/local-llm/day/{day}/smoke")
+def smoke_local_llm_day(day: int) -> dict:
+    return engine.smoke_local_llm_day(day)
+
+
 @app.post("/api/local-llm/day/{day}/start")
 def start_local_llm_day(day: int) -> dict:
     return engine.start_local_llm_day(day)

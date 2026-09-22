@@ -17,6 +17,7 @@ from backend.models.model_routing import ProviderExecutionConfig
 from backend.models.orchestration import ProviderSettings
 from backend.models.result import TokenUsage
 from backend.runners.codex import RealCodexRunner, StructuredCodexResult
+from backend.models.local_llm_day import LocalLLMDayContract, LocalLLMDayWorkItem
 
 
 class ProviderConfigurationError(RuntimeError):
@@ -43,6 +44,78 @@ class DayArchitect(Protocol):
 
 class DayEvaluator(Protocol):
     def evaluate(self, request: dict[str, Any], execution: ProviderExecutionConfig) -> SemanticEvaluation: ...
+
+
+class DayContractPlanner(Protocol):
+    """Creates bounded Day work items; it cannot alter the Day contract."""
+
+    def plan(self, contract: LocalLLMDayContract, inventory: dict[str, object]) -> list[LocalLLMDayWorkItem]: ...
+
+
+class MockDayContractPlanner:
+    """Safe no-provider fallback used when Codex is configured in mock mode."""
+
+    def plan(self, contract: LocalLLMDayContract, _inventory: dict[str, object]) -> list[LocalLLMDayWorkItem]:
+        return [
+            LocalLLMDayWorkItem(
+                item_id=f"evidence-{contract.day}-{criterion_id}", title="Collect trusted completion evidence",
+                objective=next(item.statement for item in contract.completion_criteria if item.criterion_id == criterion_id),
+                kind="EVIDENCE_CHECK", criterion_ids=[criterion_id],
+            )
+            for criterion_id in contract.remaining_gaps[:3]
+        ]
+
+
+class CodexDayContractPlanner:
+    """Read-only planner that returns data-only work items for a Day Contract."""
+
+    def __init__(self, runner: RealCodexRunner, workspace_root: Path, trusted_task_ids: set[str]) -> None:
+        self.runner, self.workspace_root = runner, workspace_root.resolve()
+        self.trusted_task_ids = trusted_task_ids
+
+    def _workspace(self, role: str) -> Path:
+        workspace = (self.workspace_root / role).resolve()
+        workspace.mkdir(parents=True, exist_ok=True)
+        return workspace
+
+    def plan(self, contract: LocalLLMDayContract, inventory: dict[str, object]) -> list[LocalLLMDayWorkItem]:
+        schema = {
+            "type": "object", "additionalProperties": False, "required": ["tasks"],
+            "properties": {"tasks": {"type": "array", "minItems": 1, "maxItems": 3, "items": {
+                "type": "object", "additionalProperties": False,
+                "required": ["item_id", "title", "objective", "kind", "criterion_ids", "engine_task_id"],
+                "properties": {
+                    "item_id": {"type": "string"}, "title": {"type": "string"}, "objective": {"type": "string"},
+                    "kind": {"type": "string", "enum": ["EVIDENCE_CHECK", "ENGINE_WORK_ORDER"]},
+                    "criterion_ids": {"type": "array", "items": {"type": "string"}},
+                    "engine_task_id": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+                },
+            }}},
+        }
+        workspace = self._workspace("day-contract-planner")
+        schema_path = workspace / "output-schema.json"
+        schema_path.write_text(json.dumps(schema, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+        request = {
+            "contract": contract.model_dump(mode="json"), "inventory": inventory,
+            "trusted_engine_task_ids": sorted(self.trusted_task_ids),
+        }
+        prompt = (
+            "You are the read-only Codex Architect for one governed Day Contract. Return JSON only. "
+            "Create at most three tasks for the remaining criteria. Do not inspect files, run commands, or modify files. "
+            "Use ENGINE_WORK_ORDER only with a listed trusted_engine_task_id; use EVIDENCE_CHECK otherwise. "
+            "Do not create commands, paths, scopes, tests, criteria, or authority.\n" + json.dumps(request, ensure_ascii=False, separators=(",", ":"))
+        )
+        result = self.runner.run_readonly_structured(workspace, prompt, schema_path)
+        if result.status != "completed" or not result.output_text:
+            raise _codex_role_error("DAY_CONTRACT_PLANNER", result)
+        try:
+            output = json.loads(result.output_text)
+            tasks = output["tasks"] if isinstance(output, dict) else None
+            if not isinstance(tasks, list):
+                raise ValueError("tasks missing")
+            return [LocalLLMDayWorkItem.model_validate(item) for item in tasks]
+        except (json.JSONDecodeError, ValueError, TypeError) as exc:
+            raise ProviderRequestError("CODEX_DAY_PLAN_OUTPUT_INVALID", "Codex Architect returned an invalid Day task plan.", diagnostics={"provider_error_type": type(exc).__name__, "request_stage": "structured_output"}) from exc
 
 
 class MockDayArchitect:

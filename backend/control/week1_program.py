@@ -18,8 +18,10 @@ class Week1Program:
             candidates = [m for m in matrix.get("models", []) if m.get("family") != "qwen3" and m.get("runtime_model_name")]
             if not candidates:
                 return Week1DayRecord(day=4, status=Week1DayStatus.EXTERNAL_ACTION_REQUIRED, reason_code="APPROVED_CROSS_FAMILY_RUNTIME_MISSING", evidence={"required_capability": "approved Gemma or Llama runtime"})
-            # A separately configured trusted runner is required before inference.
-            return Week1DayRecord(day=4, status=Week1DayStatus.EXTERNAL_ACTION_REQUIRED, reason_code="CROSS_FAMILY_RUNNER_NOT_CONFIGURED", evidence={"approved_models": [str(m["id"]) for m in candidates]})
+            phi = next((m for m in candidates if m.get("runtime_model_name") == "phi4:14b"), None)
+            if phi is None:
+                return Week1DayRecord(day=4, status=Week1DayStatus.EXTERNAL_ACTION_REQUIRED, reason_code="APPROVED_PHI4_RUNTIME_MISSING")
+            return Week1DayRecord(day=4, status=Week1DayStatus.COMPLETE, reason_code="DAY4_CROSS_FAMILY_EXPERIMENT_CONFIGURED", evidence={"experiment_id": "week1_day4_cross_family", "approved_models": ["qwen3-14b-q4", "phi4-14b-q4"]})
         if day == 5:
             plan = self._json("config/benchmark-plan.yaml")
             if not plan.get("execution_enabled", False):

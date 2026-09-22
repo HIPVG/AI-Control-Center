@@ -1,230 +1,61 @@
-# LocalLLM-Lab Authoritative Day 1-14 Autonomous Execution
+# LocalLLM-Lab Day 1-14 autonomous execution
 
-## Source of truth
+The authoritative program is `C:\LocalLLM-Lab\docs\runbooks\work-plan-day1-14.md`.
+The runner also reads the documentation map, decision architecture, handoff,
+current Git state, and relevant tracked evidence. The older Week 1 program is
+not an execution model for this flow.
 
-LocalLLM-Lab `docs/README.md` identifies these as current:
-- execution sequence: `docs/runbooks/work-plan-day1-14.md`
-- architecture: `docs/architecture/decision-reasoning-architecture.md`
-- resume evidence: `docs/handoff/handoff-2026-09-18.md`
+## Day Contract
 
-The older `docs/week1-runbook.md` is historical/component guidance and MUST NOT
-drive current autonomous sequencing when it conflicts with the source-of-truth
-map.
+Selecting a Day creates and persists a structured contract containing its Day
+number, runbook objective, completion criteria derived from the runbook text,
+required evidence, shared constraints, authoritative sources, satisfied
+criteria, and remaining gaps. The contract expresses *what* must be established;
+it contains no Day-specific Python task recipe.
 
-## Research-director priority
+## Execution
 
-Execution is governed by `docs/RESEARCH_DIRECTOR_POLICY.md`. The objective is decision-relevant LocalLLM evidence, not strict Day consumption or automation completeness. The Day sequence is the default evidence plan, but non-critical work may be deferred when a higher-information experiment can proceed safely.
+`Go` inventories trusted state, evaluates each criterion, and asks the bounded
+planner for no more than three remaining work items. A Codex Architect adapter
+may supply that plan, but Python rejects items that are not evidence checks or
+guarded engine work orders, duplicate an item, exceed the limit, address an
+unknown criterion, or add authority outside the remaining gaps.
 
-## Resume rule
+Guarded engine work orders remain subject to the existing Scope Guard, Git
+Guard, token budgets, retry limits, worktrees, and deterministic postchecks.
+No browser-provided command, path, model, scope, or acceptance criterion is
+accepted. A completed task is not sufficient: only its trusted evidence can
+satisfy a Day criterion. Missing evidence triggers at most two replans; it
+never silently redefines the objective or criteria.
 
-Do not assume a Day number from chat history.
+The built-in fallback is deliberately read-only. It can inventory evidence but
+cannot mistake source presence for proof that research or implementation was
+completed. This fails closed as `DAY_INSUFFICIENT_EVIDENCE` until the guarded
+engine records actual evidence.
 
-At startup:
-1. inspect the authoritative runbook;
-2. inspect local Git status/branch/log and current source/config/tests;
-3. inspect available local generated artifacts and handoff evidence without
-   staging or modifying them;
-4. determine the first incomplete Day from reproducible evidence;
-5. resume there.
+## Failure and repair boundaries
 
-Days are sequential work units, not calendar dates.
+Failures are recorded as one of:
 
-## Current Day 1-14 sequence
+- `IMPLEMENTATION_DEFECT`
+- `TEST_OR_CONTRACT_DEFECT`
+- `MODEL_QUALITY_FINDING`
+- `EXPERIMENT_CONFIGURATION_ISSUE`
+- `MISSING_EXTERNAL_AUTHORITY`
+- `INSUFFICIENT_EVIDENCE`
 
-1. repository reconciliation and baseline freeze
-2. DRAP v0.4 Feasible + Relevant Action Gate
-3. v0.3.2 versus v0.4 regression
-4. fresh holdout, metamorphic, counterfactual
-5. plan-selection precision / local-versus-teacher gap
-6. temporal-state design
-7. temporal-case validation
-8. Novelty Scout proof of concept
-9. explanation and trade-off stage
-10. end-to-end performance
-11. product configuration
-12. reproducibility and operations
-13. full regression and fresh holdout
-14. sprint review
+Only an implementation defect enables `Repair and Go`. LocalLLM may provide a
+bounded proposal, but it cannot edit files, choose completion, or rerun a
+research result. The proposal is handed to the guarded Codex/engine boundary
+for inspection, scope validation, implementation, and deterministic testing.
+A poor model result from an experiment remains model-quality evidence and is
+never offered to the repair loop.
 
-## One-pass blocker sweep
+## Persistence and controls
 
-Before executing the next incomplete Day, inspect ALL remaining Days through Day
-14 and produce one internal blocker matrix.
-
-For every Day, record:
-- required source/config/schema/test capability;
-- required local model/runtime;
-- required generated artifact / frozen baseline / teacher packet;
-- required runner and CLI entry point;
-- expected output artifact;
-- whether the action is deterministic-only or uses local inference;
-- expected timeout / resource boundary;
-- whether the prerequisite exists now;
-- blocker classification;
-- whether it is auto-resolvable under existing authority.
-
-The sweep must include at least:
-- Git cleanliness / branch / remote / staged-diff preservation;
-- frozen v0.3.2 + ACIA baseline availability;
-- DRAP v0.4 gate implementation dependencies;
-- regression runner and baseline/result compatibility;
-- fresh holdout generation and anti-overfit controls;
-- metamorphic and counterfactual runner availability;
-- teacher packet availability and whether new cloud generation is actually
-  required;
-- shared Python validator inputs;
-- temporal-state schema/design dependencies;
-- temporal contradiction test fixtures;
-- Novelty Scout model/runner and proposal-vs-fact contract;
-- explanation/trade-off stage inputs and output contract;
-- performance telemetry and runtime readiness;
-- product-tier evidence inputs;
-- backup/recovery/logging docs and scripts;
-- Day 13 new fresh holdout generation;
-- Day 14 summary inputs.
-
-## Pre-authorized routine work
-
-The following MUST NOT create a Human Gate:
-
-- source/config/schema/test implementation explicitly required by the
-  authoritative Day 1-14 runbook;
-- internal harness/runner/adapter repair;
-- parser/terminal JSON/result-contract repair;
-- bounded parent/child timeout repair;
-- artifact finalization / interrupted-run bookkeeping repair;
-- state persistence/resume/next-action repair;
-- deterministic test fixture and fresh-holdout generator repair;
-- wiring existing local runners/models already present and already approved for
-  the documented role;
-- documentation/source-of-truth alignment;
-- deterministic analysis and report generation;
-- one controlled rerun after a confirmed harness/code defect is repaired;
-- Builder use for a genuine code/harness defect within existing repository/scope
-  policy.
-
-Do not blindly rerun an unchanged failed inference.
-
-## Pre-authorized experiment execution
-
-Initial execution of a Day's already-defined local experiment is authorized when:
-- the model/runtime is already installed locally and approved for that documented
-  role;
-- all experiment conditions come from tracked approved config/runbook;
-- no new cloud access, model/tool install, context expansion, destructive action,
-  or credential change is required.
-
-A harness failure is not a model-quality result.
-A model-quality finding is not automatically a code defect.
-
-## Authority review resolution
-
-The current `DAY1_14_BATCH_AUTHORITY_REVIEW` is resolved by the following authority decisions.
-
-### Day 1–3 repository reconciliation and baseline freeze
-
-Generated artifacts, telemetry, teacher results, datasets, model files, and caches remain local/ignored and must not be staged, deleted, reset, or cleaned.
-
-For uncommitted source/config/schema/tests/docs:
-- inspect and classify the diff against the current Git source of truth;
-- preserve the coherent current LocalLLM architecture work on an `agent/` checkpoint branch;
-- require full deterministic tests, diff safety checks, and secret/path hygiene before commit/push;
-- never overwrite or force-reset local work;
-- freeze the resulting tested checkpoint commit as the experiment baseline.
-
-Routine merge/reconciliation/harness defects are automatically repairable. Human review is required only if two incompatible implementations remain equally plausible after tests and authoritative docs cannot resolve them.
-
-### Approved local model-role mapping
-
-For internal LocalLLM-Lab research only, existing installed local runtimes may be reused according to the current architecture/handoff roles:
-
-- `phi4:14b`: primary Phi-4-class Semantic Abstractor / Compact Plan Reasoner, and bounded explanation/trade-off work when the tracked configuration assigns that role;
-- `qwen3-14b-q4:latest`: high-recall / Novelty Scout or comparison role when the tracked configuration assigns it;
-- `gemma3:12b`: Critic role where the tracked configuration assigns it;
-- `qwen3-8b-q4:latest`: baseline/smoke role, not promoted to the primary architecture without evidence.
-
-This is internal experimental approval, not customer eligibility or production approval. Do not substitute other installed models merely because they are available.
-
-### Teacher evidence policy
-
-Existing frozen teacher packets are approved for reuse when local integrity/provenance and schema compatibility checks pass.
-
-If a required teacher packet is missing or incompatible:
-- do not generate new cloud teacher evidence;
-- record the teacher comparison as unavailable/incomplete;
-- continue with independent local experiments and deterministic evaluation;
-- revisit cloud generation only if the final decision materially depends on it.
-
-Missing teacher evidence is therefore not, by itself, a stop condition for the Day 1–14 program.
-
-### Day 8–10 runner/config approval
-
-Existing tracked LocalLLM-Lab runners and fixed configurations that implement Novelty Scout, explanation/trade-off, and performance work are approved for reuse when:
-- they match the current architecture version;
-- deterministic config/schema/tests pass;
-- only already-installed approved local runtimes are used.
-
-Internal runner/config drift is automatically repairable. No separate human gate is required.
-
-### Day 11 product configuration
-
-Day 11 must produce an evidence-based candidate tier matrix and deployment implications. It must not force a final commercial tier choice.
-
-The current working hypothesis may treat 12–16 GB as the standard-tier candidate and larger hardware as an upper/escalation candidate only when evidence supports it. Final product selection is deferred to Day 14.
-
-Therefore Day 11 is advisory and must not stop the program.
-
-### Day 14
-
-Day 14 should automatically produce the sprint review, architecture conclusion candidates, remaining gaps, and any evidence-based 30B / 24 GB GPU business case.
-
-The single planned human decision is then `DAY14_FINAL_DECISION_REVIEW`.
-
-## Batch human-gate policy
-
-Do not stop for one blocker at a time.
-
-After the full blocker sweep and all auto-resolvable repairs, collect ALL
-remaining genuine authority/external blockers across the remaining Days into one
-batch Human Gate.
-
-Examples:
-- a required model/tool is absent and would need download/install;
-- provenance/license approval is required and cannot be established from trusted
-  evidence;
-- new cloud/teacher generation is required rather than reusing existing packets;
-- a new context/output/reasoning condition would expand approved experiment
-  authority;
-- destructive Git action, credential change, or external permission is required;
-- a material product-direction choice has multiple valid options with no
-  deterministic selection rule.
-
-The batch gate must list each blocker, affected Day(s), minimum decision, and
-what can continue independently.
-
-## Current observed harness failure
-
-Artifact:
-`C:\LocalLLM-Lab\results\experiments\EXP-20260921T220217-5542f4aa55`
-
-Observed:
-- manifest status remained `preparing`;
-- response_count = 0;
-- runner produced no terminal JSON.
-
-This is pre-authorized for internal diagnosis and repair. Do not ask for human
-authorization to diagnose/repair the existing harness. Before any real rerun,
-inspect bounded exit/stderr/artifact evidence, reproduce safely where possible,
-repair, run deterministic tests, and then perform at most one controlled rerun
-of the already-approved experiment if still relevant to the CURRENT
-source-of-truth plan.
-
-If that cross-family experiment is no longer part of the current authoritative
-Day 1-14 path, preserve the artifact as historical evidence and do not spend
-more runtime on it merely to satisfy the obsolete runbook.
-
-## Human gate
-
-`DAY14_FINAL_DECISION_REVIEW`
-
-The previous batch authority review is resolved by the authority decisions above. Continue autonomously through all decision-relevant work that can proceed under those rules. If an unexpected genuine external blocker appears, continue independent work and batch it into the final review unless it blocks every remaining high-information path.
+The persisted snapshot includes the selected Day, complete Day Contract,
+criteria, work plan, task states, evidence, issue classification, and replan
+count. A process restart converts `RUNNING` to `PAUSED`; `Resume` retains
+completed evidence rather than restarting the Day. The dashboard shows Go,
+Stop, Resume, the current contract/task, evidence, classification, and final
+result. Repair is enabled only for a genuine implementation-defect handoff.

@@ -6,3 +6,10 @@ experiments:
     cases: [PC-001-A, PC-001-C, PC-003-A, PC-003-C]
     timeout_seconds: 120
     output_root: results/process-consistency
+  week1_day4_cross_family:
+    project_id: local_llm_lab
+    runner: scripts/run_experiment.py
+    model: qwen3-14b-q4,phi4-14b-q4
+    cases: [PC-001-A, PC-001-C, PC-003-A, PC-003-C]
+    timeout_seconds: 120
+    output_root: results/experiments
