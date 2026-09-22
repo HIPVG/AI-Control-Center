@@ -1,5 +1,12 @@
 # AI Control Center autonomous Day architecture
 
+> **Superseded as the LocalLLM-Lab Day 1–14 execution specification.** The
+> sole canonical Day Runner specification is
+> [DAY_RUNNER_EXECUTION_SPEC.md](DAY_RUNNER_EXECUTION_SPEC.md). The material
+> below is retained historical architecture context and must not be used to
+> derive Day Runner transitions, terminal states, Repair & Go policy, API/UI
+> behaviour, or conformance PASS.
+
 ## Purpose and authority
 
 AI Control Center is a Windows-first local control plane for evidence-based,

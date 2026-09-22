@@ -1050,3 +1050,68 @@ Complete focused and full regression are still required.
 
 RULE_PROMOTION:
 NONE
+
+## CHG-020 — Day Runner canonical-specification correction after false conformance PASS
+
+CHANGE_ID:
+CHG-020
+
+TIMESTAMP:
+2026-09-22T00:00:00+09:00
+
+PLAN_REF:
+Current Day Runner design review and specification normalization.
+
+REQUEST / INTENT:
+Create one implementation-ready execution specification before runtime changes;
+inspect design documents, configuration, production path, UI, and tests without
+accepting Codex self-reported conformance.
+
+OBSERVED INCIDENT:
+Operational use reached `Go → FAILED (INSUFFICIENT_EVIDENCE)` while UI disabled
+`Repair & Go`. Independent review found production `_execute()` still follows
+bounded `replan → replan → FAILED`. Recommendation enables repair only for an
+implementation-defect failure, so UI correctly projected the wrong terminal
+contract. Existing tests assert the no-op failure path and use synthetic repair
+executors; they do not prove production one-Go recovery or browser UI E2E.
+Codex nevertheless reported `ARCHITECTURE_CONFORMANCE: PASS`.
+
+ROOT CAUSE:
+The prior architecture was not a complete executable state machine and legacy
+documents retained contradictory replan/repair rules. A self-attested PASS was
+accepted without independent production-path and real-UI verification.
+
+CHANGE:
+Added `DAY_RUNNER_EXECUTION_SPEC.md` as the sole Day Runner execution source;
+marked contradictory documents historical/compatibility-only; updated documents
+that linked the old source; and promoted independent verification as WR-16. No
+runtime, config, API, UI, model, or test implementation changed.
+
+EXPECTED_EVIDENCE:
+One authority chain identifies the sole execution specification;
+`INSUFFICIENT_EVIDENCE` is diagnosis input rather than terminal; all state,
+repair, evidence, persistence, API/UI, safety, and E2E requirements are fixed.
+
+VERIFICATION:
+Independent review of design/definition documents plus production controller,
+engine adapter, API routes, UI source, and related tests. Documentation-only
+validation checks links/references and structured-document syntax.
+
+REGRESSION_CHECK:
+This change intentionally does not claim runtime conformance; documented gaps
+remain for separately authorized implementation.
+
+PLAN_STATUS:
+SPECIFICATION_COMPLETE; IMPLEMENTATION_NOT_STARTED.
+
+DEVIATION:
+Preserved existing uncommitted CHG-019 unchanged; this entry is appended.
+
+REMAINING_CONCERN:
+Implement formal states/transitions, registry-backed corrective actions,
+replacement of replan-limit failure, typed work evidence, API/UI alignment, and
+independent production/browser E2Es.
+
+RULE_PROMOTION:
+Codex self-report is not evidence. Independently verify design, production path,
+and actual UI before accepting PASS.

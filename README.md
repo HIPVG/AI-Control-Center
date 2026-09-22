@@ -12,10 +12,11 @@ startup requirement.
 
 ## Start here
 
-- Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- LocalLLM-Lab Day 1–14 specification: [docs/DAY_RUNNER_EXECUTION_SPEC.md](docs/DAY_RUNNER_EXECUTION_SPEC.md)
+- Historical architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - Agent rules: [AGENTS.md](AGENTS.md)
 - Model / reasoning routing: [docs/MODEL_ROUTING.md](docs/MODEL_ROUTING.md)
-- Autonomous Day operation: [docs/AUTONOMOUS_DAY.md](docs/AUTONOMOUS_DAY.md)
+- Legacy configured-task Day Runner: [docs/AUTONOMOUS_DAY.md](docs/AUTONOMOUS_DAY.md)
 - Daily Dashboard operation: [docs/DAILY_OPERATION.md](docs/DAILY_OPERATION.md)
 - Bounded Goal-to-Plan: [docs/GOAL_TO_PLAN.md](docs/GOAL_TO_PLAN.md)
 - Initial Codex implementation prompt: [prompts/CODEX_BOOTSTRAP.md](prompts/CODEX_BOOTSTRAP.md)

@@ -1,5 +1,13 @@
 # LocalLLM-Lab Day 1-14 autonomous execution
 
+> **Superseded as an execution specification.** The sole canonical Day Runner
+> execution specification is [DAY_RUNNER_EXECUTION_SPEC.md](DAY_RUNNER_EXECUTION_SPEC.md).
+> The LocalLLM-Lab runbook owns Day semantics; YAML owns Day Contract data. The
+> historical material below must not be used for state transitions, terminal
+> handling, repair policy, UI controls, or conformance. In particular its
+> two-replan `DAY_INSUFFICIENT_EVIDENCE` terminal path and one-attempt repair
+> wording are explicitly obsolete.
+
 > Current operational rules are governed by `docs/WORKING_RULES.md`. If this
 > document conflicts with `WORKING_RULES.md`, the working rules take precedence.
 > The LocalLLM-Lab runbook remains authoritative for Day-specific research

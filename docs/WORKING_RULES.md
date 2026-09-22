@@ -80,3 +80,8 @@ explicitly authorize a structural change; otherwise preserve the architecture.
   verification plus an append-only history entry. Prior user corrections and
   failed approaches remain active constraints until explicitly superseded.
   Explicit DoD items must not be silently deferred or relabeled as backlog.
+- **WR-16 — Independent conformance evidence is mandatory.** An agent's PASS,
+  review summary, or test-selection claim is not proof of conformance. Before
+  accepting architecture/runtime/UI conformance, independently inspect the
+  governing specification, production path, and rendered UI or equivalent
+  browser E2E; preserve the exact evidence and remaining gaps.

@@ -321,7 +321,7 @@ M29 source-of-truth correction:
   diagnosis and repair;
 - only genuine external/authority decisions are batched into one Human Gate.
 
-See `docs/LOCALLLM_DAY1_14_AUTONOMOUS.md`.
+See `docs/DAY_RUNNER_EXECUTION_SPEC.md`.
 
 
 Research Director policy is now authoritative for M29:
@@ -331,7 +331,7 @@ Research Director policy is now authoritative for M29:
 - the current batch authority review is resolved;
 - existing local model roles, frozen teacher reuse, current tracked runners, and
   non-final Day 11 tier analysis are pre-authorized as documented in
-  `docs/LOCALLLM_DAY1_14_AUTONOMOUS.md`;
+  `docs/DAY_RUNNER_EXECUTION_SPEC.md`;
 - the planned human stop is Day 14 final architecture/product review.
 
 See `docs/RESEARCH_DIRECTOR_POLICY.md`.

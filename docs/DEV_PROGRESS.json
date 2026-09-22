@@ -227,7 +227,7 @@
   },
   "roadmap_complete": false,
   "m29_status": "IN_PROGRESS",
-  "m29_policy_doc": "docs/LOCALLLM_DAY1_14_AUTONOMOUS.md",
+  "m29_policy_doc": "docs/DAY_RUNNER_EXECUTION_SPEC.md",
   "m29_days": [
     4,
     5,

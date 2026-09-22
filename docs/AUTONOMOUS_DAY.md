@@ -1,5 +1,10 @@
 # Autonomous Day orchestration
 
+> **Scope boundary:** this is the legacy configured-task queue (`config/plans.yaml`),
+> not the LocalLLM-Lab Day 1–14 state machine, repair, UI, or completion
+> contract. That runner is governed only by
+> [DAY_RUNNER_EXECUTION_SPEC.md](DAY_RUNNER_EXECUTION_SPEC.md).
+
 > Current operational rules are governed by `docs/WORKING_RULES.md`. If this
 > document conflicts with `WORKING_RULES.md`, the working rules take precedence.
 
