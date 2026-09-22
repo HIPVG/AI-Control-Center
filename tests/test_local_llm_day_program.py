@@ -100,6 +100,28 @@ def test_existing_retained_day_two_evidence_is_used_without_rerunning_it(tmp_pat
     assert next(item for item in existing if item["criterion_id"] == "d2-feasibility_gate")["evidence"]["mode"] == "existing_evidence"
 
 
+def test_missing_evidence_triggers_replan_then_new_evidence_completes_day():
+    calls = []
+
+    def planner(contract, _inventory):
+        calls.append(list(contract.remaining_gaps))
+        return _planner(contract, _inventory)
+
+    def executor(work_order):
+        if len(calls) == 1:
+            return {"final_result": "COMPLETE", "evidence": {}}
+        return _executor(work_order)
+
+    runner = LocalLLMDayProgram(FIXTURE_ROOT, planner=planner, work_order_executor=executor)
+    runner.start(7)
+    runner.join(3)
+    result = runner.view()
+    assert len(calls) == 2
+    assert calls[0] == calls[1]
+    assert result["replan_count"] == 2
+    assert result["state"] == LocalLLMDayState.COMPLETE.value
+
+
 def test_restart_pauses_and_resume_preserves_completed_work():
     saved = {}
     runner = LocalLLMDayProgram(FIXTURE_ROOT, planner=_planner, work_order_executor=_executor, persist=lambda value: saved.update(value))
