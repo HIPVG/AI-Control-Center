@@ -88,6 +88,31 @@ def day_status() -> dict:
     return engine.day_status()
 
 
+@app.get("/api/local-llm/days")
+def local_llm_days() -> list[dict]:
+    return engine.local_llm_days()
+
+
+@app.get("/api/local-llm/day/status")
+def local_llm_day_status() -> dict:
+    return engine.local_llm_day_status()
+
+
+@app.post("/api/local-llm/day/{day}/start")
+def start_local_llm_day(day: int) -> dict:
+    return engine.start_local_llm_day(day)
+
+
+@app.post("/api/local-llm/day/resume")
+def resume_local_llm_day() -> dict:
+    return engine.resume_local_llm_day()
+
+
+@app.post("/api/local-llm/day/stop")
+def stop_local_llm_day() -> dict:
+    return engine.stop_local_llm_day()
+
+
 @app.get("/api/experiments")
 def experiments() -> list[dict]:
     return engine.configured_experiments()

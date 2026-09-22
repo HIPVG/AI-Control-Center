@@ -22,7 +22,7 @@ def client(monkeypatch):
 
 
 def test_required_endpoints_are_available(client):
-    for path in ("/api/status", "/api/plan", "/api/tasks", "/api/timeline", "/api/token-usage", "/api/runtime", "/api/runtime/readiness", "/api/operation/health", "/api/day/plans", "/api/day/status", "/api/experiments", "/api/goals", "/api/next-action", "/api/git/candidates", "/api/git/completions", "/api/zero-touch"):
+    for path in ("/api/status", "/api/plan", "/api/tasks", "/api/timeline", "/api/token-usage", "/api/runtime", "/api/runtime/readiness", "/api/operation/health", "/api/day/plans", "/api/day/status", "/api/local-llm/days", "/api/local-llm/day/status", "/api/experiments", "/api/goals", "/api/next-action", "/api/git/candidates", "/api/git/completions", "/api/zero-touch"):
         assert client.get(path).status_code == 200
     assert client.post("/api/run/mock").status_code == 200
     assert client.post("/api/run/codex-smoke").json()["error_code"] == "REAL_MODE_REQUIRED"
@@ -40,67 +40,17 @@ def test_day_mode_is_a_typed_query_not_a_browser_supplied_configuration_object(c
     assert client.post("/api/day/start/not-configured?mode=unsafe").status_code == 422
 
 
-def test_dashboard_v2_uses_only_configured_day_plan_api_contracts(client):
-    plans = client.get("/api/day/plans").json()
-    codex_core = next(plan for plan in plans if plan["plan_id"] == "week1-day3-local-llm-v3-codex-core")
-    assert codex_core["architect_provider"] == "codex"
+def test_dashboard_is_the_single_local_llm_day_runner(client):
+    days = client.get("/api/local-llm/days").json()
+    assert [day["day"] for day in days] == list(range(1, 15))
     html = (control_app.ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     script = (control_app.ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
-    assert 'id="run-day"' in html
-    assert 'id="goal-input"' in html
-    assert 'id="propose-goal"' in html
-    assert 'id="execute-goal"' in html
-    assert 'id="run-continuous"' in html
-    assert 'id="stop-day"' in html
-    assert 'id="server-health"' in html
-    assert 'id="enable-autostart"' in html
-    assert 'id="run-experiment"' in html
-    assert 'id="validate-transient"' in html
-    assert 'id="validate-replan"' in html
-    assert 'id="validate-runtime"' in html
-    assert 'id="continue-autonomously"' in html
-    assert 'id="complete-verified-work"' in html
-    assert 'id="validate-git-completion"' in html
-    assert 'id="git-completion-evidence"' in html
-    assert 'id="start-zero-touch"' in html
-    assert 'id="continue-zero-touch"' in html
-    assert 'id="zero-touch-evidence"' in html
-    assert 'id="runtime-readiness-title"' in html
-    assert 'id="runtime-readiness-detail"' in html
-    assert 'id="week1-evidence"' in html
-    assert "診断・詳細操作" in html
-    assert "自律運用センター" in html
-    assert 'id="validation-evidence"' in html
-    assert 'id="experiment-evidence"' in html
-    assert "/api/day/start/" in script
-    assert 'fetch("/api/goals"' in script
-    assert 'fetch("/api/next-action")' in script
-    assert 'fetch("/api/next-action/continue"' in script
-    assert "/api/git/candidates" in script
-    assert "/api/git/complete/" in script
-    assert "/api/validation/git-completion" in script
-    assert 'fetch("/api/zero-touch")' in script
-    assert 'fetch("/api/zero-touch/start"' in script
-    assert 'fetch("/api/zero-touch/continue"' in script
-    assert 'fetch("/api/runtime/readiness")' in script
-    assert "renderRuntimeReadiness" in script
-    assert "/execute" in script
-    assert "/api/day/resume?mode=continuous" in script
-    assert 'fetch("/api/day/stop"' in script
-    assert "/api/operation/health" in script
-    assert "/api/operation/autostart/enable" in script
-    assert "DAILY_OPERATION_AUTOSTART" in script
-    assert "startup_diagnostics" in script
-    assert "continuous_mode_supported" in script
-    assert "/api/experiments" in script
-    assert "/api/validation/escalation/" in script
-    assert "normal_day_unchanged" in script
-    assert "auto_replans" in script
-    assert "builder_invoked" in script
-    assert "GIT_" in script
-    assert "ZERO_TOUCH_" in script
-    assert "RUN_WEEK1_DAY" in script
-    assert "/api/run/mock" not in script
+    for control in ("day-selector", "go", "stop", "resume", "state", "activity", "result-title"):
+        assert f'id="{control}"' in html
+    assert "goal-input" not in html
+    assert "scenario" not in html.lower()
+    assert "/api/local-llm/day/" in script
+    assert "/api/goals" not in script
     assert "innerHTML" not in script
 
 

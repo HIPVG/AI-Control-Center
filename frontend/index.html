@@ -1,87 +1,37 @@
 <!doctype html>
-<html lang="ja">
+<html lang="en">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>AI Control Center | 自律運用</title>
+    <title>AI Control Center | LocalLLM Day Runner</title>
     <link rel="stylesheet" href="/static/style.css">
   </head>
   <body>
     <main>
-      <header class="hero">
-        <div>
-          <p class="eyebrow">AI CONTROL CENTER · CODEX CORE</p>
-          <h1>自律運用センター</h1>
-          <p class="muted">Week <span id="week">–</span> · 検証 Day <span id="validation-day">–</span> · Codex 実行モード <strong id="codex-mode">–</strong></p>
-        </div>
-        <div class="controls" aria-label="画面操作">
-          <button id="refresh" class="secondary" type="button">表示を更新</button>
-        </div>
+      <header>
+        <p class="eyebrow">AI CONTROL CENTER</p>
+        <h1>LocalLLM-Lab Day Runner</h1>
+        <p>Choose one day from the approved Day 1–14 runbook. The runner stops when that day has a trusted result.</p>
       </header>
-      <p id="operation-status" class="operation-status" aria-live="polite"></p>
-      <section class="goal-control" aria-label="推奨された次の操作">
-        <div><p class="eyebrow">推奨される次の操作</p><h2 id="next-action-summary">信頼できる継続操作を確認しています…</h2><p id="next-action-reason" class="muted compact">記録済みの信頼できる状態と構成済みの機能だけを使用します。</p></div>
-        <p id="next-action-policy" class="muted compact" aria-live="polite">ポリシー結果を確認しています。</p>
-        <button id="continue-autonomously" type="button" disabled>推奨された操作を続ける</button>
-        <button id="continue-zero-touch" class="secondary" type="button" disabled>信頼できる次の操作を完了</button>
+      <section class="control" aria-label="Day Runner controls">
+        <label for="day-selector">Day</label>
+        <select id="day-selector" aria-label="Select Day 1 through Day 14"></select>
+        <button id="go" type="button">Go</button>
+        <button id="stop" class="secondary" type="button">Stop</button>
+        <button id="resume" class="secondary" type="button">Resume</button>
       </section>
-      <section class="goal-control" aria-label="新しい目的で開始">
-        <div><p class="eyebrow">新しい目的で自律フローを開始</p><h2>目的から信頼できる自律フローを開始</h2><p class="muted compact">通常は上の推奨操作を続けます。目的の入力は進行方向を変更する場合だけに使用します。</p></div>
-        <label for="goal-input">目的</label><input id="goal-input" maxlength="280" placeholder="信頼できる LocalLLM のプロセス一貫性実験を実行する" autocomplete="off">
-        <button id="start-zero-touch" type="button">自律フローを開始</button><button id="propose-goal" class="secondary" type="button">信頼できる計画を提案</button><button id="execute-goal" class="secondary" type="button" disabled>提案済み計画を実行</button>
-        <p id="goal-plan-status" class="muted compact" aria-live="polite">進行方向の変更は要求されていません。</p>
+      <section class="status" aria-live="polite">
+        <p class="eyebrow">Current activity</p>
+        <h2 id="state">IDLE</h2>
+        <p id="activity">Loading trusted Day definitions…</p>
+        <div class="meter" aria-label="Day progress"><i id="progress-meter"></i></div>
+        <p id="progress">0%</p>
       </section>
-      <details class="advanced-controls"><summary>診断・詳細操作</summary>
-      <section class="goal-control" aria-label="自動 Git 完了">
-        <div><p class="eyebrow">自動 Git 完了</p><h2 id="git-completion-title">検証済みの作業を確認しています…</h2><p id="git-completion-detail" class="muted compact">検証済みの agent ブランチの worktree だけをコミット・プッシュできます。</p></div>
-        <button id="complete-verified-work" type="button" disabled>検証済みの作業をコミット・プッシュ</button>
-        <button id="validate-git-completion" class="secondary" type="button">Git 完了を検証</button>
-        <p id="git-completion-status" class="muted compact" aria-live="polite">検証済みの作業はありません。</p>
-      </section>
-      <section class="goal-control" aria-label="手動 Day 操作">
-        <div><p class="eyebrow">詳細 Day 操作</p><h2>構成済みの計画と検証</h2><p class="muted compact">通常運用では上の自律フローを使用してください。</p></div>
-        <label for="plan-selector">構成済みの Day 計画</label>
-        <select id="plan-selector" aria-label="構成済みの Day 計画"></select>
-        <button id="run-day" type="button">Codex Core を一手実行</button>
-        <button id="run-continuous" type="button">残りのキューを連続実行</button>
-        <button id="stop-day" class="secondary" type="button">Day を停止</button>
-        <button id="run-experiment" class="secondary" type="button">信頼できる LocalLLM 実験を実行</button>
-        <button id="validate-transient" class="secondary" type="button">Architect 自動再試行を検証</button>
-        <button id="validate-replan" class="secondary" type="button">限定的な再計画を検証</button>
-        <button id="validate-runtime" class="secondary" type="button">実行環境不足を検証</button>
-      </section>
-      </details>
-      <section class="progress-grid" aria-label="自律 Day の進捗">
-        <article><p class="eyebrow">全体進捗</p><strong id="overall-progress">–%</strong><div class="meter"><i id="overall-meter"></i></div><small>構成済み計画の完了率</small></article>
-        <article><p class="eyebrow">Day 進捗</p><strong id="day-progress">–%</strong><div class="meter accent"><i id="day-meter"></i></div><small id="day-state-note">Day の実行を待機中</small></article>
-      </section>
-      <section class="cards">
-        <article><p class="eyebrow">現在のタスク</p><h2 id="task-title">有効な Day 計画はありません</h2><p class="large-state" id="day-state">IDLE</p><dl><div><dt>キュー状態</dt><dd id="task-queue-state">–</dd></div><div><dt>再試行 / 修復</dt><dd id="task-retry">–</dd></div></dl></article>
-        <article><p class="eyebrow">モデルの経路選択</p><h2 id="route-provider">経路は未選択です</h2><dl><div><dt>プロファイル</dt><dd id="route-profile">–</dd></div><div><dt>モデル / 推論</dt><dd id="route-model">–</dd></div><div><dt>コンテキスト量</dt><dd id="route-context">–</dd></div></dl><p id="route-reason" class="muted compact">AI/Codex 呼び出しの前に経路を記録します。</p></article>
-        <article><p class="eyebrow">人による確認</p><h2 id="review-status">なし</h2><p id="review-detail" class="muted compact">ブロックする確認項目はありません。</p></article>
-        <article><p class="eyebrow">日常運用</p><h2 id="server-health">確認しています…</h2><p id="autostart-status" class="muted compact">自動起動を確認しています。</p><button id="enable-autostart" class="secondary" type="button">自動起動を有効化</button></article>
-        <article><p class="eyebrow">ローカル実行環境</p><h2 id="runtime-readiness-title">Ollama の準備状態を確認しています…</h2><p id="runtime-readiness-detail" class="muted compact">自律フローの実行前に、承認済みのローカル環境だけを確認します。</p></article>
-      </section>
-      <section class="two-col">
-        <article><div class="section-heading"><div><p class="eyebrow">CODEX ロールの活動</p><h2>管理された呼び出し</h2></div></div><ul id="roles" class="key-values"></ul></article>
-        <article><div class="section-heading"><div><p class="eyebrow">トークン使用量</p><h2>Day の合計</h2></div></div><ul id="tokens" class="key-values"></ul></article>
-      </section>
-      <section class="two-col">
-        <article><div class="section-heading"><div><p class="eyebrow">自律フローの結果</p><h2>最新の限定された制御ループ</h2></div></div><ul id="zero-touch-evidence" class="key-values"><li>信頼できるフローを待機中です。</li></ul></article>
-      </section>
-      <section class="two-col">
-        <article><div class="section-heading"><div><p class="eyebrow">Week 1 の進行</p><h2>Day 4-7 の承認済みプログラム</h2></div></div><ul id="week1-evidence" class="key-values"><li>次の推奨操作を確認しています。</li></ul></article>
-      </section>
-      <section class="two-col">
-        <article><div class="section-heading"><div><p class="eyebrow">タスクキュー</p><h2>信頼できる構成済みタスク</h2></div></div><ol id="task-queue" class="queue"><li>Day 計画を待機中です。</li></ol></article>
-        <article><div class="section-heading"><div><p class="eyebrow">監査タイムライン</p><h2>最新の自律イベント</h2></div></div><ol id="timeline" class="timeline"><li>ワークフローイベントを待機中です。</li></ol></article>
-      </section>
-      <section class="two-col">
-        <article><div class="section-heading"><div><p class="eyebrow">GIT COMPLETION EVIDENCE</p><h2>Commit, push, PR preparation</h2></div></div><ul id="git-completion-evidence" class="key-values"><li>Awaiting Git completion.</li></ul></article>
-      </section>
-      <section class="two-col">
-        <article><div class="section-heading"><div><p class="eyebrow">VALIDATION EVIDENCE</p><h2>Isolated escalation checks</h2></div></div><ul id="validation-evidence" class="key-values"><li>Awaiting validation.</li></ul></article>
-        <article><div class="section-heading"><div><p class="eyebrow">LOCAL LLM RESULT</p><h2>Latest trusted experiment</h2></div></div><ul id="experiment-evidence" class="key-values"><li>Awaiting experiment.</li></ul></article>
+      <section class="result">
+        <p class="eyebrow">Final result</p>
+        <h2 id="result-title">No Day has run yet.</h2>
+        <p id="result-summary">Select a Day and press Go.</p>
+        <dl id="result-evidence"></dl>
       </section>
     </main>
     <script src="/static/app.js"></script>

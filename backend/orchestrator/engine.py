@@ -27,6 +27,7 @@ from backend.control.next_action import recommend_next_action
 from backend.control.git_completion import GitCompletionService
 from backend.control.local_runtime import ApprovedLocalRuntimeService
 from backend.control.week1_program import Week1Program
+from backend.control.local_llm_day_program import LocalLLMDayProgram
 from backend.models.goal import GoalPlan, GoalPlanStatus
 from backend.models.experiment import ExperimentOutcome, ExperimentRun
 from backend.models.local_runtime import LocalRuntimeReadinessState
@@ -139,6 +140,12 @@ class ControlCenterEngine:
             persist=self._save_day_state, audit=self._day_audit,
             saved=self.data.get("day_orchestration"),
         )
+        self.local_llm_day_program = LocalLLMDayProgram(
+            local_llm.path if local_llm else project_root / "missing-local-llm",
+            saved=self.data.get("local_llm_day_runner"),
+            persist=self._save_local_llm_day_state,
+            audit=self._local_llm_day_audit,
+        )
 
     @staticmethod
     def _codex_role_workspace_root() -> Path:
@@ -175,6 +182,7 @@ class ControlCenterEngine:
             "git_completions": [],
             "zero_touch_runs": [],
             "runtime_readiness": None,
+            "local_llm_day_runner": {},
             "week1_days": [],
             "task_start_completed": {"PC-014": 18},
             "task_progress": calculate_progress(task_completed, task_total),
@@ -337,6 +345,7 @@ class ControlCenterEngine:
             "git_completion_candidates": self.git_completion_candidates(),
             "zero_touch": self.zero_touch_runs(),
             "runtime_readiness": self.data.get("runtime_readiness"),
+            "local_llm_day": self.local_llm_day_program.view(),
             "week1_days": self.data.get("week1_days", []),
         }
 
@@ -680,6 +689,27 @@ class ControlCenterEngine:
 
     def day_status(self) -> dict[str, Any]:
         return self.day_runner.view()
+    def local_llm_days(self) -> list[dict[str, object]]:
+        return self.local_llm_day_program.days()
+
+    def local_llm_day_status(self) -> dict[str, object]:
+        return self.local_llm_day_program.view()
+
+    def start_local_llm_day(self, day: int) -> dict[str, object]:
+        return self.local_llm_day_program.start(day)
+
+    def resume_local_llm_day(self) -> dict[str, object]:
+        return self.local_llm_day_program.resume()
+
+    def stop_local_llm_day(self) -> dict[str, object]:
+        return self.local_llm_day_program.stop()
+
+    def _save_local_llm_day_state(self, snapshot: dict[str, object]) -> None:
+        self.data["local_llm_day_runner"] = snapshot
+        self._save()
+
+    def _local_llm_day_audit(self, task_id: str, event_name: str, details: dict[str, object]) -> None:
+        self._event(task_id, AuditEventType(event_name), f"LocalLLM Day runner: {event_name}", details=details)
 
     def _run_day_task(self, task_id: str, max_codex_attempts: int | None = None, repair_instruction: str | None = None, codex_routing_selector: Callable[[int, int], object | None] | None = None) -> dict[str, Any]:
         # The current configured real task set is deterministic. Semantic task
