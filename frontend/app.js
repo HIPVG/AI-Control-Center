@@ -6,6 +6,20 @@ let latestStatus = null;
 let configuredExperiments = [];
 let goalPlans = [];
 let gitCandidates = [];
+let scenarioState = null;
+
+function renderScenarios(state) {
+  scenarioState = state;
+  const selector = byId("scenario-selector"); const active = state.scenarios.find((item) => item.active);
+  selector.replaceChildren(...state.scenarios.map((item) => {
+    const option = document.createElement("option"); option.value = item.scenario_id; option.textContent = item.title; option.selected = item.active; return option;
+  }));
+  byId("scenario-title").textContent = active?.title ?? "有効なシナリオはありません";
+  const runs = active ? (state.runs?.[active.scenario_id] ?? []) : [];
+  byId("scenario-detail").textContent = active?.kind === "CHECKPOINT"
+    ? `読み取り専用: ${active.checkpoint_reference}。新しい実験は開始しません。`
+    : active ? `成功 ${runs.filter((item) => item.outcome === "RESULT_RECORDED").length}/${active.required_successes} · 実行 ${runs.length}/${active.max_runs}` : "設定済みシナリオを選択してください。";
+}
 
 function renderZeroTouch(runs, action) {
   const latest = runs.at(-1); const continueButton = byId("continue-zero-touch");
@@ -194,10 +208,11 @@ function render(status) {
 }
 
 async function refresh() {
-  const [statusResponse, plansResponse, experimentsResponse, healthResponse, goalsResponse, nextActionResponse, candidatesResponse, completionsResponse, zeroTouchResponse, readinessResponse] = await Promise.all([fetch("/api/status"), fetch("/api/day/plans"), fetch("/api/experiments"), fetch("/api/operation/health"), fetch("/api/goals"), fetch("/api/next-action"), fetch("/api/git/candidates"), fetch("/api/git/completions"), fetch("/api/zero-touch"), fetch("/api/runtime/readiness")]);
-  if (!statusResponse.ok || !plansResponse.ok || !experimentsResponse.ok || !healthResponse.ok || !goalsResponse.ok || !nextActionResponse.ok || !candidatesResponse.ok || !completionsResponse.ok || !zeroTouchResponse.ok || !readinessResponse.ok) throw new Error("Control Center の状態を取得できません。");
+  const [statusResponse, plansResponse, experimentsResponse, scenariosResponse, healthResponse, goalsResponse, nextActionResponse, candidatesResponse, completionsResponse, zeroTouchResponse, readinessResponse] = await Promise.all([fetch("/api/status"), fetch("/api/day/plans"), fetch("/api/experiments"), fetch("/api/scenarios"), fetch("/api/operation/health"), fetch("/api/goals"), fetch("/api/next-action"), fetch("/api/git/candidates"), fetch("/api/git/completions"), fetch("/api/zero-touch"), fetch("/api/runtime/readiness")]);
+  if (!statusResponse.ok || !plansResponse.ok || !experimentsResponse.ok || !scenariosResponse.ok || !healthResponse.ok || !goalsResponse.ok || !nextActionResponse.ok || !candidatesResponse.ok || !completionsResponse.ok || !zeroTouchResponse.ok || !readinessResponse.ok) throw new Error("Control Center の状態を取得できません。");
   renderPlans(await plansResponse.json());
   configuredExperiments = await experimentsResponse.json();
+  renderScenarios(await scenariosResponse.json());
   byId("run-experiment").disabled = configuredExperiments.length === 0;
   const status = await statusResponse.json();
   render(status);
@@ -210,6 +225,15 @@ async function refresh() {
 }
 
 byId("refresh").addEventListener("click", () => refresh().catch((error) => { byId("operation-status").textContent = error.message; }));
+byId("activate-scenario").addEventListener("click", async () => {
+  const scenarioId = byId("scenario-selector").value; const button = byId("activate-scenario"); button.disabled = true;
+  try {
+    const response = await fetch(`/api/scenarios/${encodeURIComponent(scenarioId)}/activate`, { method: "POST" }); const result = await response.json();
+    if (!response.ok || result.error_code) throw new Error(result.error_code ?? "シナリオを切り替えられませんでした。");
+    byId("operation-status").textContent = "有効なシナリオを切り替えました。"; await refresh();
+  } catch (error) { byId("operation-status").textContent = error.message; }
+  finally { button.disabled = false; }
+});
 byId("plan-selector").addEventListener("change", updateContinuousControl);
 byId("start-zero-touch").addEventListener("click", async () => {
   const goal = byId("goal-input").value.trim(); const button = byId("start-zero-touch");

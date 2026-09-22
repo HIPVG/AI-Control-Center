@@ -22,6 +22,7 @@ from backend.control.model_router import ModelRouter, load_model_profile_registr
 from backend.control.orchestration import load_orchestration_config
 from backend.control.faults import FaultProfile, FaultRegistry, load_fault_registry, locate_qa_shipment_gt_operator
 from backend.control.experiments import load_experiments
+from backend.control.scenarios import ScenarioRegistry, load_scenarios
 from backend.control.goal_policy import propose_goal
 from backend.control.next_action import recommend_next_action
 from backend.control.git_completion import GitCompletionService
@@ -104,6 +105,7 @@ class ControlCenterEngine:
         self.discoveries = discovery_registry or load_discovery_registry(project_root / "config" / "discovery.yaml")
         self.faults = fault_registry or load_fault_registry(project_root / "config" / "faults.yaml")
         self.experiments = load_experiments(project_root / "config" / "experiments.yaml")
+        self.scenarios: ScenarioRegistry = load_scenarios(project_root / "config" / "scenarios.yaml", set(self.experiments))
         local_llm = self.projects.get("local_llm_lab")
         self.week1_program = Week1Program(local_llm.path if local_llm else project_root / "missing-local-llm")
         self.week1_enabled = bool(local_llm and (local_llm.path / "docs" / "week1-runbook.md").is_file())
@@ -170,6 +172,7 @@ class ControlCenterEngine:
             "task_discoveries": [],
             "fault_repair_runs": [],
             "experiment_runs": [],
+            "scenario_state": self.scenarios.initial_state(active=self.store is not None),
             "goal_plans": [],
             "escalation_validations": [],
             "git_completions": [],
@@ -338,6 +341,7 @@ class ControlCenterEngine:
             "zero_touch": self.zero_touch_runs(),
             "runtime_readiness": self.data.get("runtime_readiness"),
             "week1_days": self.data.get("week1_days", []),
+            "scenarios": self.scenario_view(),
         }
 
     def runtime_view(self) -> dict[str, Any]:
@@ -383,10 +387,26 @@ class ControlCenterEngine:
     def configured_experiments(self) -> list[dict[str, object]]:
         return [{"experiment_id": item.experiment_id, "project_id": item.project_id, "model": item.model, "cases": item.cases} for item in self.experiments.values()]
 
+    def scenario_view(self) -> dict[str, Any]:
+        return self.scenarios.metadata(self.data["scenario_state"])
+
+    def activate_scenario(self, scenario_id: str) -> dict[str, Any]:
+        try:
+            self.scenarios.activate(self.data["scenario_state"], scenario_id)
+        except ValueError as exc:
+            return {"error_code": str(exc)}
+        payload = self.scenario_view()
+        self._event("SCENARIO", AuditEventType.SCENARIO_ACTIVATED, f"Scenario activated: {scenario_id}", details=payload)
+        self._save()
+        return payload
+
     def goal_plans(self) -> list[dict[str, Any]]:
         return list(self.data["goal_plans"])
 
     def next_action(self) -> dict[str, Any]:
+        scenario = self.scenarios.next_action(self.data["scenario_state"])
+        if scenario is not None:
+            return scenario
         week1 = self._week1_next_action()
         if week1 is not None:
             return week1
@@ -433,6 +453,9 @@ class ControlCenterEngine:
             if readiness["state"] == LocalRuntimeReadinessState.EXTERNAL_ACTION_REQUIRED.value:
                 return {"error_code": "EXTERNAL_ACTION_REQUIRED", "next_action": action, "runtime_readiness": readiness}
             result = self.run_experiment(action["target_id"])
+            if action.get("scenario_id"):
+                self.scenarios.record_result(self.data["scenario_state"], action["scenario_id"], result)
+                self._event("SCENARIO", AuditEventType.SCENARIO_RESULT, f"Scenario iteration recorded: {action['scenario_id']}", details={"scenario_id": action["scenario_id"], "outcome": result.get("outcome"), "experiment_id": action["target_id"]})
         else:
             return {"error_code": "NEXT_ACTION_REQUIRES_ATTENTION", "next_action": action}
         if result.get("error_code"):
