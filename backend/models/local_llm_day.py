@@ -131,6 +131,36 @@ class LocalLLMRepairCard(BaseModel):
     failed_work_item: str | None = Field(default=None, max_length=80)
 
 
+class RepairProposalAttempt(BaseModel):
+    proposal_fingerprint: str = Field(min_length=8, max_length=128)
+    outcome: str = Field(min_length=1, max_length=80)
+    feedback: str | None = Field(default=None, max_length=1000)
+    attempted_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class RepairEpisode(BaseModel):
+    """Durable history for one bounded engineering repair episode."""
+
+    episode_id: str = Field(min_length=8, max_length=80)
+    project_id: str = Field(min_length=1, max_length=80)
+    day: int = Field(ge=1, le=14)
+    work_item_id: str = Field(min_length=1, max_length=80)
+    failure_class: DayIssueClassification
+    failure_fingerprint: str = Field(min_length=8, max_length=128)
+    failure_excerpt: str = Field(default="", max_length=2000)
+    component: str = Field(default="", max_length=160)
+    started_at_epoch: float = Field(ge=0)
+    repair_deadline_epoch: float = Field(ge=0)
+    catalog_match_ids: list[str] = Field(default_factory=list, max_length=10)
+    proposal_attempts: list[RepairProposalAttempt] = Field(default_factory=list, max_length=3)
+    rejection_feedback: list[str] = Field(default_factory=list, max_length=3)
+    codex_review_outcome: str | None = Field(default=None, max_length=80)
+    expert_solver_outcome: str | None = Field(default=None, max_length=80)
+    verification_result: str | None = Field(default=None, max_length=80)
+    final_outcome: str | None = Field(default=None, max_length=80)
+    catalog_update_id: str | None = Field(default=None, max_length=80)
+
+
 class LocalLLMDaySnapshot(BaseModel):
     selected_day: int | None = Field(default=None, ge=1, le=14)
     state: LocalLLMDayState = LocalLLMDayState.IDLE
@@ -144,9 +174,12 @@ class LocalLLMDaySnapshot(BaseModel):
     repair_deadline_seconds: int = Field(default=300, ge=1, le=300)
     repair_attempted: bool = False
     repair_knowledge: list[LocalLLMRepairCard] = Field(default_factory=list, max_length=30)
+    repair_episode_ids: list[str] = Field(default_factory=list, max_length=30)
     codex_handoff: dict[str, object] | None = None
     issue_classification: DayIssueClassification | None = None
     replan_count: int = Field(default=0, ge=0, le=3)
+    replan_fingerprints: list[str] = Field(default_factory=list, max_length=3)
+    evidence_cache: dict[str, dict[str, object]] = Field(default_factory=dict, max_length=20)
     report: LocalLLMDayReport | None = None
     stop_reason: str | None = None
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

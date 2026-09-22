@@ -81,7 +81,7 @@ function renderRepairKnowledge(cards) {
 function render(snapshot) {
   renderRunIndicator(snapshot);
   const smokePassed = snapshot.state === "IDLE" && snapshot.smoke_report?.result === "SMOKE_PASS";
-  putText(state, snapshot.state === "RUNNING" ? "WORKING" : smokePassed ? "SUCCESS" : snapshot.state);
+  putText(state, snapshot.state === "RUNNING" ? "WORKING" : smokePassed ? "SMOKE_PASS" : snapshot.state);
   putText(activity, snapshot.activity);
   putText(issueClassification, snapshot.issue_classification || "None");
   const criteria = snapshot.contract?.completion_criteria || [];

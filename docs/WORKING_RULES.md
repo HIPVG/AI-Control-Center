@@ -74,3 +74,9 @@ explicitly authorize a structural change; otherwise preserve the architecture.
   deterministic and auditable in code.
 - **WR-14 — Stop when the current DoD is met.** Do not automatically start a
   new Day, scenario, phase, roadmap, or optimization.
+- **WR-15 — Engineering changes remain plan-bound and history-aware.** Every
+  engineering change must serve the current approved plan, be preceded by
+  review of relevant engineering history, and be followed by focused
+  verification plus an append-only history entry. Prior user corrections and
+  failed approaches remain active constraints until explicitly superseded.
+  Explicit DoD items must not be silently deferred or relabeled as backlog.

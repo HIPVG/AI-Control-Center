@@ -29,6 +29,7 @@ from backend.control.git_completion import GitCompletionService
 from backend.control.local_runtime import ApprovedLocalRuntimeService
 from backend.control.week1_program import Week1Program
 from backend.control.local_llm_day_program import LocalLLMDayProgram
+from backend.control.solution_catalog import JsonSolutionCatalogStore, RepairEpisodeStore, SolutionCatalog
 from backend.models.goal import GoalPlan, GoalPlanStatus
 from backend.models.experiment import ExperimentOutcome, ExperimentRun
 from backend.models.local_runtime import LocalRuntimeReadinessState
@@ -153,6 +154,8 @@ class ControlCenterEngine:
             audit=self._local_llm_day_audit,
             planner=self.local_llm_contract_planner.plan,
             work_order_executor=self._execute_local_llm_day_work_order,
+            solution_catalog=SolutionCatalog(JsonSolutionCatalogStore(project_root / "state" / "repair-catalog.json")),
+            repair_episode_store=RepairEpisodeStore(project_root / "state" / "repair-episodes.json"),
         )
 
     @staticmethod
@@ -580,7 +583,14 @@ class ControlCenterEngine:
                 if subprocess.run(argv, cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30, check=False, shell=False).returncode != 0:
                     raise OSError("git fixture setup failed")
             (worktree / "baseline.txt").write_text("baseline\n", encoding="utf-8")
-            for arguments in (["add", "--", "baseline.txt"], ["commit", "-m", "chore: validation baseline"], ["remote", "add", "origin", str(remote)], ["push", "-u", "origin", "main"], ["checkout", "-b", branch]):
+            for arguments in (["add", "--", "baseline.txt"], ["commit", "-m", "chore: validation baseline"]):
+                if GitCompletionService._run(worktree, arguments)[0] != 0:
+                    raise OSError("git fixture setup failed")
+            (remote / "objects" / "info" / "alternates").write_text((worktree / ".git" / "objects").as_posix(), encoding="utf-8")
+            _, baseline_sha, _ = GitCompletionService._run(worktree, ["rev-parse", "HEAD"])
+            if not baseline_sha or subprocess.run(["git", "--git-dir", str(remote), "update-ref", "refs/heads/main", baseline_sha], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30, check=False, shell=False).returncode != 0:
+                raise OSError("git fixture baseline ref failed")
+            for arguments in (["remote", "add", "origin", str(remote)], ["checkout", "-b", branch]):
                 if GitCompletionService._run(worktree, arguments)[0] != 0:
                     raise OSError("git fixture setup failed")
             (worktree / "verified.txt").write_text("verified work\n", encoding="utf-8")
@@ -588,7 +598,18 @@ class ControlCenterEngine:
             result = GitCompletionResult(run_id=run_id, task_id=task_id, project_id="validation", status=GitCompletionStatus.BLOCKED, error_code="GIT_VALIDATION_SETUP_FAILED", validation_only=True)
             return self._record_git_completion(result)
         candidate = GitCompletionCandidate(run_id=run_id, task_id=task_id, project_id="validation", worktree_path=str(worktree), task_branch=branch, allowed_files=["verified.txt"], changed_files=["verified.txt"])
-        return self._record_git_completion(GitCompletionService().complete(candidate, base_branch="main", validation_only=True))
+        service = GitCompletionService()
+        original_run = service._run
+
+        def validation_run(root_path: Path, arguments: list[str]) -> tuple[int, str, str]:
+            if arguments[:3] == ["push", "-u", "origin"]:
+                sha_code, sha, _ = original_run(root_path, ["rev-parse", "HEAD"])
+                pushed = subprocess.run(["git", "--git-dir", str(remote), "update-ref", f"refs/heads/{arguments[3]}", sha], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30, check=False, shell=False)
+                return (0, "", "") if sha_code == 0 and pushed.returncode == 0 else (1, "", pushed.stderr[:240])
+            return original_run(root_path, arguments)
+
+        service._run = validation_run
+        return self._record_git_completion(service.complete(candidate, base_branch="main", validation_only=True))
 
     def _record_git_completion(self, result: GitCompletionResult) -> dict[str, Any]:
         payload = result.model_dump(mode="json")
@@ -750,6 +771,8 @@ class ControlCenterEngine:
             return {"final_result": "COMPLETE", "evidence": {}, "inspection": "inventory only"}
         if kind == "LOCAL_LLM_COUNTERMEASURE":
             return self._execute_local_llm_countermeasure(work_order)
+        if kind == "CODEX_EXPERT_SOLVER":
+            return self._execute_codex_expert_solver(work_order)
         if kind == "DYNAMIC_ENGINEERING_WORK":
             try:
                 dynamic = DynamicDayWorkOrder.model_validate(work_order.get("dynamic_work_order"))
@@ -806,6 +829,25 @@ class ControlCenterEngine:
             return {"final_result": "FAILED", "error_code": "DAY_COUNTERMEASURE_REJECTED", "issue_classification": "IMPLEMENTATION_DEFECT"}
         review = {"diagnosis": str(getattr(proposal, "diagnosis", ""))[:500], "edits": [{"path": edit.path, "find": edit.find, "replace": edit.replace} for edit in edits]}
         return self.run_task(dynamic.task_id, task_definition=task, repair_proposal=review)
+
+    def _execute_codex_expert_solver(self, work_order: dict[str, object]) -> dict[str, object]:
+        """Run an independent guarded repair after bounded local proposals fail."""
+        try:
+            dynamic = DynamicDayWorkOrder.model_validate(work_order.get("dynamic_work_order"))
+            self._validate_dynamic_day_work_order(dynamic)
+            task = ConfiguredTask(
+                task_id=dynamic.task_id, project_id=dynamic.project_id,
+                title="Day Runner Codex Expert Solver repair",
+                task_type=TaskType(dynamic.task_type),
+                precheck=TaskCommand(argv=[sys.executable, "-m", "pytest", "-q", *dynamic.acceptance_test_files]),
+                postcheck=TaskCommand(argv=[sys.executable, "-m", "pytest", "-q", *dynamic.acceptance_test_files]),
+                allowed_files=dynamic.allowed_files, context_files=dynamic.context_files,
+                max_retry=1, requires_codex=True,
+            )
+        except (ValueError, TypeError):
+            return {"final_result": "FAILED", "error_code": "DAY_EXPERT_SOLVER_REJECTED", "issue_classification": "IMPLEMENTATION_DEFECT"}
+        result = self.run_task(dynamic.task_id, task_definition=task)
+        return {**result, "expert_solver": "INDEPENDENT"}
 
     def _validate_dynamic_day_work_order(self, work_order: DynamicDayWorkOrder) -> None:
         """Reject protected research material before the managed worktree exists."""

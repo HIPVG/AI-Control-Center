@@ -10,14 +10,20 @@ from __future__ import annotations
 
 import subprocess
 import sys
+import hashlib
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import Event, RLock, Thread
 from typing import Callable
+from uuid import uuid4
 
 import yaml
 
 from backend.control.local_ollama_repair import LocalOllamaRepairBuilder
+from backend.control.evidence_registry import REGISTRY, EvidenceRegistry
+from backend.control.retained_evidence import RetainedEvidenceResolver
+from backend.control.solution_catalog import RepairEpisodeStore, SolutionCatalog, SolutionCatalogEntry
 from backend.models.local_llm_day import (
     DayCriterion,
     DayIssueClassification,
@@ -27,6 +33,8 @@ from backend.models.local_llm_day import (
     LocalLLMDayState,
     LocalLLMDayWorkItem,
     LocalLLMRepairCard,
+    RepairEpisode,
+    RepairProposalAttempt,
     LocalLLMWorkItemState,
 )
 
@@ -59,6 +67,11 @@ class LocalLLMDayProgram:
         planner: Planner | None = None,
         work_order_executor: WorkOrderExecutor | None = None,
         repair_builder: LocalOllamaRepairBuilder | None = None,
+        solution_catalog: SolutionCatalog | None = None,
+        repair_episode_store: RepairEpisodeStore | None = None,
+        retained_evidence_resolver: RetainedEvidenceResolver | None = None,
+        clock: Callable[[], float] = time.time,
+        project_id: str = "local_llm_lab",
     ) -> None:
         self.root = root.resolve()
         self.persist, self.audit = persist, audit
@@ -66,6 +79,10 @@ class LocalLLMDayProgram:
         self.planner = planner or self._deterministic_plan
         self.work_order_executor = work_order_executor or self._read_only_executor
         self.repair_builder = repair_builder or LocalOllamaRepairBuilder()
+        self.solution_catalog = solution_catalog or SolutionCatalog()
+        self.repair_episode_store = repair_episode_store or RepairEpisodeStore()
+        self.retained_evidence_resolver = retained_evidence_resolver or RetainedEvidenceResolver(self.root)
+        self.clock, self.project_id, self.evidence_registry = clock, project_id, REGISTRY
         self._lock, self._stop = RLock(), Event()
         self._thread: Thread | None = None
         self._restore_snapshot()
@@ -162,38 +179,146 @@ class LocalLLMDayProgram:
             self._thread.join(timeout)
 
     def repair_and_go(self) -> dict[str, object]:
-        """Ask LocalLLM for bounded proposals; only the guarded executor may act."""
+        """Resume a persisted automatic repair episode only when interrupted."""
         with self._lock:
             if self.snapshot.state != LocalLLMDayState.FAILED or self.snapshot.issue_classification != DayIssueClassification.IMPLEMENTATION_DEFECT:
                 return {"error_code": "AUTONOMOUS_REPAIR_NOT_AVAILABLE", **self.view()}
             item = next((value for value in self.snapshot.work_items if value.state == LocalLLMWorkItemState.FAILED), None)
-            if item is None:
+            contract = self.snapshot.contract
+            if item is None or contract is None:
                 return {"error_code": "REPAIR_TARGET_MISSING", **self.view()}
-            files = self._bounded_repair_files(item)
-            excerpt = str(item.evidence.get("failure_excerpt", ""))[:2000]
-        proposal = self.repair_builder.propose(failure_excerpt=excerpt, files=files, timeout_seconds=120)
-        if proposal is None:
-            return self._record_repair_rejection(item, "LOCAL_LLM_NO_PROPOSAL")
-        # LocalLLM output becomes an auditable proposal.  It never changes a file here.
-        card = LocalLLMRepairCard(
-            problem_id=f"proposal-{item.item_id}", title="LocalLLM countermeasure proposal",
-            cause=proposal.diagnosis, investigation="Codex/engine must inspect the supplied source and deterministic failure.",
-            resolution_logic="Proposal retained for guarded WorkOrder review; no direct edit was applied.",
-            verification="Run the configured deterministic postcheck after an in-scope Builder result.",
-            failure_class=DayIssueClassification.IMPLEMENTATION_DEFECT.value, failed_work_item=item.item_id,
+        self._supervise_repair(item, contract)
+        return self.view()
+
+    def _supervise_repair(self, item: LocalLLMDayWorkItem, contract: LocalLLMDayContract) -> bool:
+        """Run the entire bounded local-to-expert repair control loop."""
+        excerpt = str(item.evidence.get("failure_excerpt", ""))[:2000]
+        fingerprint = self._failure_fingerprint(item, excerpt)
+        now = self.clock()
+        matches = self.solution_catalog.find(
+            project_id=self.project_id, failure_class=DayIssueClassification.IMPLEMENTATION_DEFECT.value,
+            fingerprint=fingerprint, component=item.item_id,
         )
-        work_order = {"kind": "LOCAL_LLM_COUNTERMEASURE", "task_id": item.item_id, "proposal": proposal, "files": sorted(files), "dynamic_work_order": item.dynamic_work_order.model_dump(mode="json") if item.dynamic_work_order else None}
-        result = self.work_order_executor(work_order)
-        if result.get("final_result") not in {"COMPLETE", "COMPLETE_NO_CHANGE"}:
-            return self._record_repair_rejection(item, str(result.get("error_code") or "CODEX_REJECTED_PROPOSAL"), card=card, executor_result=result)
-        with self._lock:
-            self.snapshot.repair_knowledge.append(card.model_copy(update={"status": "CODEX_ACCEPTED"}))
-            item.state, item.evidence = LocalLLMWorkItemState.COMPLETE, {"countermeasure": "CODEX_ACCEPTED", "executor_result": self._bounded(result)}
-            self.snapshot.repair_attempted = True
-            self.snapshot.state = LocalLLMDayState.PAUSED
-            self.snapshot.activity = "Codex accepted a bounded countermeasure; Resume re-evaluates the Day Contract."
-            self._save()
-            return self.view()
+        episode = RepairEpisode(
+            episode_id=uuid4().hex, project_id=self.project_id, day=contract.day,
+            work_item_id=item.item_id, failure_class=DayIssueClassification.IMPLEMENTATION_DEFECT,
+            failure_fingerprint=fingerprint, failure_excerpt=excerpt, component=item.item_id,
+            started_at_epoch=now, repair_deadline_epoch=now + self.snapshot.repair_deadline_seconds,
+            catalog_match_ids=[entry.catalog_id for entry in matches],
+        )
+        self.repair_episode_store.save(episode)
+        self.snapshot.repair_episode_ids.append(episode.episode_id)
+        files = self._bounded_repair_files(item)
+        seen_proposals: set[str] = set()
+        while len(episode.proposal_attempts) < self.MAX_LOCAL_PROPOSALS and self.clock() < episode.repair_deadline_epoch:
+            remaining = max(1, int(episode.repair_deadline_epoch - self.clock()))
+            proposal = self.repair_builder.propose(
+                failure_excerpt=excerpt, files=files, timeout_seconds=min(120, remaining),
+                rejection_feedback="\n".join(episode.rejection_feedback[-2:]) or None,
+                repair_knowledge=[self._catalog_guidance(entry) for entry in matches],
+            )
+            if proposal is None:
+                episode.proposal_attempts.append(RepairProposalAttempt(proposal_fingerprint=self._text_fingerprint("NO_PROPOSAL"), outcome="NO_PROPOSAL", feedback="LocalLLM returned no bounded proposal."))
+                episode.rejection_feedback.append("No parseable LocalLLM proposal was returned.")
+                self.repair_episode_store.save(episode)
+                continue
+            proposal_fingerprint = self._proposal_fingerprint(proposal)
+            if proposal_fingerprint in seen_proposals:
+                episode.proposal_attempts.append(RepairProposalAttempt(proposal_fingerprint=proposal_fingerprint, outcome="DUPLICATE", feedback="Duplicate proposal fingerprint."))
+                episode.rejection_feedback.append("The same proposal fingerprint repeated; escalate independently.")
+                self.repair_episode_store.save(episode)
+                break
+            seen_proposals.add(proposal_fingerprint)
+            result = self.work_order_executor({
+                "kind": "LOCAL_LLM_COUNTERMEASURE", "task_id": item.item_id, "proposal": proposal,
+                "files": sorted(files), "dynamic_work_order": item.dynamic_work_order.model_dump(mode="json") if item.dynamic_work_order else None,
+                "repair_episode_id": episode.episode_id,
+            })
+            if result.get("final_result") in {"COMPLETE", "COMPLETE_NO_CHANGE"}:
+                episode.proposal_attempts.append(RepairProposalAttempt(proposal_fingerprint=proposal_fingerprint, outcome="VERIFIED"))
+                episode.codex_review_outcome = "ACCEPTED_AND_VERIFIED"
+                episode.verification_result = "PASS"
+                episode.final_outcome = "LOCAL_VERIFIED"
+                self.repair_episode_store.save(episode)
+                self._accept_repair(item, result, episode, source="LOCAL_VERIFIED", diagnosis=proposal.diagnosis)
+                return True
+            feedback = str(result.get("error_code") or result.get("final_result") or "CODEX_REJECTED_PROPOSAL")[:1000]
+            episode.proposal_attempts.append(RepairProposalAttempt(proposal_fingerprint=proposal_fingerprint, outcome="REJECTED", feedback=feedback))
+            episode.rejection_feedback.append(feedback)
+            self.repair_episode_store.save(episode)
+        expert = self.work_order_executor({
+            "kind": "CODEX_EXPERT_SOLVER", "task_id": item.item_id,
+            "dynamic_work_order": item.dynamic_work_order.model_dump(mode="json") if item.dynamic_work_order else None,
+            "failure_excerpt": excerpt, "failure_fingerprint": fingerprint,
+            "catalog_matches": [self._catalog_guidance(entry) for entry in matches], "repair_episode_id": episode.episode_id,
+        })
+        if expert.get("final_result") in {"COMPLETE", "COMPLETE_NO_CHANGE"}:
+            episode.expert_solver_outcome, episode.verification_result, episode.final_outcome = "VERIFIED", "PASS", "CODEX_VERIFIED"
+            self._accept_repair(item, expert, episode, source="CODEX_VERIFIED", diagnosis="Codex Expert Solver independently repaired the verified failure.")
+            return True
+        episode.expert_solver_outcome = str(expert.get("error_code") or "FAILED")[:80]
+        episode.final_outcome = "EXPERT_FAILED"
+        self.repair_episode_store.save(episode)
+        return False
+
+    @staticmethod
+    def _text_fingerprint(value: str) -> str:
+        return hashlib.sha256(value.encode("utf-8", errors="replace")).hexdigest()
+
+    @staticmethod
+    def _file_fingerprint(path: Path) -> str:
+        try:
+            return hashlib.sha256(path.read_bytes()).hexdigest()
+        except OSError:
+            return "missing"
+
+    def _failure_fingerprint(self, item: LocalLLMDayWorkItem, excerpt: str) -> str:
+        return self._text_fingerprint(f"{item.item_id}|{item.dynamic_work_order.task_id if item.dynamic_work_order else ''}|{excerpt[:1200]}")
+
+    def _inventory_fingerprint(self, inventory: dict[str, object]) -> str:
+        return self._text_fingerprint(repr({key: inventory.get(key) for key in ("head", "branch", "status_count", "source_presence")}))
+
+    def _proposal_fingerprint(self, proposal: object) -> str:
+        edits = getattr(proposal, "edits", ())
+        serialized = "|".join(f"{getattr(edit, 'path', '')}:{getattr(edit, 'find', '')}:{getattr(edit, 'replace', '')}" for edit in edits)
+        return self._text_fingerprint(f"{getattr(proposal, 'diagnosis', '')}|{serialized}")
+
+    @staticmethod
+    def _catalog_guidance(entry: SolutionCatalogEntry) -> dict[str, object]:
+        return {
+            "catalog_id": entry.catalog_id, "cause": entry.root_cause,
+            "investigation": entry.diagnostic_steps, "resolution_logic": entry.resolution_strategy,
+            "verification": entry.verification, "preconditions": entry.preconditions,
+        }
+
+    def _accept_repair(self, item: LocalLLMDayWorkItem, result: dict[str, object], episode: RepairEpisode, *, source: str, diagnosis: str) -> None:
+        entry = SolutionCatalogEntry(
+            scope="project", project_id=self.project_id,
+            failure_class=episode.failure_class.value, failure_fingerprint=episode.failure_fingerprint,
+            component=episode.component, title=f"Verified repair for {item.item_id}",
+            symptoms=episode.failure_excerpt or "deterministic engineering failure",
+            root_cause=diagnosis[:1000], diagnostic_steps="Inspect the bounded failure excerpt and configured source/test scope.",
+            resolution_strategy="Apply only an in-scope repair through the guarded worktree executor.",
+            preconditions=["IMPLEMENTATION_DEFECT", "deterministic postcheck"],
+            affected_files_or_scope=list(item.dynamic_work_order.allowed_files) if item.dynamic_work_order else [],
+            verification="Configured deterministic postcheck passed.", source=source,
+            success_count=1,
+        )
+        entry = self.solution_catalog.add_verified(entry)
+        episode.catalog_update_id = entry.catalog_id
+        self.repair_episode_store.save(episode)
+        self.snapshot.repair_knowledge.append(LocalLLMRepairCard(
+            problem_id=entry.catalog_id, title=entry.title, cause=entry.root_cause,
+            investigation=entry.diagnostic_steps, resolution_logic=entry.resolution_strategy,
+            verification=entry.verification, status=entry.status, uses=entry.uses,
+            failure_class=entry.failure_class, failed_work_item=item.item_id,
+        ))
+        item.state = LocalLLMWorkItemState.COMPLETE
+        item.evidence = self._bounded(result)
+        self.snapshot.repair_attempted = True
+        self.snapshot.issue_classification = None
+        self.snapshot.codex_handoff = None
+        self._save()
 
     def _execute(self) -> None:
         try:
@@ -212,8 +337,15 @@ class LocalLLMDayProgram:
                         self._fail(contract, "DAY_INSUFFICIENT_EVIDENCE", "The bounded replanning limit was reached before all criteria gained evidence.", DayIssueClassification.INSUFFICIENT_EVIDENCE, inventory)
                         return
                     proposed = self._validated_plan(contract, inventory)
+                    action_fingerprint = self._text_fingerprint(
+                        f"{self._inventory_fingerprint(inventory)}|{','.join(contract.remaining_gaps)}|{','.join(sorted(item.item_id for item in proposed))}"
+                    )
+                    if action_fingerprint in self.snapshot.replan_fingerprints:
+                        self._fail(contract, "DAY_NO_OP_REPLAN", "The unchanged repository state would repeat an identical evidence action.", DayIssueClassification.INSUFFICIENT_EVIDENCE, inventory)
+                        return
                     self.snapshot.work_items.extend(proposed)
                     self.snapshot.replan_count += 1
+                    self.snapshot.replan_fingerprints.append(action_fingerprint)
                     self.snapshot.activity = "Codex Architect produced a bounded plan for the remaining evidence gaps."
                     self._save()
                     continue
@@ -248,16 +380,15 @@ class LocalLLMDayProgram:
         classification = self._classify_result(result)
         item.state = LocalLLMWorkItemState.FAILED
         item.evidence = self._bounded(result)
-        if classification == DayIssueClassification.IMPLEMENTATION_DEFECT and item.dynamic_work_order is not None and not self.snapshot.repair_attempted:
-            # Ordinary engineering failures receive one bounded automatic
-            # countermeasure review. Research findings never enter this path.
+        if classification == DayIssueClassification.IMPLEMENTATION_DEFECT and item.dynamic_work_order is not None:
+            # Ordinary engineering failures automatically run the full bounded
+            # repair episode. Research findings never enter this path.
             self.snapshot.state = LocalLLMDayState.FAILED
             self.snapshot.issue_classification = classification
             self._save()
-            repaired = self.repair_and_go()
-            if repaired.get("state") == LocalLLMDayState.PAUSED.value:
+            if self._supervise_repair(item, contract):
                 self.snapshot.state = LocalLLMDayState.RUNNING
-                self.snapshot.activity = "Codex reviewed the LocalLLM countermeasure; re-evaluating trusted evidence."
+                self.snapshot.activity = "Repair verification succeeded; re-evaluating the Day Contract."
                 self._save()
                 return
         self._fail(contract, "DAY_TASK_FAILED", "A planned task did not produce trusted evidence.", classification, inventory)
@@ -281,6 +412,9 @@ class LocalLLMDayProgram:
         # from named evidence records passing server-owned validators.
         for criterion in contract.completion_criteria:
             candidates: list[dict[str, object]] = [criterion.evidence]
+            retained = inventory.get("retained_evidence")
+            if isinstance(retained, dict):
+                candidates.append(retained)
             matching = [item for item in self.snapshot.work_items
                         if criterion.criterion_id in item.criterion_ids
                         and item.state == LocalLLMWorkItemState.COMPLETE
@@ -358,6 +492,13 @@ class LocalLLMDayProgram:
         definitions = document.get("days")
         if not isinstance(sources, list) or not isinstance(shared_constraints, list) or not isinstance(definitions, list):
             return {}
+        declared = {
+            evidence for definition in definitions if isinstance(definition, dict)
+            for criterion in (definition.get("completion_criteria") or []) if isinstance(criterion, dict)
+            for evidence in (criterion.get("evidence") or [])
+        }
+        if not declared or not declared.issubset(self.evidence_registry.names):
+            return {}
         contracts: dict[int, LocalLLMDayContract] = {}
         for definition in definitions:
             if not isinstance(definition, dict):
@@ -377,7 +518,10 @@ class LocalLLMDayProgram:
         contract = contract or self.snapshot.contract
         sources = contract.authoritative_sources if contract else []
         source_presence = {source: (self.root / source).is_file() for source in sources}
-        return {**self._git_state(), "source_presence": source_presence, "missing_sources": [path for path, present in source_presence.items() if not present]}
+        retained_evidence = self.retained_evidence_resolver.resolve(contract.day) if contract else {}
+        return {**self._git_state(), "source_presence": source_presence,
+                "missing_sources": [path for path, present in source_presence.items() if not present],
+                "retained_evidence": retained_evidence}
 
     def _git_state(self) -> dict[str, object]:
         def output(args: list[str]) -> str:
@@ -411,31 +555,8 @@ class LocalLLMDayProgram:
         return all(self._validate_evidence_record(name, evidence.get(name)) for name in criterion.required_evidence)
 
     def _validate_evidence_record(self, name: str, record: object) -> bool:
-        """Fail closed on both the envelope and the known evidence shape."""
-        if not isinstance(record, dict) or record.get("evidence_type") != name:
-            return False
-        if not self._non_empty(record.get("value")) or not isinstance(record.get("source"), str) or not record["source"].strip():
-            return False
-        if record.get("verified") is not True:
-            return False
-        validation = record.get("validation")
-        if not isinstance(validation, dict) or validation.get("passed") is not True:
-            return False
-        value = record["value"]
-        if name in {"git_head", "commit_ref"}:
-            return isinstance(value, dict) and isinstance(value.get("branch"), str) and len(str(value.get("head", ""))) >= 7 and value.get("is_commit") is True
-        if name == "origin_ref":
-            return isinstance(value, dict) and all(isinstance(value.get(key), str) and value[key] for key in ("origin_url", "upstream_ref", "upstream_sha"))
-        if name == "status_audit":
-            return isinstance(value, dict) and all(isinstance(value.get(key), list) for key in ("staged_tracked_paths", "unstaged_tracked_paths", "untracked_paths", "relevant_dirty_paths", "generated_paths"))
-        if name == "staging_audit":
-            return isinstance(value, dict) and isinstance(value.get("staged_paths"), list) and isinstance(value.get("staged_generated_paths"), list) and value.get("generated_artifacts_not_staged") is True
-        if name == "documentation_check":
-            return isinstance(value, dict) and isinstance(value.get("checked_files"), list) and isinstance(value.get("checks"), list) and isinstance(value.get("failures"), list) and not value["failures"]
-        if name == "test_result":
-            return isinstance(value, dict) and isinstance(value.get("commands"), list) and value.get("exit_code") == 0 and value.get("deterministic_only") is True
-        # Other Days still require the explicit, typed, verified envelope.
-        return True
+        """Registry-owned semantic validation; no verified-envelope fallback."""
+        return self.evidence_registry.validate(name, record)
 
     def _git(self, *args: str) -> tuple[int, str, str]:
         try:
@@ -502,7 +623,7 @@ class LocalLLMDayProgram:
         failures.extend(check["name"] for check in checks if not check["passed"])
         return {"checked_files": expected, "checks": checks, "failures": failures, "contract_sources": contract.authoritative_sources}
 
-    def _day_one_test_result(self, *, execute: bool = True) -> dict[str, object]:
+    def _day_one_test_result(self, *, execute: bool = True, cache_key: str | None = None) -> dict[str, object]:
         candidates = ["tests/test_process_consistency_smoke.py", "tests/test_process_consistency_review_set.py"]
         selected = [path for path in candidates if (self.root / path).is_file()]
         if not selected:
@@ -510,13 +631,19 @@ class LocalLLMDayProgram:
         command = [sys.executable, "-m", "pytest", "-q", *selected]
         if not execute:
             return {"commands": [command], "exit_code": None, "passed": 0, "failed": 0, "deterministic_only": True, "timestamp": datetime.now(timezone.utc).isoformat(), "reason": "read-only diagnostic; command not run"}
+        cached = self.snapshot.evidence_cache.get(cache_key) if cache_key else None
+        if isinstance(cached, dict) and cached.get("exit_code") == 0 and isinstance(cached.get("passed"), int) and cached["passed"] > 0:
+            return {**cached, "cache_hit": True}
         try:
             result = subprocess.run(command, cwd=self.root, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=180, check=False)
             combined = f"{result.stdout}\n{result.stderr}"
             import re
-            passed = next((int(value) for value in re.findall(r"(\\d+) passed", combined)), 0)
-            failed = next((int(value) for value in re.findall(r"(\\d+) failed", combined)), 0)
-            return {"commands": [command], "exit_code": result.returncode, "passed": passed, "failed": failed, "deterministic_only": True, "timestamp": datetime.now(timezone.utc).isoformat()}
+            passed = next((int(value) for value in re.findall(r"(\d+) passed", combined)), 0)
+            failed = next((int(value) for value in re.findall(r"(\d+) failed", combined)), 0)
+            evidence = {"commands": [command], "exit_code": result.returncode, "passed": passed, "failed": failed, "deterministic_only": True, "timestamp": datetime.now(timezone.utc).isoformat(), "cache_hit": False}
+            if cache_key and result.returncode == 0 and passed > 0 and failed == 0:
+                self.snapshot.evidence_cache[cache_key] = evidence
+            return evidence
         except (OSError, subprocess.TimeoutExpired) as exc:
             return {"commands": [command], "exit_code": 1, "passed": 0, "failed": 0, "deterministic_only": True, "timestamp": datetime.now(timezone.utc).isoformat(), "reason": type(exc).__name__}
 
@@ -539,7 +666,11 @@ class LocalLLMDayProgram:
         staging = {"staged_paths": status["staged_tracked_paths"], "staged_generated_paths": [path for path in status["staged_tracked_paths"] if self._is_generated_path(path)]}
         staging["generated_artifacts_not_staged"] = not staging["staged_generated_paths"]
         documentation = self._day_one_documentation_check(contract)
-        tests = self._day_one_test_result(execute=execute_tests)
+        test_paths = [self.root / path for path in ("tests/test_process_consistency_smoke.py", "tests/test_process_consistency_review_set.py")]
+        cache_material = "|".join([head, *status["relevant_dirty_paths"], *[
+            f"{path.relative_to(self.root).as_posix()}:{self._file_fingerprint(path)}" for path in test_paths
+        ]])
+        tests = self._day_one_test_result(execute=execute_tests, cache_key=self._text_fingerprint(cache_material))
         commit_ref = {"branch": branch, "head": head, "is_commit": is_commit, "relevant_dirty_paths": status["relevant_dirty_paths"], "reproducible": not status["relevant_dirty_paths"]}
         evidence = {
             "git_head": self._record("git_head", git_head, "git branch --show-current; git rev-parse HEAD; git cat-file -e HEAD^{commit}", branch_code == 0 and is_commit),

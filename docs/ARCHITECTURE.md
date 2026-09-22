@@ -1,990 +1,196 @@
-# AI Control Center v1.0 Architecture
+# AI Control Center autonomous Day architecture
 
-## 1. Purpose
+## Purpose and authority
 
-AI Control Center is a local, Windows-first web application that orchestrates AI-assisted engineering workflows while minimizing Codex token consumption and keeping human approval at the final decision boundary.
+AI Control Center is a Windows-first local control plane for evidence-based,
+bounded autonomous engineering and research operation. A person selects one
+configured Day and presses **Go**. Python owns facts, state, safety and
+acceptance; LocalLLM and Codex provide bounded reasoning or implementation
+roles. The system stops after the selected Day. It does not advance a Day,
+alter experimental conditions, push `main`, or turn a research finding into a
+code repair.
 
-Primary goals:
+`docs/WORKING_RULES.md` is the governing policy and the selected Day Contract
+is the completion authority. This document is the structural baseline. Older
+Week 1, Goal-to-Plan and Zero-Touch documents are retained or superseded
+features; they are not alternate Day 1-14 control paths.
 
-1. Minimize Codex usage through deterministic gating.
-2. Separate planning, building, evaluation, and approval responsibilities.
-3. Support day-based autonomous validation workflows.
-4. Prevent unbounded retries, scope expansion, and unsafe Git operations.
-5. Make progress, token usage, decisions, and evidence visible in one dashboard.
-
-The target operating model is:
-
-```text
-Configured Day Plan
-  ↓
-Python deterministic gate
-  ↓
-Codex Core: Architect → Builder → optional First Review
-  ↓
-Python verification, Scope/Budget/Git guards
-  ↓
-Independent evaluation only when trusted policy requires it
-  ↓
-Human approval
-```
-
----
-
-## 2. Core Design Principles
-
-### 2.1 Deterministic First
-
-Codex is not the default executor.
-
-If Python, pytest, configuration validation, static checks, or deterministic rules can make the decision, use them first.
+## Canonical control loop
 
 ```text
-Task
-  ↓
-Deterministic Check
-  ├─ PASS → Complete
-  └─ FAIL
-       ↓
-     Triage
-       ↓
-     CODE_FIX?
-       ├─ NO → Human / deterministic path
-       └─ YES → Codex
+SELECT DAY -> PREFLIGHT -> LOAD CONTRACT -> INVENTORY
+    -> REUSE VALID EXISTING EVIDENCE -> COLLECT MISSING EVIDENCE -> VALIDATE
+    -> all criteria satisfied? -- yes --> DAY_COMPLETE -> STOP
+                              -- no  --> GAP DIAGNOSIS
+GAP DIAGNOSIS
+  evidence collectible              -> COLLECT EVIDENCE
+  repository state must change      -> CORRECTIVE WORK
+  engineering implementation defect -> REPAIR SUPERVISOR
+  model-quality research finding    -> PRESERVE AS EVIDENCE
+  experiment configuration issue    -> BOUNDED CONFIGURATION WORK
+  external/human authority          -> HUMAN / EXTERNAL ACTION REQUIRED
+state-changing work -> RECOLLECT EVIDENCE -> VALIDATE
 ```
 
-### 2.2 Strict Role Separation
+A work-item terminal state is operational telemetry, never completion proof.
+The Evidence Registry is the only acceptance authority. Repeating an unchanged
+observation is neither repair nor replan: an action requires a new state
+fingerprint or information gain.
 
-The system separates responsibilities into distinct roles.
+## Components and ownership
 
-#### Codex Architect
+| Component | Responsibility | May accept completion? |
+| --- | --- | --- |
+| Day / Goal Contract | Versioned objective, criteria, evidence requirements and constraints | no |
+| Project Adapter | Root, protected paths, collectors, retained resolvers, corrective operations and Git behavior | no |
+| Evidence Registry | Typed provider and semantic validator for every evidence type | yes, through validator only |
+| Evidence Collector / Retained Resolver | Fresh deterministic evidence or compatible manifest-backed history | no |
+| Evidence Validator | Typed content, provenance, status and compatibility checks | yes |
+| Gap Diagnoser / Corrective Planner | Classify unsatisfied criteria and choose bounded policy-conforming work | no |
+| Work Executor | Server-derived guarded work in a managed worktree | no |
+| Repair Supervisor | Persistent time-bounded engineering repair episode | no |
+| Solution Catalog | Persistent verified repair knowledge, separate from Day state | no |
+| LocalLLM Proposal Engine | Up to three advisory proposals with catalog knowledge and rejection feedback | no |
+| Codex Reviewer / Builder / Expert Solver | Review, scoped repair, independent escalation when required | no |
+| State / Persistence | Contracts, evidence, fingerprints, episodes and catalog references | no |
+| Scope / Git / Budget guards | Paths, commands, retries, time and Git boundaries | no |
+| Human Authority Gate | Credentials, destructive acts and genuine product decisions | no |
+| UI/API projection | Trusted state and fixed server operations only | no |
 
-Responsibilities:
+LocalLLM-Lab is Adapter #1. An adapter is a small Python interface/registry,
+not a plugin marketplace: it contributes root/path protections, evidence
+providers, deterministic tests, retained resolvers, allowed corrective
+operations, Git checkpoint behavior and the authoritative runbook source.
 
-- select only from trusted, already-configured eligible task IDs
-- return a small structured decision using bounded Day context
+## Evidence registry
 
-The Architect runs through the Codex CLI in a read-only isolated role workspace.
-It must not inspect target source, modify source code, define tasks, change
-commands, acceptance criteria, budgets, retries, or allowed file scope.
+Every configured evidence type has a registered provider contract and typed
+validator. `NOT_YET_PRODUCED` is a valid provider outcome; a generic verified
+envelope is not a validator. Unknown evidence names fail closed. Common
+provenance fields are evidence type, collector/resolver, source paths/commands,
+source revision or artifact fingerprint, collection time, validator result and
+compatibility result. `Reuse` means only after all such checks; `Mutates` is
+whether collection itself changes state.
 
-#### Codex Builder
+| Evidence type | Days | Producer | Validator and failure reasons | Reuse | Mutates |
+| --- | --- | --- | --- | --- | --- |
+| git_head | 1 | deterministic collector | Git head/commit shape; missing Git or malformed SHA | no | no |
+| origin_ref | 1 | deterministic collector | Remote/upstream/SHA relation; absent upstream | no | no |
+| status_audit | 1 | deterministic collector | Typed index/worktree audit; unavailable status | no | no |
+| staging_audit | 1 | deterministic collector | Generated data unstaged; staged protected output | no | no |
+| documentation_check | 1 | deterministic collector | Authoritative relationship checks; unreadable/inconsistent docs | no | no |
+| test_result | 1,2 | deterministic collector/work adapter | Exit zero plus collected and passed > 0; timeout/empty/failure | fingerprint | no |
+| commit_ref | 1 | deterministic collector | Existing reproducible commit; missing/dirty source | no | no |
+| source_check | 2,6,8,9 | work result adapter | Registered source assertion; missing/mismatched assertion | fingerprint | corrective only |
+| deterministic_tests | 2,6,7,8,9 | work result adapter | Named collected tests pass; empty/failing suite | fingerprint | corrective only |
+| architecture_check | 2,6 | work result adapter | Named architecture assertion; inconsistent design | fingerprint | corrective only |
+| baseline_ref | 2 | retained resolver | Compatible baseline commit/artifact; incompatible/missing | yes | no |
+| preservation_audit | 2 | deterministic collector | Protected output retained/unstaged; mutation/staging violation | fingerprint | no |
+| v032_artifact | 3 | retained research resolver | v0.3.2 manifest/schema/status; missing/stale/invalid | yes | no |
+| v04_artifact | 3 | retained research resolver | v0.4 manifest/schema/status; missing/stale/invalid | yes | no |
+| condition_record | 3,10 | research artifact | Fixed version/model/condition fingerprint; absent/drift | yes | research only |
+| comparison_metrics | 3 | research artifact | Required counts/cost/coverage metrics; incomplete | yes | research only |
+| failure_policy | 3 | retained resolver | Retained failure/no-rerun policy record; missing | yes | no |
+| holdout_manifest | 4,13 | retained resolver | Frozen unseen input manifest; missing/mutable/mismatch | yes | no |
+| architecture_ref | 4,13 | retained resolver | Frozen architecture revision; missing/mismatch | yes | no |
+| dagb_artifact | 4 | research artifact | Fresh/metamorphic/counterfactual schema; invalid | yes | research only |
+| anti_leakage_check | 4 | deterministic/work adapter | Oracle and hard-code checks; absent/failure | fingerprint | no |
+| retained_failures | 4,13 | retained resolver | Retained typed outcomes; missing/rewritten | yes | no |
+| validator_result | 5 | research artifact | Shared validator version/result; mismatch/failure | yes | research only |
+| local_artifact | 5 | research artifact | Local result provenance and status; missing/invalid | yes | research only |
+| teacher_evidence | 5 | retained resolver | Frozen comparable Teacher artifact; incompatible/unstated limits | yes | no |
+| limitation_record | 5,10 | decision artifact | Explicit comparability/stability limits; missing | yes | no |
+| decision_record | 5 | decision artifact | Evidence-linked critic/selector decision; unsupported claim | yes | no |
+| schema_contract | 6,9 | work result adapter | Versioned schema and parser; missing/invalid | fingerprint | corrective only |
+| provenance_test | 6 | work result adapter | Named provenance test; uncollected/failing | fingerprint | corrective only |
+| validation_report | 7 | work result adapter | Temporal validation result; absent/failing | fingerprint | corrective only |
+| novelty_artifact | 8 | research artifact | Bounded proposal run/status; missing/invalid | yes | research only |
+| provenance_artifact | 8 | research artifact | Proposal provenance record; absent | yes | research only |
+| nonmutation_test | 8,9 | work result adapter | Canonical-plan/state nonmutation check; mutation/failure | fingerprint | corrective only |
+| performance_artifact | 10 | research artifact | Calls/tokens/time/VRAM/CPU/RAM; incomplete metrics | yes | research only |
+| deployment_matrix | 11 | decision artifact | Tier/escalation matrix with evidence; unsupported | yes | no |
+| hardware_evidence | 11 | retained resolver | Cited measured hardware evidence; missing/overclaim | yes | no |
+| advisory_record | 11 | decision artifact | Explicitly non-binding workload limits; missing | yes | no |
+| operator_docs | 12 | deterministic collector | Required operating content; unreadable/missing | fingerprint | no |
+| recovery_check | 12 | work result adapter | Named recovery verification; failure | fingerprint | corrective only |
+| gitignore_check | 12 | deterministic collector | Generated data exclusions; absent/failure | fingerprint | no |
+| full_test_result | 13 | deterministic collector | Complete suite collection/execution; empty/failing | fingerprint | no |
+| result_artifact | 13 | research artifact | Frozen new holdout result; missing/invalid | yes | research only |
+| classification_record | 13 | research artifact | Typed retained failure classification; absent/invalid | yes | research only |
+| status_summary | 13 | decision artifact | Evidence-linked current status; missing/unsupported | yes | no |
+| sprint_review | 14 | decision artifact | Complete advisory review; missing/unsupported | yes | no |
+| human_review_marker | 14 | human marker | Explicit authority marker; absent/invalid | yes | no |
 
-Responsibilities:
+The registry enumerates all 46 configured names. This compact table does not
+authorize grouped fallback validation: every name has a concrete strategy.
 
-- implement only the requested change
-- stay within allowed files
-- make the smallest reasonable change
-- run specified tests
-- return a structured result
+### Retained research evidence
 
-Codex must not:
+The LocalLLM-Lab adapter resolves retained Day 2 and Day 4 evidence through the
+registry. A result counts only when expected files exist, manifest/schema and
+terminal status validate, configuration/version/fingerprint matches, provenance
+is recorded and the evidence-specific validator passes. Valid existing research
+output is reused before inference.
 
-- redefine project goals
-- change Day plans
-- modify unrelated files
-- alter tests merely to obtain a PASS
-- push directly to `main`
-- make final acceptance decisions
+## Repair supervision and learning
 
-#### Codex First Reviewer
-
-This optional read-only Codex role examines only bounded failed-check evidence
-or a bounded diff. It may classify a repair as appropriate or provide concise
-guidance, but is not independent and never grants repair authority. Its default
-call count is zero.
-
-#### Independent Evaluator
-
-Responsibilities:
-
-- inspect deterministic test results
-- inspect the relevant Git diff
-- evaluate semantic quality
-- return exactly one decision:
-  - `PASS`
-  - `REPAIR`
-  - `HUMAN_REVIEW`
-
-The Independent Evaluator must not modify code. It is an opt-in provider for
-high-risk, regulated, explicitly configured, or persistently ambiguous work;
-it is not a normal deterministic-task requirement.
-
-#### Human
-
-The human remains the final authority for:
-
-- PR creation / merge approval
-- schema changes
-- plan changes
-- test-definition changes
-- data deletion
-- budget overrides
-- retry overrides
-
-### 2.3 Structured Communication, Not Free-form Agent Chat
-
-Agents exchange structured artifacts instead of large conversational histories.
+Only `IMPLEMENTATION_DEFECT` enters this subsystem. A persisted Repair Episode
+contains ID, project/Day/work item, failure class and stable bounded fingerprint,
+initial evidence, start/deadline, catalog matches, proposals, rejection
+feedback, Codex review/outcome, expert-solver outcome, deterministic
+verification and catalog reference. Its clock is injectable for tests.
 
 ```text
-Architect
-  ↓
-work-order.json
-  ↓
-Codex
-  ↓
-execution-result.json
-  ↓
-Test Runner
-  ↓
-test-result.json
-  ↓
-Evaluator
-  ↓
-evaluation.json
+classify -> fingerprint -> find VERIFIED catalog entries
+ -> LocalLLM proposal 1..3 (bounded files/context)
+ -> deterministic prefilter + Codex review/builder + postcheck
+ -> verified success: re-evidence and catalog update if generalizable
+ -> reject/repeat/deadline/exhaustion: Codex Expert Solver
+ -> independent investigation -> guarded fix -> deterministic verification
+ -> re-evidence -> persistent VERIFIED catalog entry
 ```
 
-This is a core control mechanism for role separation and token efficiency.
-
-### 2.4 Enforce Rules in Code
-
-Prompts and `AGENTS.md` guide behavior, but the Control Center must enforce critical rules in code.
-
-Examples:
-
-- state machine controls workflow transitions
-- Scope Guard validates changed files
-- Git Guard blocks unsafe commands
-- Budget Manager blocks token overrun
-- Retry Guard prevents endless repair loops
-- test runner determines deterministic pass/fail
-
----
-
-## 3. System Architecture
-
-```text
-                  ┌─────────────────────┐
-                  │        Human        │
-                  │   Approval / Goal   │
-                  └──────────┬──────────┘
-                             │
-                  ┌──────────▼──────────┐
-                  │ AI Control Center   │
-                  │ FastAPI + HTML/JS   │
-                  └──────────┬──────────┘
-                             │
-        ┌────────────────────┼────────────────────┐
-        │                    │                    │
-        ▼                    ▼                    ▼
- Context Broker         State Manager        Budget Manager
-        │                    │                    │
-        └────────────────────┼────────────────────┘
-                             │
-                  ┌──────────▼──────────┐
-                  │  Codex Architect    │
-                  └──────────┬──────────┘
-                             │ WorkOrder
-                             ▼
-                  ┌─────────────────────┐
-                  │ Deterministic Gate  │
-                  │ Python / pytest     │
-                  └──────────┬──────────┘
-                             │ FAIL only
-                             ▼
-                  ┌─────────────────────┐
-                  │    Codex Builder    │
-                  │  worktree write     │
-                  └──────────┬──────────┘
-                             │
-                             ▼
-                  ┌─────────────────────┐
-                  │     Test Runner     │
-                  └──────────┬──────────┘
-                             │
-                             ▼
-                  ┌─────────────────────┐
-                  │ Optional Independent│
-                  │      Evaluator      │
-                  └──────────┬──────────┘
-                       PASS / REPAIR /
-                       HUMAN_REVIEW
-```
-
----
-
-## 4. Context Broker
-
-The Context Broker is the primary token-control component.
-
-Its responsibility is to assemble the smallest sufficient context package for Codex and evaluators.
-
-A Codex context package should normally contain only:
-
-- task ID
-- goal
-- acceptance criteria
-- allowed files
-- relevant error excerpt
-- relevant diff
-- necessary configuration
-- test command
-- retry number
-
-Avoid routinely sending:
-
-- the whole repository
-- complete historical logs
-- unrelated source files
-- previous unrelated agent conversations
-- large documentation files unless explicitly needed
-
-Example task package:
-
-```text
-TASK: PC-014-FIX-01
-
-Goal:
-Fix missing evidence ID validation.
-
-Allowed files:
-- src/evaluator.py
-- src/evidence_resolver.py
-
-Forbidden:
-- benchmark data
-- schema changes
-- unrelated refactoring
-
-Failure:
-PC-014 expected evidence_id >= 1
-actual = 0
-
-Relevant log:
-<bounded excerpt only>
-
-Test:
-pytest tests/test_pc014.py
-
-Return:
-STATUS
-FILES_CHANGED
-TEST_RESULT
-SUMMARY
-```
-
-Context size should be recorded when practical.
-
----
-
-## 5. State Machine
-
-Workflow state is centrally controlled.
-
-Required states:
-
-```text
-IDLE
-PLANNING
-PRECHECK
-RUNNING_TEST
-TRIAGE
-CODEX_FIX
-EVALUATING
-COMPLETE
-HUMAN_REVIEW
-FAILED
-STOPPED
-```
-
-Only the State Manager may transition workflow state.
-
-Typical flow:
-
-```text
-IDLE
- ↓
-PLANNING
- ↓
-PRECHECK
- ↓
-RUNNING_TEST
- ├─ PASS → COMPLETE
- └─ FAIL
-      ↓
-    TRIAGE
-      ├─ CONFIG / DATA / PLAN issue → HUMAN_REVIEW
-      └─ CODE issue
-           ↓
-        CODEX_FIX
-           ↓
-        RUNNING_TEST
-           ↓
-        EVALUATING
-          ├─ PASS → COMPLETE
-          ├─ REPAIR → retry gate → CODEX_FIX
-          └─ HUMAN_REVIEW
-```
-
----
-
-## 6. Token Budget Manager
-
-Token use is a governed resource.
-
-Initial default configuration:
-
-```yaml
-codex:
-  daily_input_tokens: 300000
-  daily_output_tokens: 50000
-  task_input_tokens: 40000
-  task_output_tokens: 10000
-  max_retry: 2
-
-evaluator:
-  daily_input_tokens: 150000
-  daily_output_tokens: 20000
-```
-
-Required budget decisions:
-
-```text
-ALLOWED
-TASK_BUDGET_EXCEEDED
-DAILY_BUDGET_EXCEEDED
-RETRY_LIMIT_EXCEEDED
-```
-
-The system must never silently exceed configured limits.
-
-Priority order for token reduction:
-
-1. Do not call Codex.
-2. Reduce context.
-3. Reduce retries.
-4. Reduce output verbosity.
-5. Reuse cache where available.
-
-Model downgrade is not the first optimization lever.
-
----
-
-## 7. Codex Execution Strategy
-
-Codex Core default policy:
-
-```text
-1 bounded role call = 1 Codex execution
-```
-
-Do not use a long-lived Codex session by default.
-
-Benefits:
-
-- smaller context
-- lower cross-task contamination
-- easier token accounting
-- better reproducibility
-- easier auditability
-
-A retry may reuse narrowly scoped context for the same task, but unrelated tasks should not share conversational history.
-
-The common Codex runner isolates command construction. Role policies are
-different: Architect and First Reviewer use an isolated read-only workspace,
-bounded context, `--json`, and an explicit output schema; Builder uses a
-task-only worktree with `workspace-write`, Scope Guard, and deterministic
-postcheck. Codex sessions are deliberately not reused by default: one bounded
-execution per role/task is reproducible, auditable, and prevents unrelated
-context carry-over. Day-level session reuse is deferred until measured cache
-benefit justifies its bounded lifecycle and reset rules.
-
-The runner supports:
-
-```powershell
-codex exec --json
-```
-
-When available, capture:
-
-- input tokens
-- cached input tokens
-- output tokens
-- task duration
-- exit status
-- structured result
-
----
-
-## 8. Structured Contracts
-
-### 8.1 WorkOrder
-
-Example:
-
-```json
-{
-  "task_id": "PC-014-FIX-01",
-  "goal": "Restore evidence validation",
-  "task_type": "code_fix",
-  "priority": "normal",
-  "allowed_files": [
-    "src/evaluator.py",
-    "src/evidence_resolver.py"
-  ],
-  "acceptance_tests": [
-    "pytest tests/test_pc014.py"
-  ],
-  "max_retry": 2,
-  "needs_codex": true
-}
-```
-
-### 8.2 ExecutionResult
-
-Example:
-
-```json
-{
-  "status": "completed",
-  "files_changed": [
-    "src/evaluator.py"
-  ],
-  "tests_run": [
-    "pytest tests/test_pc014.py"
-  ],
-  "test_result": "pass",
-  "summary": "Added missing evidence ID validation."
-}
-```
-
-### 8.3 EvaluationResult
-
-Example:
-
-```json
-{
-  "decision": "PASS",
-  "score": {
-    "groundedness": 4.8,
-    "process_consistency": 4.7,
-    "instruction_fit": 4.9
-  },
-  "blocking_issues": [],
-  "repair_instruction": null
-}
-```
-
-Evaluator decisions are limited to:
-
-```text
-PASS
-REPAIR
-HUMAN_REVIEW
-```
-
-No ambiguous final state such as "probably OK" is allowed.
-
----
-
-## 9. Git Safety
-
-AI Control Center is a separate repository from target repositories.
-
-Expected layout:
-
-```text
-HIPVG/
-├─ LocalLLM-Lab
-└─ AI-Control-Center
-```
-
-Target repositories are configured, not hard-coded.
-
-Example:
-
-```yaml
-projects:
-  local_llm_lab:
-    path: C:\LocalLLM-Lab
-    default_branch: main
-
-  manufacturing_app:
-    path: C:\Manufacturing-App
-    default_branch: main
-```
-
-Codex work must occur on a task branch:
-
-```text
-agent/<task-name>
-```
-
-Direct automated push to `main` is prohibited.
-
-Forbidden destructive Git commands include:
-
-```text
-git reset --hard
-git clean -fd
-git branch -D
-```
-
-### Scope Guard
-
-Before accepting a Codex result:
-
-```text
-WorkOrder.allowed_files
-        vs
-Actual Git changed files
-```
-
-Any out-of-scope change moves the task to:
-
-```text
-HUMAN_REVIEW
-```
-
----
-
-## 10. Day and Progress Model
-
-Day number is a validation phase, not necessarily a calendar day.
-
-Support both:
-
-```text
-Validation Day 3
-Calendar Day 5
-```
-
-Progress is intentionally separated into three levels:
-
-- Overall Progress
-- Day Progress
-- Current Task Progress
-
-Do not collapse them into one percentage.
-
-Example plan:
-
-```yaml
-plan:
-  name: LocalLLM Week1 Validation
-  week: 1
-
-  days:
-    0:
-      title: Environment Setup
-    1:
-      title: Baseline
-    2:
-      title: Instruction Adaptability
-    3:
-      title: Process Consistency
-    4:
-      title: Information Capacity
-    5:
-      title: Model Comparison
-    6:
-      title: Integrated Scenario
-    7:
-      title: Review
-```
-
-Overall progress should be based on planned task completion, not elapsed time.
-
----
-
-## 11. Dashboard Requirements
-
-Dashboard v2 is a read-only view of trusted backend state plus a single
-configured-plan action. It must show the selected plan, Day state and PAUSED
-progress, queue, current routing, Codex role call counts, token breakdown,
-Human Review queue, and structured audit timeline. It may start or resume only
-the selected configured plan with the typed `single-step` or plan-supported
-`continuous` mode; it never sends commands, paths, prompts, budgets, or task
-definitions from the browser.
-
-Main dashboard header:
-
-```text
-Week 1
-Day 3 / 7
-
-Overall Progress
-█████████████████░░░░░░░░░ 58%
-
-Day Progress
-███████████████████░░░░░░░ 63%
-```
-
-Current Task section:
-
-```text
-PC-014 Evidence Grounding
-Task Progress 18 / 22  82%
-Retry 1 / 2
-```
-
-Agent Activity:
-
-```text
-Architect   DONE
-Gate        DONE
-Codex       RUNNING
-Tests       WAITING
-Evaluator   WAITING
-```
-
-Daily summary:
-
-```text
-PASS
-FAIL
-REVIEW
-```
-
-Evaluation metrics are data-driven and may include:
-
-- Groundedness
-- Process Consistency
-- Instruction Fit
-- Information Capacity
-
-Codex usage panel must show:
-
-- Input
-- Cached Input
-- Output
-- Task Total
-- Day Total
-- Budget percentage
-
-Day progress should display Day 0 through Day 7 and clearly identify the current Validation Day.
-
-Detail sections / tabs:
-
-- Timeline
-- Codex
-- Evaluation
-- Tests
-- Diff
-- Tokens
-- Git
-
----
-
-## 12. Audit Timeline
-
-Every meaningful event must be stored as structured data and rendered in a human-readable timeline.
-
-Example:
-
-```text
-12:01:02 PC-014 test FAIL
-12:01:02 Gate classified CODE_FIX
-12:01:03 Context package created
-12:01:04 Codex started
-12:02:14 evaluator.py modified
-12:02:17 pytest PASS
-12:02:25 Evaluator PASS
-12:02:25 Task COMPLETE
-```
-
-The system must preserve enough evidence to answer:
-
-> Why did the system make this change?
-
----
-
-## 13. Safety Guards
-
-### Scope Guard
-
-Reject or escalate out-of-scope file changes.
-
-### Git Guard
-
-Block unsafe Git operations and direct automated writes to `main`.
-
-### Command Guard
-
-Prefer explicit command allow-lists for automated execution.
-
-### Budget Guard
-
-Stop or escalate before configured token limits are exceeded.
-
-### Retry Guard
-
-Default maximum retry count:
-
-```text
-2
-```
-
-Beyond the limit:
-
-```text
-HUMAN_REVIEW
-```
-
----
-
-## 14. Technology Constraints
-
-Backend:
-
-- Python 3.12
-- FastAPI
-- Uvicorn
-- Pydantic
-
-Frontend:
-
-- HTML
-- CSS
-- Vanilla JavaScript
-
-Do not add React for v0.x.
-
-Do not add Node.js unless technically unavoidable.
-
-Do not add Docker for v0.x.
-
-Initial persistence:
-
-- JSON files behind a persistence interface
-
-Future option:
-
-- SQLite
-
-Primary platform:
-
-- Windows 11
-- PowerShell 7
-
-Default server binding:
-
-```text
-127.0.0.1
-```
-
----
-
-## 15. Repository Structure
-
-Target structure:
-
-```text
-AI-Control-Center/
-│
-├─ backend/
-│  ├─ app.py
-│  ├─ orchestrator/
-│  │  ├─ engine.py
-│  │  └─ state_machine.py
-│  ├─ agents/
-│  │  ├─ architect.py
-│  │  ├─ evaluator.py
-│  │  └─ triage.py
-│  ├─ runners/
-│  │  ├─ codex.py
-│  │  ├─ pytest_runner.py
-│  │  └─ benchmark.py
-│  ├─ control/
-│  │  ├─ context_broker.py
-│  │  ├─ token_budget.py
-│  │  ├─ scope_guard.py
-│  │  └─ git_guard.py
-│  └─ models/
-│     ├─ task.py
-│     ├─ result.py
-│     ├─ evaluation.py
-│     └─ state.py
-│
-├─ frontend/
-│  ├─ index.html
-│  ├─ app.js
-│  └─ style.css
-│
-├─ config/
-│  ├─ projects.example.yaml
-│  ├─ plan.example.yaml
-│  └─ budget.yaml
-│
-├─ prompts/
-│  ├─ architect.md
-│  ├─ evaluator.md
-│  ├─ triage.md
-│  └─ CODEX_BOOTSTRAP.md
-│
-├─ schemas/
-│  ├─ work-order.schema.json
-│  └─ evaluation.schema.json
-│
-├─ state/
-├─ logs/
-├─ tests/
-├─ docs/
-│  └─ ARCHITECTURE.md
-│
-├─ AGENTS.md
-├─ README.md
-└─ requirements.txt
-```
-
----
-
-## 16. Implementation Phases
-
-### v0.1: Control Center Skeleton
-
-Implement:
-
-- FastAPI server
-- dashboard shell
-- state manager
-- mock Codex runner
-- test runner abstraction
-- Git diff abstraction
-- token meter
-- mock workflow
-
-Goal:
-
-```text
-Run → Mock Codex → Test → Result
-```
-
-No OpenAI API credentials required.
-
-### v0.2: Architect and Evaluator
-
-Add:
-
-- Architect interface
-- Evaluator interface
-- structured output schemas
-- Context Broker
-- real API adapters behind interfaces
-
-Goal:
-
-```text
-Plan → Build → Evaluate → Repair
-```
-
-### v0.3: Autonomous Day Operation
-
-Add:
-
-- Day plan
-- overall/day/task progress
-- Budget Manager
-- bounded auto-retry
-- Scope Guard
-- stronger Git Guard
-
-### v1.0: GitHub and Multi-project
-
-Add:
-
-- GitHub PR workflow
-- selective Codex review
-- multiple target projects
-- history comparison
-- model comparison
-
----
-
-## 17. v0.1 Acceptance Criteria
-
-The following command must start the server:
-
-```powershell
-python -m uvicorn backend.app:app --host 127.0.0.1 --port 8765
-```
-
-Opening:
-
-```text
-http://127.0.0.1:8765
-```
-
-must display the dashboard.
-
-Required dashboard data:
-
-- Week
-- Validation Day
-- Overall Progress
-- Day Progress
-- Task Progress
-- Current State
-- Agent Activity
-- PASS / FAIL / REVIEW
-- Evaluation metrics
-- Codex token usage
-- Retry usage
-- Day-by-day progress
-- Timeline
-
-Required initial endpoints:
-
-```text
-GET /api/status
-GET /api/plan
-GET /api/tasks
-GET /api/timeline
-GET /api/token-usage
-POST /api/run/mock
-```
-
-Tests must run without Codex and without an OpenAI API key.
-
----
-
-## 18. Operating Principle
-
-The system must preserve this division of responsibility:
-
-```text
-Codex Core           = Architect, Builder, First Review
-Python / tests        = Deterministic facts and all execution authority
-Optional independent provider = High-risk semantic judgement only
-Git                   = Record
-Human                 = Exception and final authority
-```
-
-AI Control Center exists to govern who may do what, with what context, within what budget, and with what evidence.
-
-
----
-
-## 19. Model and Reasoning Routing
-
-AI Control Center follows a **Smallest Sufficient Intelligence** policy.
-
-Deterministic First remains the highest-priority rule. When an AI/Codex call is required, a dedicated **ModelRouter** selects an approved logical execution profile based on role, task complexity, failure history, context size, remaining budget, and plan policy.
-
-Routine work must not default to high reasoning.
-
-Initial operating guidance:
-
-- simple work → economical profile
-- normal implementation → standard profile
-- architecture / difficult debugging → deep profile
-- repeated reasoning failure → bounded escalation or HUMAN_REVIEW
-
-For the current Codex profile family, the intended starting mapping is economical = Terra/Low, standard = Terra/Medium, and deep = Terra/High. These names are configuration and must not be hard-coded into orchestration logic.
-
-Retries do not automatically increase reasoning effort. Infrastructure, environment, permission, configuration, and Scope Guard failures must not trigger model escalation.
-
-Model selection never expands authority: the selected profile cannot override deterministic tests, Scope Guard, allowed files, retry limits, budgets, acceptance criteria, or Human Review.
-
-Detailed policy:
-
-- [Model and Reasoning Routing Policy](MODEL_ROUTING.md)
+`repair_deadline_seconds = 300` is the five-minute local phase and
+`MAX_LOCAL_PROPOSALS = 3` is enforced episode policy. The phase stops earlier
+for duplicate solution fingerprints, deterministic rejection, all reviewer
+rejections or a verified result.
+
+`state/repair-catalog.json` is JSON persistence behind a small interface. A
+verified record includes ID; generic/project scope and optional project ID;
+failure class/signature; title, symptoms, cause, diagnostic steps, strategy,
+preconditions, allowed affected scope and verification; source/status;
+timestamps; uses; success/failure counts; and last-use time. It never stores
+credentials, secrets or arbitrary shell authority. Only non-retired `VERIFIED`
+records guide proposals. Matching ranks exact class/component/signature, then
+compatible project entries and then generic entries. Rejected proposals are
+episode history, not catalog entries.
+
+## State, cache, safety and UI invariants
+
+- Python owns facts, transitions, execution authority, acceptance, scope, Git
+  and retry/escalation enforcement; model proposals never self-certify.
+- Only registered evidence can satisfy criteria; unknown evidence fails closed.
+- Replan requires information gain or a changed state fingerprint, and that
+  fingerprint cannot repeat an identical action.
+- Research-subject LocalLLM failure is evidence and never enters repair;
+  engineering-assistant output is advisory only.
+- Catalog persistence is independent of selected Day, process restart and Day
+  switch. Generalizable verified expert repairs enter it.
+- Smoke/preflight is never completion. A Day never auto-advances. Generated
+  research artifacts are protected. No component pushes or rewrites `main`.
+
+The cache key includes project ID, contract version, evidence type, provider
+version and source-state fingerprint. Expensive deterministic work is not
+recollected on an unchanged key. Test evidence requires an observed collection
+and pass count above zero, preventing exit-zero empty pytest from passing.
+
+On restart `RUNNING` becomes `PAUSED`; repair deadline uses persisted timing,
+not a fresh five minutes. The UI renders `SMOKE_PASS` /
+`SMOKE_SOURCE_MISSING`, not generic `SUCCESS`. `DAY_COMPLETE` is shown
+only when all validators pass. Recommended Action is a direct projection of an
+executable backend state. The browser supplies no commands, source paths,
+criteria, model settings, budgets or Git authority.
+
+Routine engineering failure follows cheap-local proposal -> deterministic
+verification -> bounded Codex review/expert escalation. Verified expert
+solutions become persistent repair knowledge for future local proposals.

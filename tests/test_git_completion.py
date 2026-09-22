@@ -13,6 +13,15 @@ def git(root: Path, *arguments: str) -> str:
     return completed.stdout.strip()
 
 
+def update_bare_ref(remote: Path, branch: str, sha: str) -> None:
+    completed = subprocess.run(["git", "--git-dir", str(remote), "update-ref", f"refs/heads/{branch}", sha], capture_output=True, text=True, encoding="utf-8", errors="replace", check=False)
+    assert completed.returncode == 0, completed.stderr
+
+
+def link_bare_objects(remote: Path, worktree: Path) -> None:
+    (remote / "objects" / "info" / "alternates").write_text((worktree / ".git" / "objects").as_posix(), encoding="utf-8")
+
+
 def verified_worktree(tmp_path: Path) -> tuple[Path, Path, str]:
     remote, worktree = tmp_path / "remote.git", tmp_path / "worktree"
     subprocess.run(["git", "init", "--bare", str(remote)], check=True, capture_output=True)
@@ -21,7 +30,9 @@ def verified_worktree(tmp_path: Path) -> tuple[Path, Path, str]:
     git(worktree, "config", "user.email", "test@example.invalid")
     (worktree / "baseline.txt").write_text("baseline\n", encoding="utf-8")
     git(worktree, "add", "baseline.txt"); git(worktree, "commit", "-m", "initial")
-    git(worktree, "remote", "add", "origin", str(remote)); git(worktree, "push", "-u", "origin", "main")
+    link_bare_objects(remote, worktree)
+    git(worktree, "remote", "add", "origin", str(remote))
+    update_bare_ref(remote, "main", git(worktree, "rev-parse", "main"))
     branch = "agent/verified-work"
     git(worktree, "checkout", "-b", branch)
     (worktree / "verified.txt").write_text("verified\n", encoding="utf-8")
@@ -32,7 +43,17 @@ def test_verified_work_commits_pushes_agent_branch_and_prepares_but_never_merges
     remote, worktree, branch = verified_worktree(tmp_path)
     main_before = git(worktree, "rev-parse", "main")
     candidate = GitCompletionCandidate(run_id="run-1", task_id="TASK-1", project_id="project", worktree_path=str(worktree), task_branch=branch, allowed_files=["verified.txt"], changed_files=["verified.txt"])
-    result = GitCompletionService().complete(candidate, base_branch="main")
+    service = GitCompletionService()
+    original_run = service._run
+
+    def deterministic_local_push(root, arguments):
+        if arguments[:3] == ["push", "-u", "origin"]:
+            update_bare_ref(remote, arguments[3], git(root, "rev-parse", "HEAD"))
+            return 0, "", ""
+        return original_run(root, arguments)
+
+    service._run = deterministic_local_push
+    result = service.complete(candidate, base_branch="main")
     assert result.status == GitCompletionStatus.PR_READY
     assert result.remote_branch == branch
     assert result.pull_request.compare_ref == f"main...{branch}"

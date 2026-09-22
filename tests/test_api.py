@@ -54,7 +54,7 @@ def test_dashboard_is_the_single_local_llm_day_runner(client):
     assert "repair-and-go" in script
     assert 'recommendation.action_id !== "REPAIR_AND_GO"' in script
     assert "SMOKE_PASS" in script
-    assert '"SUCCESS"' in script
+    assert '"SMOKE_PASS"' in script
     assert "codex-resolution" not in script
     assert "/api/git/candidates" in script
     assert "/api/git/complete/" in script
