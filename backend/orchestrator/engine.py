@@ -778,12 +778,12 @@ class ControlCenterEngine:
             if isinstance(check, dict):
                 excerpt = str(check.get("stderr") or check.get("stdout") or "")[:2000]
             return {**result, "failure_excerpt": excerpt, "issue_classification": "IMPLEMENTATION_DEFECT" if result.get("triage_result") == "CODE_FIX" else "INSUFFICIENT_EVIDENCE"}
-        criterion_ids = work_order.get("criterion_ids")
-        evidence = {
-            criterion_id: {"engine_task_id": task_id, "run_id": result.get("run_id"), "postcheck_result": result.get("postcheck_result")}
-            for criterion_id in criterion_ids if isinstance(criterion_id, str)
-        } if isinstance(criterion_ids, list) else {}
-        return {"final_result": result["final_result"], "evidence": evidence, "engine_result": {key: result.get(key) for key in ("run_id", "postcheck_result", "scope_guard_result", "changed_files")}}
+        # A configured task terminal state is operational telemetry, never Day
+        # completion evidence.  No static task currently has a registered
+        # Day-evidence adapter, so it must not manufacture proof from a run ID
+        # or postcheck result.  Dynamic pytest work likewise needs an explicit
+        # adapter before it can emit a typed evidence record.
+        return {"final_result": result["final_result"], "evidence": {}, "engine_result": {key: result.get(key) for key in ("run_id", "postcheck_result", "scope_guard_result", "changed_files")}}
 
     def _execute_local_llm_countermeasure(self, work_order: dict[str, object]) -> dict[str, object]:
         """Give Codex a bounded LocalLLM suggestion; Codex remains the editor."""

@@ -63,6 +63,8 @@ class LocalLLMDayWorkItem(BaseModel):
     engine_task_id: str | None = Field(default=None, max_length=120)
     dynamic_work_order: "DynamicDayWorkOrder | None" = None
     criterion_ids: list[str] = Field(default_factory=list, max_length=12)
+    contract_day: int | None = Field(default=None, ge=1, le=14)
+    contract_version: str | None = Field(default=None, max_length=80)
     state: LocalLLMWorkItemState = LocalLLMWorkItemState.PENDING
     evidence: dict[str, object] = Field(default_factory=dict)
     blocked_reason: str | None = None

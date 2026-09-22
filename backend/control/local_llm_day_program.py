@@ -68,6 +68,7 @@ class LocalLLMDayProgram:
         self.repair_builder = repair_builder or LocalOllamaRepairBuilder()
         self._lock, self._stop = RLock(), Event()
         self._thread: Thread | None = None
+        self._restore_snapshot()
         if self.snapshot.state == LocalLLMDayState.RUNNING:
             self.snapshot.state = LocalLLMDayState.PAUSED
             self.snapshot.stop_reason = "INTERRUPTED_REQUIRES_RESUME"
@@ -76,6 +77,13 @@ class LocalLLMDayProgram:
 
     def days(self) -> list[dict[str, object]]:
         return [{"day": contract.day, "objective": contract.objective} for contract in self._load_contracts().values()]
+
+    def day_one_read_only_diagnostic(self) -> dict[str, object]:
+        """Collect inspectable Day 1 facts without running the regression suite."""
+        contract = self._load_contracts().get(1)
+        if contract is None:
+            return {"error_code": "DAY_NOT_CONFIGURED"}
+        return self._collect_day_one_evidence(contract, execute_tests=False)
 
     def view(self) -> dict[str, object]:
         with self._lock:
@@ -89,8 +97,13 @@ class LocalLLMDayProgram:
         missing = inventory["missing_sources"]
         result = "SMOKE_PASS" if not missing else "SMOKE_SOURCE_MISSING"
         with self._lock:
-            self.snapshot.selected_day, self.snapshot.objective = day, contract.objective
-            self.snapshot.contract = contract
+            # Selecting a different contract is not a resume.  Do not permit
+            # old work, repair state, or claimed evidence to cross that boundary.
+            if self.snapshot.selected_day != day or self.snapshot.contract is None or self.snapshot.contract.version != contract.version:
+                self.snapshot = LocalLLMDaySnapshot(selected_day=day, objective=contract.objective, contract=contract)
+            else:
+                self.snapshot.contract = self._restore_contract(contract, self.snapshot.contract)
+                self.snapshot.work_items = self._valid_work_items(self.snapshot.work_items, contract)
             self.snapshot.smoke_report = LocalLLMDayReport(
                 day=day, objective=contract.objective, result=result,
                 summary="Authoritative sources and target Git state were inventoried; no Day task was started.",
@@ -112,15 +125,13 @@ class LocalLLMDayProgram:
         with self._lock:
             if self.snapshot.state == LocalLLMDayState.RUNNING:
                 return {"error_code": "DAY_ALREADY_RUNNING", **self.view()}
-            # Do not discard trusted completed work on Resume/start of the same Day.
-            if self.snapshot.selected_day != day or self.snapshot.contract is None:
+            # Only same-version, validated same-Day evidence may survive Resume.
+            if (self.snapshot.selected_day != day or self.snapshot.contract is None
+                    or self.snapshot.contract.version != contract.version):
                 self.snapshot = LocalLLMDaySnapshot(selected_day=day, objective=contract.objective, contract=contract)
             else:
-                self.snapshot.contract = contract.model_copy(update={
-                    "satisfied_criteria": self.snapshot.contract.satisfied_criteria,
-                    "remaining_gaps": self.snapshot.contract.remaining_gaps,
-                    "completion_criteria": self._merge_criteria(contract.completion_criteria, self.snapshot.contract.completion_criteria),
-                })
+                self.snapshot.contract = self._restore_contract(contract, self.snapshot.contract)
+                self.snapshot.work_items = self._valid_work_items(self.snapshot.work_items, contract)
             self._stop.clear()
             self.snapshot.state = LocalLLMDayState.RUNNING
             self.snapshot.activity = "Loading the Day Contract and current trusted evidence."
@@ -223,14 +234,14 @@ class LocalLLMDayProgram:
         item.state = LocalLLMWorkItemState.RUNNING
         self.snapshot.activity = item.title
         self._save()
-        result = self.work_order_executor({"kind": item.kind, "task_id": item.item_id, "engine_task_id": item.engine_task_id, "dynamic_work_order": item.dynamic_work_order.model_dump(mode="json") if item.dynamic_work_order else None, "criterion_ids": item.criterion_ids, "contract": contract.model_dump(mode="json"), "inventory": inventory})
+        if item.kind == "EVIDENCE_CHECK" and contract.day == 1:
+            result = self._collect_day_one_evidence(contract)
+        else:
+            result = self.work_order_executor({"kind": item.kind, "task_id": item.item_id, "engine_task_id": item.engine_task_id, "dynamic_work_order": item.dynamic_work_order.model_dump(mode="json") if item.dynamic_work_order else None, "criterion_ids": item.criterion_ids, "contract": contract.model_dump(mode="json"), "inventory": inventory})
         final = result.get("final_result")
         if final in {"COMPLETE", "COMPLETE_NO_CHANGE"}:
             item.state, item.evidence = LocalLLMWorkItemState.COMPLETE, self._bounded(result)
-            for criterion in contract.completion_criteria:
-                if criterion.criterion_id in item.criterion_ids and result.get("evidence", {}).get(criterion.criterion_id):
-                    criterion.satisfied = True
-                    criterion.evidence = self._bounded(result.get("evidence", {}).get(criterion.criterion_id))
+            self._evaluate_contract(contract, inventory)
             self._update_progress(contract)
             self._save()
             return
@@ -266,43 +277,33 @@ class LocalLLMDayProgram:
         self._save()
 
     def _evaluate_contract(self, contract: LocalLLMDayContract, inventory: dict[str, object]) -> None:
-        # Evidence created by a completed guarded task is the only satisfier.
+        # Task state is never proof.  A criterion is recomputed exclusively
+        # from named evidence records passing server-owned validators.
         for criterion in contract.completion_criteria:
-            if criterion.satisfied:
-                continue
-            matching = [item for item in self.snapshot.work_items if criterion.criterion_id in item.criterion_ids and item.state == LocalLLMWorkItemState.COMPLETE]
+            candidates: list[dict[str, object]] = [criterion.evidence]
+            matching = [item for item in self.snapshot.work_items
+                        if criterion.criterion_id in item.criterion_ids
+                        and item.state == LocalLLMWorkItemState.COMPLETE
+                        and item.contract_day == contract.day
+                        and item.contract_version == contract.version]
             for item in matching:
-                if item.evidence.get("evidence", {}).get(criterion.criterion_id):
-                    criterion.satisfied, criterion.evidence = True, self._bounded(item.evidence["evidence"][criterion.criterion_id])
-                    break
-        # A read-only resolver recognizes retained, named result manifests.
-        # It never reruns inference, reads model output, or infers success from
-        # a directory alone.
-        for criterion_id, evidence in self._existing_evidence(contract).items():
-            criterion = next((value for value in contract.completion_criteria if value.criterion_id == criterion_id), None)
-            if criterion and not criterion.satisfied:
-                criterion.satisfied, criterion.evidence = True, evidence
+                evidence = item.evidence.get("evidence")
+                if isinstance(evidence, dict):
+                    candidates.append(evidence)
+            chosen = next((evidence for evidence in candidates if self._criterion_evidence_valid(criterion, evidence)), None)
+            criterion.satisfied = chosen is not None
+            criterion.evidence = self._bounded(chosen or {})
         contract.satisfied_criteria = [item.criterion_id for item in contract.completion_criteria if item.satisfied]
         contract.remaining_gaps = [item.criterion_id for item in contract.completion_criteria if not item.satisfied]
         self._update_progress(contract)
 
-    def _existing_evidence(self, contract: LocalLLMDayContract) -> dict[str, dict[str, object]]:
-        """Resolve only retained manifest/summary records known to be evidence."""
-        evidence: dict[str, dict[str, object]] = {}
-        def latest(pattern: str, required: tuple[str, ...]) -> Path | None:
-            candidates = sorted((path for path in self.root.glob(pattern) if path.is_dir() and all((path / name).is_file() for name in required)), key=lambda path: path.name)
-            return candidates[-1] if candidates else None
-        drap = latest("results/decision-reasoning-v0.4/DRAP-*", ("manifest.json", "validation.jsonl", "action-gate-summary.json"))
-        dagb = latest("results/decision-generalization/DAGB2-*", ("manifest.json",))
-        if contract.day == 2 and drap:
-            for suffix in ("feasibility_gate", "relevance_gate", "deterministic_validation"):
-                evidence[f"d2-{suffix}"] = {"source": str(drap.relative_to(self.root)).replace("\\", "/"), "manifest": "manifest.json", "validation": "validation.jsonl", "mode": "existing_evidence"}
-        if contract.day == 4 and dagb:
-            for suffix in ("frozen_holdout", "evaluation_results"):
-                evidence[f"d4-{suffix}"] = {"source": str(dagb.relative_to(self.root)).replace("\\", "/"), "manifest": "manifest.json", "mode": "existing_evidence"}
-        return evidence
-
     def _validated_plan(self, contract: LocalLLMDayContract, inventory: dict[str, object]) -> list[LocalLLMDayWorkItem]:
+        # Day 1 evidence is collected only by the server-owned Git/document/
+        # deterministic-test collector.  Configured process-smoke tasks have
+        # no capability to prove this contract.
+        if contract.day == 1:
+            return [item.model_copy(update={"contract_day": contract.day, "contract_version": contract.version})
+                    for item in self._deterministic_plan(contract, inventory)]
         proposed = self.planner(contract, inventory)
         known = {criterion.criterion_id for criterion in contract.completion_criteria}
         if not isinstance(proposed, list) or not 1 <= len(proposed) <= self.MAX_TASKS:
@@ -325,7 +326,7 @@ class LocalLLMDayProgram:
             if not item.criterion_ids or not set(item.criterion_ids).issubset(set(contract.remaining_gaps) & known):
                 raise ValueError("planner expanded Day authority")
             seen.add(item.item_id)
-            validated.append(item)
+            validated.append(item.model_copy(update={"contract_day": contract.day, "contract_version": contract.version}))
         return validated
 
     def _deterministic_plan(self, contract: LocalLLMDayContract, _inventory: dict[str, object]) -> list[LocalLLMDayWorkItem]:
@@ -389,6 +390,168 @@ class LocalLLMDayProgram:
         safe_context = [path.replace("\\", "/") for path in tracked if path.startswith(("src/", "scripts/", "tests/", "config/", "docs/")) and Path(path).suffix.lower() in {".py", ".yaml", ".yml", ".json", ".md"}]
         return {"branch": output(["branch", "--show-current"]), "head": output(["rev-parse", "HEAD"]), "origin": output(["remote", "get-url", "origin"]), "working_tree_clean": not bool(status), "status_count": len(status.splitlines()) if status else 0, "tracked_context_files": safe_context[:80]}
 
+    @staticmethod
+    def _record(name: str, value: object, source: str, passed: bool) -> dict[str, object]:
+        return {
+            "evidence_type": name,
+            "value": value,
+            "source": source,
+            "verified": True,
+            "validation": {"passed": passed, "validator": f"deterministic:{name}"},
+            "collected_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+    @staticmethod
+    def _non_empty(value: object) -> bool:
+        return value is not None and value != "" and value != {} and value != []
+
+    def _criterion_evidence_valid(self, criterion: DayCriterion, evidence: object) -> bool:
+        if not isinstance(evidence, dict) or not criterion.required_evidence:
+            return False
+        return all(self._validate_evidence_record(name, evidence.get(name)) for name in criterion.required_evidence)
+
+    def _validate_evidence_record(self, name: str, record: object) -> bool:
+        """Fail closed on both the envelope and the known evidence shape."""
+        if not isinstance(record, dict) or record.get("evidence_type") != name:
+            return False
+        if not self._non_empty(record.get("value")) or not isinstance(record.get("source"), str) or not record["source"].strip():
+            return False
+        if record.get("verified") is not True:
+            return False
+        validation = record.get("validation")
+        if not isinstance(validation, dict) or validation.get("passed") is not True:
+            return False
+        value = record["value"]
+        if name in {"git_head", "commit_ref"}:
+            return isinstance(value, dict) and isinstance(value.get("branch"), str) and len(str(value.get("head", ""))) >= 7 and value.get("is_commit") is True
+        if name == "origin_ref":
+            return isinstance(value, dict) and all(isinstance(value.get(key), str) and value[key] for key in ("origin_url", "upstream_ref", "upstream_sha"))
+        if name == "status_audit":
+            return isinstance(value, dict) and all(isinstance(value.get(key), list) for key in ("staged_tracked_paths", "unstaged_tracked_paths", "untracked_paths", "relevant_dirty_paths", "generated_paths"))
+        if name == "staging_audit":
+            return isinstance(value, dict) and isinstance(value.get("staged_paths"), list) and isinstance(value.get("staged_generated_paths"), list) and value.get("generated_artifacts_not_staged") is True
+        if name == "documentation_check":
+            return isinstance(value, dict) and isinstance(value.get("checked_files"), list) and isinstance(value.get("checks"), list) and isinstance(value.get("failures"), list) and not value["failures"]
+        if name == "test_result":
+            return isinstance(value, dict) and isinstance(value.get("commands"), list) and value.get("exit_code") == 0 and value.get("deterministic_only") is True
+        # Other Days still require the explicit, typed, verified envelope.
+        return True
+
+    def _git(self, *args: str) -> tuple[int, str, str]:
+        try:
+            result = subprocess.run(
+                ["git", "-C", str(self.root), "-c", f"safe.directory={self.root}", *args],
+                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=20, check=False,
+            )
+            return result.returncode, result.stdout.strip(), result.stderr.strip()
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            return 1, "", type(exc).__name__
+
+    @staticmethod
+    def _is_generated_path(path: str) -> bool:
+        normalized = path.replace("\\", "/").lower()
+        return normalized.startswith(("results/", "artifacts/", "models/", "datasets/", "teacher/", "telemetry/", "logs/", "cache/")) or normalized.endswith((".zip", ".gguf", ".safetensors"))
+
+    def _day_one_status_audit(self) -> dict[str, object]:
+        _code, output, _error = self._git("status", "--porcelain=v1", "-uall")
+        staged: list[str] = []
+        unstaged: list[str] = []
+        untracked: list[str] = []
+        generated: list[str] = []
+        for line in output.splitlines():
+            if len(line) < 4:
+                continue
+            state, path = line[:2], line[3:].replace("\\", "/")
+            if " -> " in path:
+                path = path.split(" -> ")[-1]
+            if state == "??":
+                untracked.append(path)
+            else:
+                if state[0] not in {" ", "?"}:
+                    staged.append(path)
+                if state[1] not in {" ", "?"}:
+                    unstaged.append(path)
+            if self._is_generated_path(path):
+                generated.append(path)
+        relevant_prefixes = ("src/", "backend/", "scripts/", "tests/", "config/", "docs/", "schemas/")
+        relevant = sorted({path for path in [*staged, *unstaged] if path.startswith(relevant_prefixes)})
+        return {
+            "staged_tracked_paths": sorted(set(staged)), "unstaged_tracked_paths": sorted(set(unstaged)),
+            "untracked_paths": sorted(set(untracked)), "relevant_dirty_paths": relevant,
+            "generated_paths": sorted(set(generated)),
+        }
+
+    def _day_one_documentation_check(self, contract: LocalLLMDayContract) -> dict[str, object]:
+        expected = ["docs/runbooks/work-plan-day1-14.md", "docs/README.md", "docs/architecture/decision-reasoning-architecture.md", "docs/handoff/handoff-2026-09-18.md"]
+        failures: list[str] = []
+        readable: dict[str, str] = {}
+        for relative in expected:
+            try:
+                readable[relative] = (self.root / relative).read_text(encoding="utf-8")
+            except (OSError, UnicodeError):
+                failures.append(f"unreadable:{relative}")
+        readme = readable.get("docs/README.md", "")
+        current_execution_lines = [line for line in readme.splitlines() if "Current execution sequence" in line]
+        checks = [
+            {"name": "authoritative_files_readable", "passed": not failures},
+            {"name": "readme_current_execution_sequence", "passed": any("runbooks/work-plan-day1-14.md" in line for line in current_execution_lines)},
+            {"name": "readme_current_architecture", "passed": "architecture/decision-reasoning-architecture.md" in readme},
+            {"name": "readme_current_handoff", "passed": "handoff/handoff-2026-09-18.md" in readme},
+            {"name": "week1_not_current_execution_source", "passed": all("week1" not in line.lower() for line in current_execution_lines)},
+        ]
+        failures.extend(check["name"] for check in checks if not check["passed"])
+        return {"checked_files": expected, "checks": checks, "failures": failures, "contract_sources": contract.authoritative_sources}
+
+    def _day_one_test_result(self, *, execute: bool = True) -> dict[str, object]:
+        candidates = ["tests/test_process_consistency_smoke.py", "tests/test_process_consistency_review_set.py"]
+        selected = [path for path in candidates if (self.root / path).is_file()]
+        if not selected:
+            return {"commands": [], "exit_code": 1, "passed": 0, "failed": 0, "deterministic_only": True, "timestamp": datetime.now(timezone.utc).isoformat(), "reason": "no approved deterministic regression tests found"}
+        command = [sys.executable, "-m", "pytest", "-q", *selected]
+        if not execute:
+            return {"commands": [command], "exit_code": None, "passed": 0, "failed": 0, "deterministic_only": True, "timestamp": datetime.now(timezone.utc).isoformat(), "reason": "read-only diagnostic; command not run"}
+        try:
+            result = subprocess.run(command, cwd=self.root, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=180, check=False)
+            combined = f"{result.stdout}\n{result.stderr}"
+            import re
+            passed = next((int(value) for value in re.findall(r"(\\d+) passed", combined)), 0)
+            failed = next((int(value) for value in re.findall(r"(\\d+) failed", combined)), 0)
+            return {"commands": [command], "exit_code": result.returncode, "passed": passed, "failed": failed, "deterministic_only": True, "timestamp": datetime.now(timezone.utc).isoformat()}
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            return {"commands": [command], "exit_code": 1, "passed": 0, "failed": 0, "deterministic_only": True, "timestamp": datetime.now(timezone.utc).isoformat(), "reason": type(exc).__name__}
+
+    def _collect_day_one_evidence(self, contract: LocalLLMDayContract, *, execute_tests: bool = True) -> dict[str, object]:
+        branch_code, branch, _ = self._git("branch", "--show-current")
+        head_code, head, _ = self._git("rev-parse", "HEAD")
+        commit_code, _commit, _ = self._git("cat-file", "-e", f"{head}^{{commit}}") if head else (1, "", "")
+        is_commit = head_code == 0 and commit_code == 0
+        status = self._day_one_status_audit()
+        upstream_code, upstream, _ = self._git("rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}")
+        origin_code, origin, _ = self._git("remote", "get-url", "origin")
+        upstream_sha_code, upstream_sha, _ = self._git("rev-parse", "@{upstream}") if upstream_code == 0 else (1, "", "")
+        ahead, behind = None, None
+        if upstream_sha_code == 0:
+            count_code, counts, _ = self._git("rev-list", "--left-right", "--count", f"HEAD...@{{upstream}}")
+            if count_code == 0 and len(counts.split()) == 2:
+                ahead, behind = counts.split()
+        git_head = {"branch": branch, "head": head, "is_commit": is_commit}
+        origin_ref = {"origin_url": origin, "upstream_ref": upstream, "upstream_sha": upstream_sha, "ahead": ahead, "behind": behind}
+        staging = {"staged_paths": status["staged_tracked_paths"], "staged_generated_paths": [path for path in status["staged_tracked_paths"] if self._is_generated_path(path)]}
+        staging["generated_artifacts_not_staged"] = not staging["staged_generated_paths"]
+        documentation = self._day_one_documentation_check(contract)
+        tests = self._day_one_test_result(execute=execute_tests)
+        commit_ref = {"branch": branch, "head": head, "is_commit": is_commit, "relevant_dirty_paths": status["relevant_dirty_paths"], "reproducible": not status["relevant_dirty_paths"]}
+        evidence = {
+            "git_head": self._record("git_head", git_head, "git branch --show-current; git rev-parse HEAD; git cat-file -e HEAD^{commit}", branch_code == 0 and is_commit),
+            "origin_ref": self._record("origin_ref", origin_ref, "git remote get-url origin; git rev-parse @{upstream}; git rev-list --left-right --count", origin_code == 0 and upstream_sha_code == 0 and bool(origin) and bool(upstream) and bool(upstream_sha)),
+            "status_audit": self._record("status_audit", status, "git status --porcelain=v1 -uall", True),
+            "staging_audit": self._record("staging_audit", staging, "git status --porcelain=v1 -uall (index column)", bool(staging["generated_artifacts_not_staged"])),
+            "documentation_check": self._record("documentation_check", documentation, "deterministic authoritative-document relationship checks", not documentation["failures"]),
+            "test_result": self._record("test_result", tests, " ".join(str(part) for part in tests["commands"][0]) if tests["commands"] else "no approved command", tests["exit_code"] == 0),
+            "commit_ref": self._record("commit_ref", commit_ref, "git rev-parse HEAD; git cat-file -e HEAD^{commit}; git status --porcelain=v1 -uall", is_commit and commit_ref["reproducible"]),
+        }
+        return {"final_result": "COMPLETE", "evidence": evidence, "collection": "day1_deterministic"}
+
     def _record_repair_rejection(self, item: LocalLLMDayWorkItem, code: str, *, card: LocalLLMRepairCard | None = None, executor_result: dict[str, object] | None = None) -> dict[str, object]:
         with self._lock:
             if card:
@@ -427,9 +590,45 @@ class LocalLLMDayProgram:
             return DayIssueClassification.INSUFFICIENT_EVIDENCE
 
     @staticmethod
-    def _merge_criteria(current: list[DayCriterion], saved: list[DayCriterion]) -> list[DayCriterion]:
-        old = {item.criterion_id: item for item in saved}
-        return [item.model_copy(update={"satisfied": old[item.criterion_id].satisfied, "evidence": old[item.criterion_id].evidence}) if item.criterion_id in old else item for item in current]
+    def _criterion_ids(contract: LocalLLMDayContract) -> set[str]:
+        return {criterion.criterion_id for criterion in contract.completion_criteria}
+
+    def _restore_contract(self, current: LocalLLMDayContract, saved: LocalLLMDayContract) -> LocalLLMDayContract:
+        """Restore only evidence that validates under the current contract."""
+        prior = {criterion.criterion_id: criterion for criterion in saved.completion_criteria}
+        criteria: list[DayCriterion] = []
+        for criterion in current.completion_criteria:
+            old = prior.get(criterion.criterion_id)
+            evidence = old.evidence if old and self._criterion_evidence_valid(criterion, old.evidence) else {}
+            criteria.append(criterion.model_copy(update={"evidence": evidence, "satisfied": bool(evidence)}))
+        restored = current.model_copy(update={"completion_criteria": criteria})
+        restored.satisfied_criteria = [criterion.criterion_id for criterion in criteria if criterion.satisfied]
+        restored.remaining_gaps = [criterion.criterion_id for criterion in criteria if not criterion.satisfied]
+        return restored
+
+    def _valid_work_items(self, items: list[LocalLLMDayWorkItem], contract: LocalLLMDayContract) -> list[LocalLLMDayWorkItem]:
+        known = self._criterion_ids(contract)
+        return [item for item in items if item.contract_day == contract.day and item.contract_version == contract.version
+                and item.criterion_ids and set(item.criterion_ids).issubset(known)]
+
+    def _restore_snapshot(self) -> None:
+        """A persisted boolean is never authority after process restart."""
+        day = self.snapshot.selected_day
+        current = self._load_contracts().get(day) if day is not None else None
+        if current is None:
+            return
+        if self.snapshot.contract is None or self.snapshot.contract.version != current.version:
+            self.snapshot = LocalLLMDaySnapshot(
+                selected_day=day, objective=current.objective, contract=current,
+                activity="Saved Day state requires evidence revalidation under the current contract.",
+            )
+            return
+        self.snapshot.contract = self._restore_contract(current, self.snapshot.contract)
+        self.snapshot.work_items = self._valid_work_items(self.snapshot.work_items, current)
+        self._evaluate_contract(self.snapshot.contract, self._inventory(current))
+        if self.snapshot.state == LocalLLMDayState.COMPLETE and self.snapshot.contract.remaining_gaps:
+            self.snapshot.state = LocalLLMDayState.PAUSED
+            self.snapshot.activity = "Saved completion was invalidated because required evidence does not validate."
 
     @staticmethod
     def _bounded(value: object) -> dict[str, object]:

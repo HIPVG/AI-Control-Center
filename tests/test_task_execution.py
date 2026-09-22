@@ -1,6 +1,8 @@
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from backend.control.projects import ConfiguredProject, ProjectRegistry
 from backend.control.local_ollama_repair import RepairEdit, RepairProposal
 from backend.control.tasks import ConfiguredTask, TaskCommand, TaskRegistry, load_task_registry
@@ -131,7 +133,7 @@ def test_precheck_pass_completes_without_codex_and_source_remains_unchanged(tmp_
     assert result["task_branch"].startswith("agent/pc-001-a-")
 
 
-def test_dynamic_day_engineering_work_uses_guarded_worktree_without_registered_task_id(tmp_path):
+def test_dynamic_day_engineering_work_uses_guarded_worktree_without_manufacturing_criterion_evidence(tmp_path):
     runner = TaskWriter()
     engine, _ = engine_for(tmp_path, runner)
     command_results(engine, [
@@ -147,8 +149,19 @@ def test_dynamic_day_engineering_work_uses_guarded_worktree_without_registered_t
         },
     })
     assert result["final_result"] == "COMPLETE"
-    assert result["evidence"]["d6-fail_closed_temporal"]["engine_task_id"] == "day-6-temporal-fixture"
+    assert result["evidence"] == {}
     assert runner.called == 1
+
+
+@pytest.mark.parametrize("task_id", ["PC-001-A", "PC-001-C", "PC-002-A"])
+def test_completed_static_process_task_has_no_day_evidence_capability(tmp_path, task_id):
+    runner = TaskWriter()
+    engine, _ = engine_for(tmp_path, runner)
+    engine.tasks.tasks[task_id] = configured_task().model_copy(update={"task_id": task_id})
+    command_results(engine, [{"exit_code": 0, "passed": True, "stdout": "ok"}])
+    result = engine._execute_local_llm_day_work_order({"kind": "ENGINE_WORK_ORDER", "engine_task_id": task_id, "criterion_ids": ["d1-repository_relationship"]})
+    assert result["final_result"] == "COMPLETE_NO_CHANGE"
+    assert result["evidence"] == {}
 
 
 def test_dynamic_day_engineering_work_rejects_protected_path_before_execution(tmp_path):

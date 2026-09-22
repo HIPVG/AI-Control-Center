@@ -119,6 +119,7 @@ class CodexDayContractPlanner:
             "Apply the role-specific boundaries of Working Rules WR-01, WR-04, WR-05, WR-07, WR-10, and WR-13. "
             "Create at most three tasks for the remaining criteria. Inspect only the bounded tracked_context_files and source-presence inventory supplied by the server; do not run commands or modify files. "
             "Use ENGINE_WORK_ORDER only with a listed trusted_engine_task_id. You may use DYNAMIC_ENGINEERING_WORK only with a fully populated policy-conforming dynamic_work_order; it is data only and the server derives commands. "
+            "criterion_ids identify the objective being worked on. They do not grant evidence capability. Only server-owned deterministic evidence collectors or adapters can satisfy required_evidence. "
             "Do not create arbitrary commands, criteria, or authority.\n" + json.dumps(request, ensure_ascii=False, separators=(",", ":"))
         )
         result = self.runner.run_readonly_structured(workspace, prompt, schema_path)
