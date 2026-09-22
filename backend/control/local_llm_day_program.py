@@ -8,13 +8,14 @@ input or an LLM response.
 
 from __future__ import annotations
 
-import re
 import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import Event, RLock, Thread
 from typing import Callable
+
+import yaml
 
 from backend.control.local_ollama_repair import LocalOllamaRepairBuilder
 from backend.models.local_llm_day import (
@@ -43,13 +44,7 @@ class LocalLLMDayProgram:
     evidence work only.
     """
 
-    RUNBOOK = Path("docs/runbooks/work-plan-day1-14.md")
-    SOURCES = (
-        RUNBOOK,
-        Path("docs/README.md"),
-        Path("docs/architecture/decision-reasoning-architecture.md"),
-        Path("docs/handoff/handoff-2026-09-18.md"),
-    )
+    PROGRAM_PATH = Path(__file__).resolve().parents[2] / "config" / "local_llm_day_program.yaml"
     MAX_TASKS = 3
     MAX_REPLANS = 2
     MAX_LOCAL_PROPOSALS = 3
@@ -96,7 +91,7 @@ class LocalLLMDayProgram:
         contract = self._load_contracts().get(day)
         if contract is None:
             return {"error_code": "DAY_NOT_CONFIGURED", **self.view()}
-        inventory = self._inventory()
+        inventory = self._inventory(contract)
         missing = inventory["missing_sources"]
         result = "SMOKE_PASS" if not missing else "SMOKE_SOURCE_MISSING"
         with self._lock:
@@ -182,7 +177,7 @@ class LocalLLMDayProgram:
             verification="Run the configured deterministic postcheck after an in-scope Builder result.",
             failure_class=DayIssueClassification.IMPLEMENTATION_DEFECT.value, failed_work_item=item.item_id,
         )
-        work_order = {"kind": "LOCAL_LLM_COUNTERMEASURE", "task_id": item.item_id, "proposal": proposal, "files": sorted(files)}
+        work_order = {"kind": "LOCAL_LLM_COUNTERMEASURE", "task_id": item.item_id, "proposal": proposal, "files": sorted(files), "dynamic_work_order": item.dynamic_work_order.model_dump(mode="json") if item.dynamic_work_order else None}
         result = self.work_order_executor(work_order)
         if result.get("final_result") not in {"COMPLETE", "COMPLETE_NO_CHANGE"}:
             return self._record_repair_rejection(item, str(result.get("error_code") or "CODEX_REJECTED_PROPOSAL"), card=card, executor_result=result)
@@ -234,7 +229,7 @@ class LocalLLMDayProgram:
         item.state = LocalLLMWorkItemState.RUNNING
         self.snapshot.activity = item.title
         self._save()
-        result = self.work_order_executor({"kind": item.kind, "task_id": item.item_id, "engine_task_id": item.engine_task_id, "criterion_ids": item.criterion_ids, "contract": contract.model_dump(mode="json"), "inventory": inventory})
+        result = self.work_order_executor({"kind": item.kind, "task_id": item.item_id, "engine_task_id": item.engine_task_id, "dynamic_work_order": item.dynamic_work_order.model_dump(mode="json") if item.dynamic_work_order else None, "criterion_ids": item.criterion_ids, "contract": contract.model_dump(mode="json"), "inventory": inventory})
         final = result.get("final_result")
         if final in {"COMPLETE", "COMPLETE_NO_CHANGE"}:
             item.state, item.evidence = LocalLLMWorkItemState.COMPLETE, self._bounded(result)
@@ -248,6 +243,18 @@ class LocalLLMDayProgram:
         classification = self._classify_result(result)
         item.state = LocalLLMWorkItemState.FAILED
         item.evidence = self._bounded(result)
+        if classification == DayIssueClassification.IMPLEMENTATION_DEFECT and item.dynamic_work_order is not None and not self.snapshot.repair_attempted:
+            # Ordinary engineering failures receive one bounded automatic
+            # countermeasure review. Research findings never enter this path.
+            self.snapshot.state = LocalLLMDayState.FAILED
+            self.snapshot.issue_classification = classification
+            self._save()
+            repaired = self.repair_and_go()
+            if repaired.get("state") == LocalLLMDayState.PAUSED.value:
+                self.snapshot.state = LocalLLMDayState.RUNNING
+                self.snapshot.activity = "Codex reviewed the LocalLLM countermeasure; re-evaluating trusted evidence."
+                self._save()
+                return
         self._fail(contract, "DAY_TASK_FAILED", "A planned task did not produce trusted evidence.", classification, inventory)
 
     def _complete(self, contract: LocalLLMDayContract, inventory: dict[str, object]) -> None:
@@ -274,9 +281,32 @@ class LocalLLMDayProgram:
                 if item.evidence.get("evidence", {}).get(criterion.criterion_id):
                     criterion.satisfied, criterion.evidence = True, self._bounded(item.evidence["evidence"][criterion.criterion_id])
                     break
+        # A read-only resolver recognizes retained, named result manifests.
+        # It never reruns inference, reads model output, or infers success from
+        # a directory alone.
+        for criterion_id, evidence in self._existing_evidence(contract).items():
+            criterion = next((value for value in contract.completion_criteria if value.criterion_id == criterion_id), None)
+            if criterion and not criterion.satisfied:
+                criterion.satisfied, criterion.evidence = True, evidence
         contract.satisfied_criteria = [item.criterion_id for item in contract.completion_criteria if item.satisfied]
         contract.remaining_gaps = [item.criterion_id for item in contract.completion_criteria if not item.satisfied]
         self._update_progress(contract)
+
+    def _existing_evidence(self, contract: LocalLLMDayContract) -> dict[str, dict[str, object]]:
+        """Resolve only retained manifest/summary records known to be evidence."""
+        evidence: dict[str, dict[str, object]] = {}
+        def latest(pattern: str, required: tuple[str, ...]) -> Path | None:
+            candidates = sorted((path for path in self.root.glob(pattern) if path.is_dir() and all((path / name).is_file() for name in required)), key=lambda path: path.name)
+            return candidates[-1] if candidates else None
+        drap = latest("results/decision-reasoning-v0.4/DRAP-*", ("manifest.json", "validation.jsonl", "action-gate-summary.json"))
+        dagb = latest("results/decision-generalization/DAGB2-*", ("manifest.json",))
+        if contract.day == 2 and drap:
+            for suffix in ("feasibility_gate", "relevance_gate", "deterministic_validation"):
+                evidence[f"d2-{suffix}"] = {"source": str(drap.relative_to(self.root)).replace("\\", "/"), "manifest": "manifest.json", "validation": "validation.jsonl", "mode": "existing_evidence"}
+        if contract.day == 4 and dagb:
+            for suffix in ("frozen_holdout", "evaluation_results"):
+                evidence[f"d4-{suffix}"] = {"source": str(dagb.relative_to(self.root)).replace("\\", "/"), "manifest": "manifest.json", "mode": "existing_evidence"}
+        return evidence
 
     def _validated_plan(self, contract: LocalLLMDayContract, inventory: dict[str, object]) -> list[LocalLLMDayWorkItem]:
         proposed = self.planner(contract, inventory)
@@ -286,12 +316,18 @@ class LocalLLMDayProgram:
         seen: set[str] = set()
         validated: list[LocalLLMDayWorkItem] = []
         for item in proposed:
-            if not isinstance(item, LocalLLMDayWorkItem) or item.item_id in seen or item.kind not in {"EVIDENCE_CHECK", "ENGINE_WORK_ORDER"}:
+            if not isinstance(item, LocalLLMDayWorkItem) or item.item_id in seen or item.kind not in {"EVIDENCE_CHECK", "ENGINE_WORK_ORDER", "DYNAMIC_ENGINEERING_WORK"}:
                 raise ValueError("planner proposed an untrusted task")
             if item.kind == "ENGINE_WORK_ORDER" and not item.engine_task_id:
                 raise ValueError("engine work order has no trusted task identifier")
+            if item.kind == "DYNAMIC_ENGINEERING_WORK" and item.dynamic_work_order is None:
+                raise ValueError("dynamic engineering work has no bounded work order")
+            if item.kind == "DYNAMIC_ENGINEERING_WORK" and item.engine_task_id is not None:
+                raise ValueError("dynamic engineering work cannot select a configured task")
             if item.kind == "EVIDENCE_CHECK" and item.engine_task_id is not None:
                 raise ValueError("evidence check cannot select an engine task")
+            if item.kind == "EVIDENCE_CHECK" and item.dynamic_work_order is not None:
+                raise ValueError("evidence check cannot create an engineering work order")
             if not item.criterion_ids or not set(item.criterion_ids).issubset(set(contract.remaining_gaps) & known):
                 raise ValueError("planner expanded Day authority")
             seen.add(item.item_id)
@@ -315,39 +351,37 @@ class LocalLLMDayProgram:
         return {"final_result": "COMPLETE", "evidence": {}, "inspection": "sources inventoried; delivery evidence not inferred"}
 
     def _load_contracts(self) -> dict[int, LocalLLMDayContract]:
-        path = self.root / self.RUNBOOK
+        path = self.PROGRAM_PATH
         try:
-            text = path.read_text(encoding="utf-8")
+            document = yaml.safe_load(path.read_text(encoding="utf-8"))
         except (OSError, UnicodeError):
             return {}
-        shared = text.split("## Day 1", 1)[0]
-        shared_constraints = [line[2:].strip() for line in shared.splitlines() if line.startswith("- ")]
-        matches = list(re.finditer(r"^## Day (\d+)\s*-\s*(.+)$", text, flags=re.MULTILINE))
+        if not isinstance(document, dict):
+            return {}
+        sources = document.get("authoritative_sources")
+        shared_constraints = document.get("shared_constraints")
+        definitions = document.get("days")
+        if not isinstance(sources, list) or not isinstance(shared_constraints, list) or not isinstance(definitions, list):
+            return {}
         contracts: dict[int, LocalLLMDayContract] = {}
-        for index, match in enumerate(matches):
-            day = int(match.group(1))
-            body = text[match.end():matches[index + 1].start() if index + 1 < len(matches) else len(text)].strip()
-            objective = re.sub(r"\s+", " ", f"{match.group(2).strip()}. {body}").strip()
-            criteria = self._criteria_from_text(day, body)
-            contracts[day] = LocalLLMDayContract(
-                day=day, objective=objective,
-                completion_criteria=criteria,
-                constraints=list(dict.fromkeys([*self.SHARED_CONSTRAINTS, *shared_constraints]))[:20],
-                authoritative_sources=[str(source).replace("\\", "/") for source in self.SOURCES],
-                remaining_gaps=[criterion.criterion_id for criterion in criteria],
-            )
-        return dict(sorted(contracts.items()))
+        for definition in definitions:
+            if not isinstance(definition, dict):
+                return {}
+            day = definition.get("day")
+            raw_criteria = definition.get("completion_criteria")
+            if not isinstance(day, int) or not isinstance(raw_criteria, list):
+                return {}
+            criteria = [DayCriterion(criterion_id=f"d{day}-{entry['id']}", statement=entry["statement"], required_evidence=entry["evidence"])
+                        for entry in raw_criteria if isinstance(entry, dict) and isinstance(entry.get("id"), str) and isinstance(entry.get("statement"), str) and isinstance(entry.get("evidence"), list)]
+            if len(criteria) != len(raw_criteria):
+                return {}
+            contracts[day] = LocalLLMDayContract(day=day, title=str(definition.get("title", "")), version=str(document.get("version", "v1")), objective=str(definition.get("objective", "")), completion_criteria=criteria, constraints=[str(value) for value in shared_constraints], authoritative_sources=[str(value).replace("\\", "/") for value in sources], remaining_gaps=[criterion.criterion_id for criterion in criteria])
+        return contracts if set(contracts) == set(range(1, 15)) else {}
 
-    @staticmethod
-    def _criteria_from_text(day: int, body: str) -> list[DayCriterion]:
-        clauses = re.split(r"(?<=[.!?])\s+|;\s+", re.sub(r"\s+", " ", body))
-        statements = [clause.strip(" .") for clause in clauses if len(clause.strip(" .")) > 12]
-        if not statements:
-            statements = ["The runbook-defined Day objective has trustworthy recorded evidence"]
-        return [DayCriterion(criterion_id=f"d{day}-c{number}", statement=statement, required_evidence=["tracked source or bounded artifact", "deterministic verification"]) for number, statement in enumerate(statements[:6], start=1)]
-
-    def _inventory(self) -> dict[str, object]:
-        source_presence = {str(source).replace("\\", "/"): (self.root / source).is_file() for source in self.SOURCES}
+    def _inventory(self, contract: LocalLLMDayContract | None = None) -> dict[str, object]:
+        contract = contract or self.snapshot.contract
+        sources = contract.authoritative_sources if contract else []
+        source_presence = {source: (self.root / source).is_file() for source in sources}
         return {**self._git_state(), "source_presence": source_presence, "missing_sources": [path for path, present in source_presence.items() if not present]}
 
     def _git_state(self) -> dict[str, object]:
@@ -357,7 +391,9 @@ class LocalLLMDayProgram:
             except (OSError, subprocess.TimeoutExpired):
                 return ""
         status = output(["status", "--short"])
-        return {"branch": output(["branch", "--show-current"]), "head": output(["rev-parse", "HEAD"]), "origin": output(["remote", "get-url", "origin"]), "working_tree_clean": not bool(status), "status_count": len(status.splitlines()) if status else 0}
+        tracked = output(["ls-files"]).splitlines()
+        safe_context = [path.replace("\\", "/") for path in tracked if path.startswith(("src/", "scripts/", "tests/", "config/", "docs/")) and Path(path).suffix.lower() in {".py", ".yaml", ".yml", ".json", ".md"}]
+        return {"branch": output(["branch", "--show-current"]), "head": output(["rev-parse", "HEAD"]), "origin": output(["remote", "get-url", "origin"]), "working_tree_clean": not bool(status), "status_count": len(status.splitlines()) if status else 0, "tracked_context_files": safe_context[:80]}
 
     def _record_repair_rejection(self, item: LocalLLMDayWorkItem, code: str, *, card: LocalLLMRepairCard | None = None, executor_result: dict[str, object] | None = None) -> dict[str, object]:
         with self._lock:
@@ -368,9 +404,25 @@ class LocalLLMDayProgram:
             self._save()
             return self.view()
 
-    def _bounded_repair_files(self, _item: LocalLLMDayWorkItem) -> dict[str, str]:
-        # No source content is sent until an engine adapter explicitly supplies it.
-        return {}
+    def _bounded_repair_files(self, item: LocalLLMDayWorkItem) -> dict[str, str]:
+        """Provide only declared work-order context to the local repair model."""
+        if item.dynamic_work_order is None:
+            return {}
+        protected = ("results/", "artifacts/", "models/", "datasets/", ".env")
+        files: dict[str, str] = {}
+        for relative in [*item.dynamic_work_order.context_files, *item.dynamic_work_order.allowed_files]:
+            if relative in files or relative.startswith(protected):
+                continue
+            path = (self.root / relative).resolve()
+            try:
+                path.relative_to(self.root)
+                if path.is_file():
+                    files[relative] = path.read_text(encoding="utf-8", errors="replace")[:4000]
+            except OSError:
+                continue
+            if len(files) >= 3:
+                break
+        return files
 
     @staticmethod
     def _classify_result(result: dict[str, object]) -> DayIssueClassification:

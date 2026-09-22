@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from enum import Enum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class LocalLLMDayState(str, Enum):
@@ -43,6 +43,8 @@ class LocalLLMDayContract(BaseModel):
     """The durable WHAT contract; it intentionally contains no task recipe."""
 
     day: int = Field(ge=1, le=14)
+    title: str = Field(min_length=1, max_length=300)
+    version: str = Field(default="v1", min_length=1, max_length=80)
     objective: str = Field(min_length=1, max_length=1600)
     completion_criteria: list[DayCriterion] = Field(min_length=1, max_length=20)
     constraints: list[str] = Field(min_length=1, max_length=20)
@@ -59,10 +61,48 @@ class LocalLLMDayWorkItem(BaseModel):
     objective: str = Field(min_length=1, max_length=1200)
     kind: str = Field(default="EVIDENCE_CHECK", max_length=60)
     engine_task_id: str | None = Field(default=None, max_length=120)
+    dynamic_work_order: "DynamicDayWorkOrder | None" = None
     criterion_ids: list[str] = Field(default_factory=list, max_length=12)
     state: LocalLLMWorkItemState = LocalLLMWorkItemState.PENDING
     evidence: dict[str, object] = Field(default_factory=dict)
     blocked_reason: str | None = None
+
+
+class DynamicDayWorkOrder(BaseModel):
+    """Server-validated authority for one new Day engineering task.
+
+    It deliberately describes a bounded edit and deterministic test files, not
+    a shell command.  The engine derives commands and always runs in a managed
+    worktree.
+    """
+
+    task_id: str = Field(min_length=6, max_length=120, pattern=r"^day-[0-9]{1,2}-[a-z0-9-]+$")
+    project_id: str = Field(default="local_llm_lab", pattern=r"^local_llm_lab$")
+    task_type: str = Field(default="code_fix", pattern=r"^(code_fix|config|plan)$")
+    allowed_files: list[str] = Field(min_length=1, max_length=8)
+    context_files: list[str] = Field(min_length=1, max_length=10)
+    acceptance_test_files: list[str] = Field(min_length=1, max_length=5)
+
+    @staticmethod
+    def _safe_paths(values: list[str], *, tests_only: bool = False) -> list[str]:
+        normalized = [value.replace("\\\\", "/").strip() for value in values]
+        if any(not value or value.startswith("/") or ":" in value or ".." in value.split("/") for value in normalized):
+            raise ValueError("dynamic work-order paths must be safe relative paths")
+        if tests_only and any(not value.startswith("tests/") or not value.endswith(".py") for value in normalized):
+            raise ValueError("dynamic acceptance tests must be repository test files")
+        if len(normalized) != len(set(normalized)):
+            raise ValueError("dynamic work-order paths must be unique")
+        return normalized
+
+    @field_validator("allowed_files", "context_files")
+    @classmethod
+    def safe_paths(cls, values: list[str]) -> list[str]:
+        return cls._safe_paths(values)
+
+    @field_validator("acceptance_test_files")
+    @classmethod
+    def safe_test_paths(cls, values: list[str]) -> list[str]:
+        return cls._safe_paths(values, tests_only=True)
 
 
 class LocalLLMDayReport(BaseModel):

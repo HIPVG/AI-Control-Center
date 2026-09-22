@@ -1,0 +1,116 @@
+version: "2026-09-22-v1"
+authoritative_sources:
+  - docs/runbooks/work-plan-day1-14.md
+  - docs/README.md
+  - docs/architecture/decision-reasoning-architecture.md
+  - docs/handoff/handoff-2026-09-18.md
+shared_constraints:
+  - Preserve generated artifacts, models, datasets, results, and failed research evidence.
+  - Python and deterministic validation own facts, state, and completion evidence.
+  - Do not change research conditions, install software, use cloud services, or push main.
+  - LocalLLM proposals are advisory only and never directly edit source or decide completion.
+days:
+  - day: 1
+    title: Repository reconciliation and baseline freeze
+    objective: Preserve a coherent, reproducible research baseline without deleting local artifacts.
+    completion_criteria:
+      - {id: repository_relationship, statement: Local checkpoint and origin relationship are inspected, evidence: [git_head, origin_ref]}
+      - {id: preservation_audit, statement: Tracked source/config/schema/test/doc work is coherent and generated artifacts are not staged, evidence: [status_audit, staging_audit]}
+      - {id: documentation_consistency, statement: Source-of-truth documentation is consistent, evidence: [documentation_check]}
+      - {id: regression_baseline, statement: Relevant regression tests pass and a reproducible baseline ref is recorded, evidence: [test_result, commit_ref]}
+  - day: 2
+    title: DRAP v0.4 Feasible and Relevant Action Gate
+    objective: Establish the deterministic feasible and relevant action gate while preserving the v0.3.2 baseline.
+    completion_criteria:
+      - {id: feasibility_gate, statement: Python filters infeasible actions, evidence: [source_check, deterministic_tests]}
+      - {id: relevance_gate, statement: Python filters actions unrelated to verified active issues, evidence: [source_check, deterministic_tests]}
+      - {id: deterministic_validation, statement: Compatibility and plan validation remain deterministic with no production evaluation oracle or case-specific branch, evidence: [architecture_check, test_result]}
+      - {id: baseline_preserved, statement: The v0.3.2 baseline remains reproducible and preserved, evidence: [baseline_ref, preservation_audit]}
+  - day: 3
+    title: v0.3.2 versus v0.4 regression
+    objective: Preserve a fixed-condition comparison of the two versions.
+    completion_criteria:
+      - {id: fixed_comparison, statement: Both version artifacts are preserved under a fixed condition, evidence: [v032_artifact, v04_artifact, condition_record]}
+      - {id: plan_counts, statement: Valid plan rate/count and invalid plan count are recorded, evidence: [comparison_metrics]}
+      - {id: cost_metrics, statement: "Action-set size, prompt tokens, output tokens, and elapsed time are recorded", evidence: [comparison_metrics]}
+      - {id: coverage_metrics, statement: Blocking and mandatory coverage are recorded without rerunning failed inference to improve results, evidence: [comparison_metrics, failure_policy]}
+  - day: 4
+    title: Fresh holdout, metamorphic, counterfactual
+    objective: Evaluate frozen architecture on genuinely fresh holdout and preserve all outcomes.
+    completion_criteria:
+      - {id: frozen_holdout, statement: A genuinely unseen frozen holdout and frozen architecture are evidenced, evidence: [holdout_manifest, architecture_ref]}
+      - {id: evaluation_results, statement: "Fresh holdout, metamorphic invariance, and counterfactual sensitivity results are preserved", evidence: [dagb_artifact]}
+      - {id: anti_leakage, statement: Oracle-leakage and hard-coding checks are recorded and failures are retained, evidence: [anti_leakage_check, retained_failures]}
+  - day: 5
+    title: Plan-selection precision
+    objective: Evaluate current plan-selection precision with the shared deterministic validator.
+    completion_criteria:
+      - {id: local_precision, statement: Current local precision is evaluated with the shared Python validator, evidence: [validator_result, local_artifact]}
+      - {id: teacher_comparability, statement: Compatible frozen Teacher evidence is reused only with its comparability limits stated, evidence: [teacher_evidence, limitation_record]}
+      - {id: decision_record, statement: The remaining local-vs-Teacher gap and Plan Critic or Selector value decision are evidence based, evidence: [decision_record]}
+  - day: 6
+    title: Temporal-state design
+    objective: Define deterministic temporal state contracts without making the LLM a state owner.
+    completion_criteria:
+      - {id: state_representations, statement: "Planned, actual, forecast, and snapshot/as-of state are explicitly represented", evidence: [schema_contract, source_check]}
+      - {id: temporal_provenance, statement: Required temporal facts and provenance are defined, evidence: [schema_contract, provenance_test]}
+      - {id: fail_closed_temporal, statement: Contradictory or missing temporal facts fail closed, evidence: [deterministic_tests]}
+      - {id: architecture_consistency, statement: Contracts remain consistent with architecture principles and deterministic state ownership, evidence: [architecture_check]}
+  - day: 7
+    title: Temporal-case validation
+    objective: Deterministically validate temporal contradictions and state behavior.
+    completion_criteria:
+      - {id: production_shortage_case, statement: Production-complete plus blocking shortage contradiction is covered, evidence: [deterministic_tests]}
+      - {id: state_disagreement_case, statement: Planned versus actual disagreement and stale snapshot cases are covered, evidence: [deterministic_tests]}
+      - {id: forecast_actual_case, statement: Forecast versus actual confusion is covered where relevant, evidence: [deterministic_tests, validation_report]}
+  - day: 8
+    title: Novelty Scout proof of concept
+    objective: Observe bounded LocalLLM issue proposals without allowing them to mutate canonical state.
+    completion_criteria:
+      - {id: proposal_behavior, statement: A LocalLLM proposes potentially registry-external issues and usefulness or false-positive behavior is observed, evidence: [novelty_artifact]}
+      - {id: python_ownership, statement: Python remains owner of known issues and proposals are not facts, evidence: [source_check, deterministic_tests]}
+      - {id: provenance_and_nonmutation, statement: Proposal provenance is retained and no proposal automatically mutates canonical state, evidence: [provenance_artifact, nonmutation_test]}
+  - day: 9
+    title: Explanation and trade-off stage
+    objective: Add a bounded post-validation explanation stage without altering validated plans.
+    completion_criteria:
+      - {id: post_skeleton_stage, statement: Explanation runs only after a validated Plan Skeleton and benefits risks and trade-offs are separate, evidence: [source_check, deterministic_tests]}
+      - {id: immutable_plan, statement: Explanation generation cannot alter the validated plan, evidence: [nonmutation_test]}
+      - {id: bounded_contract, statement: Output schema and parse validation are bounded and tested, evidence: [schema_contract, deterministic_tests]}
+  - day: 10
+    title: End-to-end performance
+    objective: Measure local end-to-end behavior under a fixed condition without overstating certainty.
+    completion_criteria:
+      - {id: call_and_token_metrics, statement: LLM call count plus prompt/input and output tokens are recorded, evidence: [performance_artifact]}
+      - {id: runtime_resources, statement: Elapsed time VRAM CPU and RAM are recorded, evidence: [performance_artifact]}
+      - {id: failure_and_configuration, statement: Failure rate model runtime configuration and fixed test condition are recorded, evidence: [performance_artifact, condition_record]}
+      - {id: stability_limits, statement: Cold/warm limits and any repeated-run distribution limits are stated without claiming certainty from one call, evidence: [limitation_record]}
+  - day: 11
+    title: Product configuration
+    objective: Produce an evidence-based advisory deployment matrix.
+    completion_criteria:
+      - {id: deployment_matrix, statement: Matrix covers 12-16 GB standard tier upper tier and escalation criteria, evidence: [deployment_matrix]}
+      - {id: expansion_evidence, statement: 24 GB value and 30B-class business or quality justification are stated from evidence, evidence: [hardware_evidence]}
+      - {id: workload_limits, statement: Important workload limits are recorded without forcing a commercial decision, evidence: [advisory_record]}
+  - day: 12
+    title: Reproducibility and operations
+    objective: Make a new operator able to reproduce and recover the environment.
+    completion_criteria:
+      - {id: setup_and_prerequisites, statement: Setup path and install/runtime prerequisites are documented, evidence: [operator_docs]}
+      - {id: backup_and_recovery, statement: Backup path and failure recovery are documented or verified, evidence: [operator_docs, recovery_check]}
+      - {id: artifact_operations, statement: Artifact handling logging diagnostics and source-control exclusion are documented, evidence: [operator_docs, gitignore_check]}
+  - day: 13
+    title: Full regression and new fresh holdout
+    objective: Run complete relevant regression and a genuinely new frozen holdout while retaining failures.
+    completion_criteria:
+      - {id: full_regression, statement: Complete relevant regression suite passes, evidence: [full_test_result]}
+      - {id: new_holdout, statement: A genuinely new unseen holdout is evaluated with frozen architecture, evidence: [holdout_manifest, architecture_ref, result_artifact]}
+      - {id: failure_retention, statement: Failures are retained and model-quality failures are not silently repaired, evidence: [retained_failures, classification_record]}
+      - {id: status_summary, statement: Current architecture status is summarized from new evidence, evidence: [status_summary]}
+  - day: 14
+    title: Sprint review
+    objective: Produce an advisory conclusion and stop for human product-direction review.
+    completion_criteria:
+      - {id: architecture_conclusion, statement: Current 14B architecture conclusion product readiness strengths limitations and unresolved risks are summarized, evidence: [sprint_review]}
+      - {id: hardware_conclusion, statement: Hardware requirements and evidence for or against 30B and 24 GB expansion are summarized, evidence: [sprint_review]}
+      - {id: next_direction, statement: Recommended next research or product direction is advisory and ends in human review, evidence: [sprint_review, human_review_marker]}

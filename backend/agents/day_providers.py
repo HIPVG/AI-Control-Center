@@ -17,7 +17,7 @@ from backend.models.model_routing import ProviderExecutionConfig
 from backend.models.orchestration import ProviderSettings
 from backend.models.result import TokenUsage
 from backend.runners.codex import RealCodexRunner, StructuredCodexResult
-from backend.models.local_llm_day import LocalLLMDayContract, LocalLLMDayWorkItem
+from backend.models.local_llm_day import DynamicDayWorkOrder, LocalLLMDayContract, LocalLLMDayWorkItem
 
 
 class ProviderConfigurationError(RuntimeError):
@@ -83,12 +83,22 @@ class CodexDayContractPlanner:
             "type": "object", "additionalProperties": False, "required": ["tasks"],
             "properties": {"tasks": {"type": "array", "minItems": 1, "maxItems": 3, "items": {
                 "type": "object", "additionalProperties": False,
-                "required": ["item_id", "title", "objective", "kind", "criterion_ids", "engine_task_id"],
+                "required": ["item_id", "title", "objective", "kind", "criterion_ids", "engine_task_id", "dynamic_work_order"],
                 "properties": {
                     "item_id": {"type": "string"}, "title": {"type": "string"}, "objective": {"type": "string"},
-                    "kind": {"type": "string", "enum": ["EVIDENCE_CHECK", "ENGINE_WORK_ORDER"]},
+                    "kind": {"type": "string", "enum": ["EVIDENCE_CHECK", "ENGINE_WORK_ORDER", "DYNAMIC_ENGINEERING_WORK"]},
                     "criterion_ids": {"type": "array", "items": {"type": "string"}},
                     "engine_task_id": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+                    "dynamic_work_order": {"anyOf": [
+                        {"type": "null"},
+                        {"type": "object", "additionalProperties": False,
+                         "required": ["task_id", "project_id", "task_type", "allowed_files", "context_files", "acceptance_test_files"],
+                         "properties": {
+                            "task_id": {"type": "string"}, "project_id": {"type": "string"}, "task_type": {"type": "string", "enum": ["code_fix", "config", "plan"]},
+                            "allowed_files": {"type": "array", "items": {"type": "string"}},
+                            "context_files": {"type": "array", "items": {"type": "string"}},
+                            "acceptance_test_files": {"type": "array", "items": {"type": "string"}}
+                         }}]},
                 },
             }}},
         }
@@ -98,12 +108,17 @@ class CodexDayContractPlanner:
         request = {
             "contract": contract.model_dump(mode="json"), "inventory": inventory,
             "trusted_engine_task_ids": sorted(self.trusted_task_ids),
+            "dynamic_work_order_policy": {
+                "project_id": "local_llm_lab", "task_id_format": "day-N-lowercase-slug",
+                "safe_paths_only": True, "acceptance_tests_must_be": "tests/*.py",
+                "forbidden_path_prefixes": ["results/", "artifacts/", "models/", "datasets/", ".env"],
+            },
         }
         prompt = (
             "You are the read-only Codex Architect for one governed Day Contract. Return JSON only. "
-            "Create at most three tasks for the remaining criteria. Do not inspect files, run commands, or modify files. "
-            "Use ENGINE_WORK_ORDER only with a listed trusted_engine_task_id; use EVIDENCE_CHECK otherwise. "
-            "Do not create commands, paths, scopes, tests, criteria, or authority.\n" + json.dumps(request, ensure_ascii=False, separators=(",", ":"))
+            "Create at most three tasks for the remaining criteria. Inspect only the bounded tracked_context_files and source-presence inventory supplied by the server; do not run commands or modify files. "
+            "Use ENGINE_WORK_ORDER only with a listed trusted_engine_task_id. You may use DYNAMIC_ENGINEERING_WORK only with a fully populated policy-conforming dynamic_work_order; it is data only and the server derives commands. "
+            "Do not create arbitrary commands, criteria, or authority.\n" + json.dumps(request, ensure_ascii=False, separators=(",", ":"))
         )
         result = self.runner.run_readonly_structured(workspace, prompt, schema_path)
         if result.status != "completed" or not result.output_text:

@@ -38,15 +38,21 @@ def _executor(work_order):
     }
 
 
-def test_contracts_are_loaded_from_runbook_and_include_more_than_heading():
+def test_all_contracts_are_explicit_machine_readable_definitions():
     runner = LocalLLMDayProgram(FIXTURE_ROOT)
-    assert [item["day"] for item in runner.days()] == [2, 6]
+    assert [item["day"] for item in runner.days()] == list(range(1, 15))
     runner.smoke(6)
     contract = runner.view()["contract"]
-    assert contract["objective"].startswith("temporal design")
-    assert len(contract["completion_criteria"]) >= 2
+    assert contract["title"] == "Temporal-state design"
+    assert any("planned, actual, forecast" in item["statement"].lower() for item in contract["completion_criteria"])
     assert contract["constraints"]
     assert "docs/runbooks/work-plan-day1-14.md" in contract["authoritative_sources"]
+
+    runner.smoke(10)
+    performance = runner.view()["contract"]
+    requirements = " ".join(item["statement"] for item in performance["completion_criteria"])
+    assert "VRAM CPU and RAM" in requirements
+    assert "prompt/input and output tokens" in requirements
 
 
 def test_two_materially_different_days_use_the_same_generic_planner_and_executor():
@@ -71,6 +77,27 @@ def test_completion_requires_criterion_evidence_not_task_terminal_state():
     assert all(item["state"] == LocalLLMWorkItemState.COMPLETE.value for item in result["work_items"])
     assert result["contract"]["remaining_gaps"]
     assert result["replan_count"] == LocalLLMDayProgram.MAX_REPLANS
+
+
+def test_existing_retained_day_two_evidence_is_used_without_rerunning_it(tmp_path):
+    retained = tmp_path / "results" / "decision-reasoning-v0.4" / "DRAP-retained"
+    retained.mkdir(parents=True)
+    for name in ("manifest.json", "validation.jsonl", "action-gate-summary.json"):
+        (retained / name).write_text("{}", encoding="utf-8")
+    planned = []
+
+    def planner(contract, _inventory):
+        planned.extend(contract.remaining_gaps)
+        return _planner(contract, _inventory)
+
+    runner = LocalLLMDayProgram(tmp_path, planner=planner, work_order_executor=_executor)
+    runner.start(2)
+    runner.join(3)
+    assert "d2-feasibility_gate" not in planned
+    assert "d2-relevance_gate" not in planned
+    assert "d2-deterministic_validation" not in planned
+    existing = runner.view()["contract"]["completion_criteria"]
+    assert next(item for item in existing if item["criterion_id"] == "d2-feasibility_gate")["evidence"]["mode"] == "existing_evidence"
 
 
 def test_restart_pauses_and_resume_preserves_completed_work():

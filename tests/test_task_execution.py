@@ -2,6 +2,7 @@ import subprocess
 from pathlib import Path
 
 from backend.control.projects import ConfiguredProject, ProjectRegistry
+from backend.control.local_ollama_repair import RepairEdit, RepairProposal
 from backend.control.tasks import ConfiguredTask, TaskCommand, TaskRegistry, load_task_registry
 from backend.control.token_budget import BudgetConfig, CodexBudget, TokenBudgetManager
 from backend.models.result import ExecutionResult, ProcessDiagnostics, TokenUsage
@@ -35,10 +36,12 @@ def configured_task() -> ConfiguredTask:
 def git_source(tmp_path: Path) -> Path:
     root = tmp_path / "LocalLLM-Lab"
     (root / "scripts").mkdir(parents=True)
+    (root / "tests").mkdir(parents=True)
     (root / "scripts" / "check.py").write_text("VALUE = 'before'\n", encoding="utf-8")
+    (root / "tests" / "test_check.py").write_text("def test_fixture():\n    assert True\n", encoding="utf-8")
     for argv in (
         ["git", "init"],
-        ["git", "add", "scripts/check.py"],
+        ["git", "add", "scripts/check.py", "tests/test_check.py"],
         ["git", "-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-m", "initial"],
     ):
         completed = subprocess.run(argv, cwd=root, capture_output=True, text=True, check=False)
@@ -126,6 +129,62 @@ def test_precheck_pass_completes_without_codex_and_source_remains_unchanged(tmp_
     assert (source / "scripts" / "check.py").read_text(encoding="utf-8") == "VALUE = 'before'\n"
     assert Path(result["worktree_path"]).is_dir()
     assert result["task_branch"].startswith("agent/pc-001-a-")
+
+
+def test_dynamic_day_engineering_work_uses_guarded_worktree_without_registered_task_id(tmp_path):
+    runner = TaskWriter()
+    engine, _ = engine_for(tmp_path, runner)
+    command_results(engine, [
+        {"exit_code": 1, "passed": False, "stderr": "fixture failure"},
+        {"exit_code": 0, "passed": True, "stdout": "fixed"},
+    ])
+    result = engine._execute_local_llm_day_work_order({
+        "kind": "DYNAMIC_ENGINEERING_WORK", "criterion_ids": ["d6-fail_closed_temporal"],
+        "dynamic_work_order": {
+            "task_id": "day-6-temporal-fixture", "project_id": "local_llm_lab", "task_type": "code_fix",
+            "allowed_files": ["scripts/check.py"], "context_files": ["scripts/check.py"],
+            "acceptance_test_files": ["tests/test_check.py"],
+        },
+    })
+    assert result["final_result"] == "COMPLETE"
+    assert result["evidence"]["d6-fail_closed_temporal"]["engine_task_id"] == "day-6-temporal-fixture"
+    assert runner.called == 1
+
+
+def test_dynamic_day_engineering_work_rejects_protected_path_before_execution(tmp_path):
+    runner = TaskWriter()
+    engine, _ = engine_for(tmp_path, runner)
+    result = engine._execute_local_llm_day_work_order({
+        "kind": "DYNAMIC_ENGINEERING_WORK", "criterion_ids": ["d6-fail_closed_temporal"],
+        "dynamic_work_order": {
+            "task_id": "day-6-protected-fixture", "project_id": "local_llm_lab", "task_type": "code_fix",
+            "allowed_files": ["results/unsafe.py"], "context_files": ["scripts/check.py"],
+            "acceptance_test_files": ["tests/test_check.py"],
+        },
+    })
+    assert result["error_code"] == "DAY_DYNAMIC_WORK_ORDER_REJECTED"
+    assert runner.called == 0
+
+
+def test_local_llm_countermeasure_is_reviewed_by_codex_in_a_guarded_worktree(tmp_path):
+    runner = TaskWriter()
+    engine, _ = engine_for(tmp_path, runner)
+    command_results(engine, [
+        {"exit_code": 1, "passed": False, "stderr": "fixture failure"},
+        {"exit_code": 0, "passed": True, "stdout": "fixed"},
+    ])
+    result = engine._execute_local_llm_day_work_order({
+        "kind": "LOCAL_LLM_COUNTERMEASURE",
+        "proposal": RepairProposal("replace the fixture value", (RepairEdit("scripts/check.py", "before", "after"),)),
+        "dynamic_work_order": {
+            "task_id": "day-6-repair-fixture", "project_id": "local_llm_lab", "task_type": "code_fix",
+            "allowed_files": ["scripts/check.py"], "context_files": ["scripts/check.py"],
+            "acceptance_test_files": ["tests/test_check.py"],
+        },
+    })
+    assert result["final_result"] == "COMPLETE"
+    assert result["scope_guard_result"] == "PASS"
+    assert "LOCAL LLM COUNTERMEASURE" in runner.commands[0]
 
 
 def test_dirty_unrelated_source_is_preserved_but_dirty_task_dependency_requires_review(tmp_path):

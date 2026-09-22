@@ -18,6 +18,8 @@ const runIndicator = document.querySelector("#run-indicator");
 const runIndicatorDetail = document.querySelector("#run-indicator-detail");
 const gitPush = document.querySelector("#git-push");
 const gitPushStatus = document.querySelector("#git-push-status");
+const issueClassification = document.querySelector("#issue-classification");
+const evidenceStatus = document.querySelector("#evidence-status");
 let gitCandidate = null;
 let activeRequest = null;
 
@@ -81,6 +83,9 @@ function render(snapshot) {
   const smokePassed = snapshot.state === "IDLE" && snapshot.smoke_report?.result === "SMOKE_PASS";
   putText(state, snapshot.state === "RUNNING" ? "WORKING" : smokePassed ? "SUCCESS" : snapshot.state);
   putText(activity, snapshot.activity);
+  putText(issueClassification, snapshot.issue_classification || "None");
+  const criteria = snapshot.contract?.completion_criteria || [];
+  putText(evidenceStatus, `${criteria.filter((item) => item.satisfied).length} / ${criteria.length} criteria`);
   // A request can start while the server still exposes the preceding terminal
   // snapshot.  Never render that old 100% as progress for a live operation.
   const running = Boolean(activeRequest) || snapshot.state === "RUNNING";
