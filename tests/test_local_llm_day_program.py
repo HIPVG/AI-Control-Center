@@ -12,6 +12,11 @@ from backend.models.local_llm_day import (
 FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "day-contract"
 
 
+def test_pytest_temporary_directory_is_repository_owned(tmp_path):
+    assert tmp_path.is_relative_to(Path(__file__).parents[1] / ".pytest-tmp")
+    assert not str(tmp_path).lower().startswith("c:\\temp\\")
+
+
 def _planner(contract, _inventory):
     return [
         LocalLLMDayWorkItem(
