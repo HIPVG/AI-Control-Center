@@ -93,16 +93,6 @@ def experiments() -> list[dict]:
     return engine.configured_experiments()
 
 
-@app.get("/api/scenarios")
-def scenarios() -> dict:
-    return engine.scenario_view()
-
-
-@app.post("/api/scenarios/{scenario_id}/activate")
-def activate_scenario(scenario_id: str) -> dict:
-    return engine.activate_scenario(scenario_id)
-
-
 @app.get("/api/goals")
 def goals() -> list[dict]:
     return engine.goal_plans()
