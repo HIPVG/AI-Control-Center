@@ -79,6 +79,22 @@ class LocalLLMDayProgram:
                 return {"error_code": "DAY_NOT_RESUMABLE", **self.view()}
         return self.start(day)
 
+    def repair_and_go(self) -> dict[str, object]:
+        """Retry only the same server-owned Day after an ordinary test failure.
+
+        A Day has no implicit permission to edit the target checkout.  This is
+        intentionally a bounded recovery path: it repeats the trusted audit
+        and test command after a harness or source fix already exists, then
+        either completes or preserves the new failure evidence.
+        """
+        with self._lock:
+            if self.snapshot.state != LocalLLMDayState.FAILED or self.snapshot.selected_day is None:
+                return {"error_code": "DAY_REPAIR_NOT_AVAILABLE", **self.view()}
+            if not self.snapshot.report or self.snapshot.report.result != "TEST_FAILURE":
+                return {"error_code": "DAY_REPAIR_NOT_CONFIGURED", **self.view()}
+            day = self.snapshot.selected_day
+        return self.start(day)
+
     def stop(self) -> dict[str, object]:
         with self._lock:
             if self.snapshot.state == LocalLLMDayState.RUNNING:

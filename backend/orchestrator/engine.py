@@ -701,6 +701,9 @@ class ControlCenterEngine:
     def resume_local_llm_day(self) -> dict[str, object]:
         return self.local_llm_day_program.resume()
 
+    def repair_and_go_local_llm_day(self) -> dict[str, object]:
+        return self.local_llm_day_program.repair_and_go()
+
     def stop_local_llm_day(self) -> dict[str, object]:
         return self.local_llm_day_program.stop()
 

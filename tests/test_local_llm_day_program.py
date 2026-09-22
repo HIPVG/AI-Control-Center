@@ -34,3 +34,15 @@ def test_another_day_is_selectable_from_the_runbook_without_python_changes():
     result = runner.view()
     assert result["state"] == LocalLLMDayState.FAILED.value
     assert result["report"]["result"] == "NO_TRUSTED_DAY_ACTION"
+
+
+def test_repair_and_go_restarts_only_a_failed_test_day():
+    runner = _runner()
+    runner._run = lambda _arguments: 1
+    runner.start(1)
+    runner.join(5)
+    assert runner.view()["report"]["result"] == "TEST_FAILURE"
+    runner._run = lambda _arguments: 0
+    assert runner.repair_and_go()["state"] == "RUNNING"
+    runner.join(5)
+    assert runner.view()["report"]["result"] == "DAY_COMPLETE"

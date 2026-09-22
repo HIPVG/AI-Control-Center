@@ -17,9 +17,12 @@
         <label for="day-selector">Day</label>
         <select id="day-selector" aria-label="Select Day 1 through Day 14"></select>
         <button id="go" type="button">Go</button>
+        <button id="repair-and-go" type="button">修復＆GO</button>
         <button id="stop" class="secondary" type="button">Stop</button>
         <button id="resume" class="secondary" type="button">Resume</button>
+        <button id="git-push" class="secondary" type="button" disabled>Git Push</button>
       </section>
+      <p id="git-push-status" class="push-status" aria-live="polite">Checking verified Git work…</p>
       <section class="status" aria-live="polite">
         <p class="eyebrow">Current activity</p>
         <h2 id="state">IDLE</h2>

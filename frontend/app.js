@@ -6,6 +6,9 @@ const progressMeter = document.querySelector("#progress-meter");
 const resultTitle = document.querySelector("#result-title");
 const resultSummary = document.querySelector("#result-summary");
 const evidence = document.querySelector("#result-evidence");
+const gitPush = document.querySelector("#git-push");
+const gitPushStatus = document.querySelector("#git-push-status");
+let gitCandidate = null;
 
 function putText(node, value) { node.textContent = String(value ?? "–"); }
 
@@ -45,11 +48,29 @@ async function loadDays() {
   }
 }
 
+async function loadGitPushCandidate() {
+  const response = await fetch("/api/git/candidates");
+  const candidates = await response.json();
+  gitCandidate = candidates.length === 1 ? candidates[0] : null;
+  gitPush.disabled = !gitCandidate;
+  putText(gitPushStatus, gitCandidate
+    ? `Verified ${gitCandidate.task_branch} is ready to commit and push.`
+    : candidates.length ? "More than one verified Git candidate needs an explicit selection." : "No verified Git work is ready to push.");
+}
+
 async function request(path) { const response = await fetch(path, { method: "POST" }); render(await response.json()); }
 
 document.querySelector("#go").addEventListener("click", () => request(`/api/local-llm/day/${encodeURIComponent(selector.value)}/start`));
+document.querySelector("#repair-and-go").addEventListener("click", () => request("/api/local-llm/day/repair-and-go"));
 document.querySelector("#stop").addEventListener("click", () => request("/api/local-llm/day/stop"));
 document.querySelector("#resume").addEventListener("click", () => request("/api/local-llm/day/resume"));
+gitPush.addEventListener("click", async () => {
+  if (!gitCandidate) return;
+  const response = await fetch(`/api/git/complete/${encodeURIComponent(gitCandidate.run_id)}`, { method: "POST" });
+  const result = await response.json();
+  putText(gitPushStatus, result.error_code || result.status || "Git completion finished.");
+  await loadGitPushCandidate();
+});
 
-Promise.all([loadDays(), refresh()]).catch((error) => putText(activity, `Unable to load Day Runner: ${error.name}.`));
+Promise.all([loadDays(), refresh(), loadGitPushCandidate()]).catch((error) => putText(activity, `Unable to load Day Runner: ${error.name}.`));
 window.setInterval(() => refresh().catch(() => {}), 1000);
