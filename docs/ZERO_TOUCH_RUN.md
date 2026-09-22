@@ -1,5 +1,8 @@
 # Zero-Touch Run Contract
 
+> Current operational rules are governed by `docs/WORKING_RULES.md`. If this
+> document conflicts with `WORKING_RULES.md`, the working rules take precedence.
+
 ## Entry points
 
 M27 has two bounded browser-only entry points:

@@ -1,5 +1,8 @@
 # Zero-Touch Control Loop
 
+> Current operational rules are governed by `docs/WORKING_RULES.md`. If this
+> document conflicts with `WORKING_RULES.md`, the working rules take precedence.
+
 ## Purpose
 
 AI Control Center exists to remove the human relay between ChatGPT, Codex, PowerShell, and Git.

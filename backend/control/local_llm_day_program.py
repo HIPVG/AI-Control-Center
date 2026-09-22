@@ -48,12 +48,6 @@ class LocalLLMDayProgram:
     MAX_TASKS = 3
     MAX_REPLANS = 2
     MAX_LOCAL_PROPOSALS = 3
-    SHARED_CONSTRAINTS = (
-        "Preserve artifacts and do not rerun failed inference automatically.",
-        "Python and deterministic tests own facts, validation, and completion evidence.",
-        "Do not save raw model responses or hidden reasoning.",
-        "Do not alter research conditions or tune from a fresh holdout.",
-    )
 
     def __init__(
         self,

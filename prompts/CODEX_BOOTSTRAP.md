@@ -1,13 +1,20 @@
 # AI Control Center v0.1 Codex Bootstrap
 
+> Historical bootstrap reference. Current operational rules are governed by
+> `docs/WORKING_RULES.md`; `docs/CURRENT_WORK.md` defines the active work. If
+> this document conflicts with them, they take precedence.
+
 You are implementing the first working version of **AI Control Center**.
 
 Read these files first:
 
 1. `AGENTS.md`
-2. `docs/ARCHITECTURE.md`
+2. `docs/WORKING_RULES.md`
+3. `docs/CURRENT_WORK.md`
+4. `docs/ARCHITECTURE.md`
 
-Treat them as authoritative.
+Treat the current operational sources as authoritative; use this v0.1 bootstrap
+only when the current work explicitly calls for it.
 
 Do not reinterpret the architecture unless implementation is impossible. If something is ambiguous, choose the smallest and safest implementation that preserves the design principles.
 

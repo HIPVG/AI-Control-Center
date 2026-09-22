@@ -1,0 +1,15 @@
+# Current Work
+
+- **System:** AI Control Center Day Runner v1
+- **Current scenario:** LocalLLM-Lab Day 1-14
+- **Authoritative scenario/runbook:**
+  `C:\LocalLLM-Lab\docs\runbooks\work-plan-day1-14.md`
+- **Interaction model:** The human selects one Day and presses **Go**. Control
+  Center executes that selected Day autonomously and stops when that Day is
+  complete.
+- **Active task-specific DoD:** The selected Day Contract and its completion
+  criteria. Until a Day is selected, there is no active Day-specific DoD.
+- **Next operational action:** Wait for the human to select a Day.
+
+Do not automatically advance to another Day, implement scenario switching, or
+start Day 5 or another research Day because maintenance work has finished.

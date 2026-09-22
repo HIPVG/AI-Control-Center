@@ -1,5 +1,8 @@
 # Goal-to-Plan
 
+> Current operational rules are governed by `docs/WORKING_RULES.md`. If this
+> document conflicts with `WORKING_RULES.md`, the working rules take precedence.
+
 ## Initial bounded capability
 
 M24 accepts one short natural-language goal from the Dashboard and maps it to

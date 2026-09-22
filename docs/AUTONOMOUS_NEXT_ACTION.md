@@ -1,5 +1,8 @@
 # Autonomous Next Action Policy
 
+> Current operational rules are governed by `docs/WORKING_RULES.md`. If this
+> document conflicts with `WORKING_RULES.md`, the working rules take precedence.
+
 ## Purpose
 
 Goal entry is an exception path, not the normal daily interaction.

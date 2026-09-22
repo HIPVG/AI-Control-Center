@@ -116,6 +116,7 @@ class CodexDayContractPlanner:
         }
         prompt = (
             "You are the read-only Codex Architect for one governed Day Contract. Return JSON only. "
+            "Apply the role-specific boundaries of Working Rules WR-01, WR-04, WR-05, WR-07, WR-10, and WR-13. "
             "Create at most three tasks for the remaining criteria. Inspect only the bounded tracked_context_files and source-presence inventory supplied by the server; do not run commands or modify files. "
             "Use ENGINE_WORK_ORDER only with a listed trusted_engine_task_id. You may use DYNAMIC_ENGINEERING_WORK only with a fully populated policy-conforming dynamic_work_order; it is data only and the server derives commands. "
             "Do not create arbitrary commands, criteria, or authority.\n" + json.dumps(request, ensure_ascii=False, separators=(",", ":"))
@@ -199,6 +200,7 @@ class CodexArchitectProvider:
     def _prompt(request: dict[str, Any]) -> str:
         return (
             "You are the read-only Codex Architect for a governed Day plan. "
+            "Apply the role-specific boundaries of Working Rules WR-01, WR-04, WR-05, WR-10, and WR-13. "
             "Return only JSON matching the supplied schema. Select only one configured eligible task ID, "
             "or return DAY_COMPLETE/STOP_DAY when justified. Do not inspect files, run commands, modify files, "
             "change budgets, commands, acceptance criteria, retry limits, or allowed files.\n"
@@ -238,6 +240,7 @@ class CodexReviewerProvider(CodexArchitectProvider):
     def _review_prompt(request: dict[str, Any]) -> str:
         return (
             "You are a read-only Codex first reviewer. Return only JSON matching the supplied schema. "
+            "Apply the role-specific boundaries of Working Rules WR-07, WR-08, WR-10, and WR-13. "
             "Inspect only the bounded evidence below. Do not run commands, modify files, or grant any authority.\n"
             + json.dumps(request, ensure_ascii=False, separators=(",", ":"))
         )

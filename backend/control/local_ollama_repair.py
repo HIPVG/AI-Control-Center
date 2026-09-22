@@ -116,6 +116,7 @@ class LocalOllamaRepairBuilder:
             for card in (repair_knowledge or [])[:5]
         ) or "(No prior repair knowledge matches this failure.)"
         return (
+            "Under Working Rules WR-06, WR-08, WR-10, and WR-11, provide an advisory proposal only. "
             "A deterministic Python test failed. Diagnose and propose the smallest repair. "
             "Do not delete assertions, weaken acceptance tests, change commands, or edit files not supplied. "
             "Every path must be one of the supplied FILE paths. Every find value must be a character-for-character "

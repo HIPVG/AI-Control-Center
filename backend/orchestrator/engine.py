@@ -1885,6 +1885,7 @@ class ControlCenterEngine:
             f"Acceptance command: {context.configuration['postcheck_argv']}\n"
             f"Allowed files:\n" + "\n".join(f"- {path}" for path in context.allowed_files) + "\n\n"
             f"Relevant context:\n{context_files}\n\n"
+            "Apply the role-specific boundaries of Working Rules WR-01, WR-02, WR-04, WR-05, WR-10, and WR-13. "
             "Solve only this task. Modify only allowed files. Make the smallest reasonable change. "
             "Do not alter acceptance criteria or weaken tests. Do not modify unrelated files. Do not commit or push. No explanatory essay is required."
         )

@@ -1,5 +1,8 @@
 # Autonomous Day orchestration
 
+> Current operational rules are governed by `docs/WORKING_RULES.md`. If this
+> document conflicts with `WORKING_RULES.md`, the working rules take precedence.
+
 The Day Runner is a persistent scheduler over trusted task IDs in
 `config/plans.yaml`. It does not accept commands, paths, prompts, or task
 definitions from the browser.

@@ -1,5 +1,10 @@
 # LocalLLM-Lab Day 1-14 autonomous execution
 
+> Current operational rules are governed by `docs/WORKING_RULES.md`. If this
+> document conflicts with `WORKING_RULES.md`, the working rules take precedence.
+> The LocalLLM-Lab runbook remains authoritative for Day-specific research
+> semantics and experimental conditions.
+
 The authoritative machine-readable completion program is
 `config/local_llm_day_program.yaml`. It records the Day 1-14 meaning from
 `C:\LocalLLM-Lab\docs\runbooks\work-plan-day1-14.md` alongside the relevant

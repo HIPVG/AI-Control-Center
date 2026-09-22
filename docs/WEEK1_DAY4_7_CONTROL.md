@@ -1,5 +1,9 @@
 # Week 1 Day 4-7 Control Contract
 
+> Historical/superseded for current sequencing. Current operational rules are
+> governed by `docs/WORKING_RULES.md`; `docs/LOCALLLM_DAY1_14_AUTONOMOUS.md`
+> and the LocalLLM-Lab Day 1-14 runbook define the current scenario.
+
 The Dashboard's recommended action advances the authoritative Week 1 sequence
 without another free-form Goal. Each result is a persisted, typed Day record.
 
