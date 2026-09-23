@@ -28,6 +28,8 @@ line or on an old `NEXT_ACTION`; read and apply the complete latest reviewer res
 
 Follow `docs/WORKING_RULES.md` exactly. In particular:
 
+- Keep reviewer-facing reports concise and delta-only. Do not repeat unchanged context or duplicate a report. Use compact policy context when unchanged.
+
 - Every new reviewer-facing report starts with a direct ChatGPT delivery attempt. Review-Bridge is never the first choice and must not be prepared/pushed before the direct path is attempted for that report, except to protect a verified non-empty editable-buffer draft as defined by policy.
 
 - `PROGRESS_UPDATE` is emitted about every 5 minutes during active work. If it is successfully delivered, pause at the safe checkpoint and wait for reviewer guidance; if delivery fails, continue within existing authority and retry at the next checkpoint.
