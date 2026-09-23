@@ -364,6 +364,45 @@ compact `REVIEW_POLICY_CONTEXT` block with:
 When `POLICY_CHANGED_SINCE_LAST_REVIEW: yes`, the ChatGPT reviewer should re-read
 the canonical policy before issuing a new decision.
 
+## Simple reviewer-report rule
+
+Reviewer-facing reports are control packets, not essays. Keep them as short as possible
+while preserving the information needed to steer the next action.
+
+For `PROGRESS_UPDATE` in particular:
+
+- report only what changed since the previous reviewer checkpoint;
+- do not repeat unchanged background, prior findings, or the full Day contract;
+- do not duplicate the same report body;
+- use one short line per field where practical;
+- prefer artifact/file references over pasting long evidence;
+- target roughly 8-12 short lines unless a real blocker needs more context.
+
+A normal progress report should usually answer only:
+
+- what changed;
+- what is being done now;
+- whether there is a blocker;
+- the minimum sufficient next action.
+
+If policy context is unchanged, use one compact line instead of a repeated multi-line
+block, for example:
+
+`REVIEW_POLICY_CONTEXT: commit=<sha>; read=yes; changed=no; deviation=none`
+
+Only expand policy context when the policy actually changed or a deviation must be
+explained.
+
+`DECISION_REQUEST` and `COMPLETION_REPORT` may be longer when the reviewer genuinely
+needs evidence to decide, but they must still avoid repetition and unrelated detail.
+
+Every reviewer-facing report must include:
+
+- `SIMPLE_REPORT: yes`
+
+If the same report is accidentally emitted twice, treat the duplicate as a reporting
+error and do not send both copies.
+
 ## Minimum sufficient action principle
 
 For every task and every reviewer-facing report, choose the smallest safe action
@@ -406,7 +445,8 @@ Every reviewer-facing report must include at least:
 - `REVIEWER_DELIVERY_STATUS: delivered|pending|failed`
 - `MINIMUM_SUFFICIENT_ACTION: <the smallest next action>`
 - `WHY_NOT_BROADER: <why broader actions are unnecessary now>`
-- the full `REVIEW_POLICY_CONTEXT` block
+- `SIMPLE_REPORT: yes`
+- a compact `REVIEW_POLICY_CONTEXT` line when unchanged; expand it only when changed or deviating
 
 `COMPLETION_REPORT` additionally requires:
 
