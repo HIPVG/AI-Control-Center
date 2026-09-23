@@ -1,0 +1,18 @@
+{
+  "version": 2,
+  "enabled": true,
+  "transport": "OPENAI_RESPONSES",
+  "model": "gpt-5.6-sol",
+  "fallback_model": "gpt-5.6-terra",
+  "timeout_seconds": 45,
+  "max_output_tokens": 1800,
+  "browser_manual": {
+    "conversation_url": "",
+    "conversation_id": ""
+  },
+  "policy": {
+    "max_escalations_per_failure_fingerprint": 1,
+    "response_format": "bounded_json_review",
+    "execution_authority": "none"
+  }
+}

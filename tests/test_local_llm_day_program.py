@@ -12,7 +12,14 @@ from backend.control.day_action_registry import STRATEGIES, assert_coverage
 from backend.control.day_git import GitSafetyError
 from backend.control.retained_evidence import RetainedEvidenceResolver
 from backend.control.solution_catalog import JsonSolutionCatalogStore, RepairEpisodeStore, SolutionCatalog
-from backend.models.local_llm_day import DayIssueClassification, DynamicDayWorkOrder, LocalLLMDayState, LocalLLMDayWorkItem, LocalLLMWorkItemState
+from backend.control.external_review import (
+    CapturedExternalResponse,
+    ExternalReviewConfig,
+    ExternalReviewCoordinator,
+    ResponsesExternalReviewTransport,
+    load_external_review_config,
+)
+from backend.models.local_llm_day import DayIssueClassification, DynamicDayWorkOrder, GapDiagnosis, LocalLLMDayState, LocalLLMDayWorkItem, LocalLLMWorkItemState, RepairEpisode
 
 
 FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "day-contract"
@@ -379,6 +386,456 @@ def test_repair_deadline_escalates_without_waiting(tmp_path):
     assert retained.final_outcome == "CODEX_VERIFIED"
 
 
+class _NoExternalLocalProposal:
+    def propose(self, **_kwargs):
+        return None
+
+
+class _FixtureExternalReviewer:
+    def __init__(self, response):
+        self.response = response
+        self.submissions = []
+
+    def submit(self, config, context, package, state):
+        self.submissions.append({
+            "transport": config.transport,
+            "context_fingerprint": context.fingerprint,
+            "previous_response_id": state.previous_response_id if state else None,
+            "package": package.model_dump(mode="json"),
+        })
+        return CapturedExternalResponse(
+            conversation_id="fixture-review", response_id=f"fixture-{len(self.submissions)}",
+            submitted_at="2026-09-23T00:00:00+00:00",
+            response_received_at="2026-09-23T00:00:01+00:00", response_text=self.response,
+        )
+
+
+class _FakeResponsesClient:
+    def __init__(self, responses):
+        self.responses = self
+        self.output = list(responses)
+        self.calls = []
+
+    def create(self, **request):
+        self.calls.append(request)
+        result = self.output.pop(0)
+        if isinstance(result, Exception):
+            raise result
+        return result
+
+
+class _AuthenticationError(Exception):
+    pass
+
+
+class _ModelAccessError(Exception):
+    pass
+
+
+class _QuotaError(Exception):
+    status_code = 429
+
+
+def _external_repair_item(runner):
+    template = STRATEGIES[(6, "source_check")].template
+    order = DynamicDayWorkOrder(task_id="day-6-d6-temporal-state-design",
+        allowed_files=list(template.allowed_output_scope), context_files=list(template.context_scope),
+        acceptance_test_files=["tests/test_temporal_state.py"])
+    diagnosis = GapDiagnosis(criterion_id=runner.snapshot.contract.completion_criteria[0].criterion_id,
+        classification=DayIssueClassification.ENGINEERING_REPAIR,
+        reason="Controlled adapter repair failed.", failure_reason="FIXTURE_ADAPTER_FAILURE",
+        required_evidence=["source_check"], input_fingerprint="a" * 64,
+        action_fingerprint="b" * 64, evidence_type="source_check", strategy_id="D6_SOURCE_CHECK")
+    item = LocalLLMDayWorkItem(item_id="repair-D6_SOURCE_CHECK", title="controlled external repair",
+        objective=diagnosis.reason, kind="DYNAMIC_ENGINEERING_WORK", dynamic_work_order=order,
+        criterion_ids=[diagnosis.criterion_id], contract_day=6, contract_version=runner.snapshot.contract.version,
+        state=LocalLLMWorkItemState.FAILED, evidence={"failure_excerpt": "adapter token='sk-abcdefghijklmnop' failed"})
+    runner.snapshot.gap_diagnoses = [diagnosis]
+    return item, diagnosis
+
+
+def test_external_review_guidance_runs_only_the_existing_bounded_builder(tmp_path):
+    engine, root, _writer, _builder = _repair_engine(tmp_path)
+    runner = engine.local_llm_day_program
+    runner.smoke(6)
+    item, diagnosis = _external_repair_item(runner)
+    response = json.dumps({"status": "REPAIR_GUIDANCE", "diagnosis": "Adapter omitted typed evidence.",
+                           "proposed_repair": "Repair only the temporal adapter and preserve current evidence contract.",
+                           "relevant_files": ["scripts/eval/temporal_state.py"],
+                           "expected_behavior": "The configured temporal test passes and typed evidence is returned.",
+                           "suggested_verification": ["tests/test_temporal_state.py"], "cautions": ["Do not modify acceptance criteria."]})
+    transport = _FixtureExternalReviewer(response)
+    runner.external_review = ExternalReviewCoordinator(root,
+        config=ExternalReviewConfig(transport="FIXTURE"), transport=transport)
+    runner.repair_builder = _NoExternalLocalProposal()
+    calls = []
+    def executor(order):
+        calls.append(order)
+        if order["kind"] == "CODEX_EXPERT_SOLVER":
+            return {"final_result": "FAILED", "error_code": "EXPERT_FIXTURE_FAILED", "stderr": "expert failed"}
+        assert order["kind"] == "EXTERNAL_REVIEW_BUILDER"
+        assert order["dynamic_work_order"]["allowed_files"] == item.dynamic_work_order.allowed_files
+        assert order["external_review"]["relevant_files"] == ["scripts/eval/temporal_state.py"]
+        (root / "scripts/eval/temporal_state.py").write_text("def valid_time(): return True\n", encoding="utf-8")
+        completed = subprocess.run([sys.executable, "-m", "pytest", "-q", "tests/test_temporal_state.py"], cwd=root,
+                                   capture_output=True, text=True, encoding="utf-8")
+        assert completed.returncode == 0, completed.stdout + completed.stderr
+        names = [name for criterion in runner.snapshot.contract.completion_criteria for name in criterion.required_evidence]
+        return {"final_result": "COMPLETE", "verification_passed": True, "evidence": _valid_evidence(names)}
+    runner.work_order_executor = executor
+
+    assert runner._supervise_repair(item, runner.snapshot.contract)
+    episode = runner.repair_episode_store.get(runner.snapshot.repair_episode_ids[-1])
+    assert episode.final_outcome == "EXTERNAL_REVIEW_VERIFIED"
+    assert episode.external_review_outcome == "GUIDANCE_RECEIVED"
+    assert [call["kind"] for call in calls] == ["CODEX_EXPERT_SOLVER", "EXTERNAL_REVIEW_BUILDER"]
+    assert transport.submissions[0]["transport"] == "FIXTURE"
+    artifact = Path(episode.external_review_artifact)
+    persisted = json.loads(artifact.read_text(encoding="utf-8"))
+    assert persisted["package"]["fingerprint"] == episode.external_review_fingerprint
+    assert "sk-abcdefghijklmnop" not in json.dumps(persisted)
+    assert (root / "scripts/eval/temporal_state.py").read_text(encoding="utf-8") == "def valid_time(): return True\n"
+    runner._ingest_legacy_evidence(runner.snapshot.contract, item.evidence["evidence"], provider_id="external-review", source_fingerprint=diagnosis.input_fingerprint)
+    runner._evaluate_contract(runner.snapshot.contract, runner._inventory(runner.snapshot.contract))
+    assert not runner.snapshot.contract.remaining_gaps
+
+
+def test_external_review_scope_expansion_never_invokes_builder(tmp_path):
+    engine, root, _writer, _builder = _repair_engine(tmp_path)
+    runner = engine.local_llm_day_program
+    runner.smoke(6)
+    item, _diagnosis = _external_repair_item(runner)
+    response = json.dumps({"status": "REPAIR_GUIDANCE", "diagnosis": "Try another subsystem.",
+                           "proposed_repair": "Change a non-approved file.", "relevant_files": ["backend/app.py"],
+                           "expected_behavior": "Expanded behavior.", "suggested_verification": ["tests/test_temporal_state.py"], "cautions": []})
+    transport = _FixtureExternalReviewer(response)
+    runner.external_review = ExternalReviewCoordinator(root,
+        config=ExternalReviewConfig(transport="FIXTURE"), transport=transport)
+    runner.repair_builder = _NoExternalLocalProposal()
+    calls = []
+    runner.work_order_executor = lambda order: calls.append(order) or {"final_result": "FAILED", "error_code": "EXPERT_FIXTURE_FAILED"}
+
+    assert not runner._supervise_repair(item, runner.snapshot.contract)
+    episode = runner.repair_episode_store.get(runner.snapshot.repair_episode_ids[-1])
+    assert episode.external_review_outcome == "HUMAN_DECISION_REQUIRED"
+    assert [call["kind"] for call in calls] == ["CODEX_EXPERT_SOLVER"]
+
+
+def _external_review_package(runner, coordinator, item, diagnosis, *, excerpt="controlled failure"):
+    order = item.dynamic_work_order
+    return coordinator.build_package(
+        selected_day=runner.snapshot.contract.day, contract_version=runner.snapshot.contract.version,
+        contract_fingerprint=runner.snapshot.contract_fingerprint or runner._contract_fingerprint(runner.snapshot.contract),
+        criterion_id=diagnosis.criterion_id, evidence_type=diagnosis.evidence_type,
+        gap_diagnosis=diagnosis.model_dump(mode="json"), failed_action={"task_id": order.task_id},
+        allowed_files=order.allowed_files, context_files=order.context_files,
+        acceptance_test_files=order.acceptance_test_files, failure_excerpt=excerpt,
+        stdout_excerpt="", stderr_excerpt="", git_summary=runner._inventory(runner.snapshot.contract),
+        previous_attempts=[], rejection_feedback=[], catalog_matches=[],
+        expert_solver_outcome="FAILED", deterministic_verification_failure="fixture failure",
+    )
+
+
+def _review_json(*, files=None):
+    return json.dumps({
+        "status": "REPAIR_GUIDANCE", "diagnosis": "Typed evidence adapter omitted a record.",
+        "proposed_repair": "Repair only the in-scope temporal adapter.",
+        "relevant_files": files or ["scripts/eval/temporal_state.py"],
+        "expected_behavior": "The configured temporal test returns typed evidence.",
+        "suggested_verification": ["tests/test_temporal_state.py"], "cautions": [],
+        "rejection_reason": None,
+    })
+
+
+def test_responses_transport_reuses_persisted_context_and_conversation(tmp_path, monkeypatch):
+    engine, root, _writer, _builder = _repair_engine(tmp_path)
+    runner = engine.local_llm_day_program
+    runner.smoke(6)
+    item, diagnosis = _external_repair_item(runner)
+    client = _FakeResponsesClient([
+        {"id": "resp-1", "conversation": {"id": "conv-1"}, "output_text": _review_json()},
+        {"id": "resp-2", "conversation": {"id": "conv-1"}, "output_text": _review_json()},
+    ])
+    monkeypatch.setenv("OPENAI_API_KEY", "fixture-key")
+    coordinator = ExternalReviewCoordinator(
+        root, config=ExternalReviewConfig(transport="OPENAI_RESPONSES"),
+        transport=ResponsesExternalReviewTransport(client_factory=lambda: client),
+    )
+    first = coordinator.request_review(_external_review_package(runner, coordinator, item, diagnosis))
+    second = coordinator.request_review(_external_review_package(runner, coordinator, item, diagnosis, excerpt="next controlled failure"))
+
+    assert first.status == second.status == "GUIDANCE_RECEIVED"
+    assert first.context_pack_fingerprint == second.context_pack_fingerprint == coordinator.context.fingerprint
+    assert len(client.calls) == 2, runner.view()
+    assert "previous_response_id" not in client.calls[0]
+    assert client.calls[1]["previous_response_id"] == "resp-1"
+    assert "Evidence Store validation" in client.calls[0]["instructions"]
+    assert client.calls[1]["instructions"] == client.calls[0]["instructions"]
+    assert client.calls[0]["text"]["format"]["strict"] is True
+    state = json.loads((root / "state/external-review/reviewer-conversation.json").read_text(encoding="utf-8"))
+    assert state["conversation_id"] == "conv-1"
+    assert state["previous_response_id"] == "resp-2"
+
+
+def test_responses_transport_uses_configured_fallback_only_for_model_access(tmp_path, monkeypatch):
+    engine, root, _writer, _builder = _repair_engine(tmp_path)
+    runner = engine.local_llm_day_program
+    runner.smoke(6)
+    item, diagnosis = _external_repair_item(runner)
+    client = _FakeResponsesClient([
+        _ModelAccessError("model unavailable"),
+        {"id": "resp-fallback", "conversation": {"id": "conv-1"}, "output_text": _review_json()},
+    ])
+    monkeypatch.setenv("OPENAI_API_KEY", "fixture-key")
+    coordinator = ExternalReviewCoordinator(
+        root, config=ExternalReviewConfig(transport="OPENAI_RESPONSES", fallback_model="gpt-5.6-terra"),
+        transport=ResponsesExternalReviewTransport(client_factory=lambda: client),
+    )
+    artifact = coordinator.request_review(_external_review_package(runner, coordinator, item, diagnosis))
+
+    assert artifact.status == "GUIDANCE_RECEIVED"
+    assert artifact.captured_response.model == "gpt-5.6-terra"
+    assert [call["model"] for call in client.calls] == ["gpt-5.6-sol", "gpt-5.6-terra"]
+
+
+def test_responses_auth_failure_allows_one_operator_resume_without_source_change(tmp_path, monkeypatch):
+    engine, root, _writer, _builder = _repair_engine(tmp_path)
+    runner = engine.local_llm_day_program
+    runner.smoke(6)
+    item, _diagnosis = _external_repair_item(runner)
+    allowed_path = root / "scripts/eval/temporal_state.py"
+    before_source = allowed_path.read_text(encoding="utf-8")
+    client = _FakeResponsesClient([
+        _AuthenticationError("not recorded"),
+        {"id": "resp-retry", "conversation": {"id": "conv-1"}, "output_text": _review_json()},
+    ])
+    monkeypatch.setenv("OPENAI_API_KEY", "fixture-key")
+    runner.external_review = ExternalReviewCoordinator(
+        root, config=ExternalReviewConfig(transport="OPENAI_RESPONSES"),
+        transport=ResponsesExternalReviewTransport(client_factory=lambda: client),
+    )
+    runner.repair_builder = _NoExternalLocalProposal()
+    # The production call originates in an active repair episode, not IDLE.
+    runner.snapshot.state = LocalLLMDayState.REPAIR_SUPERVISOR
+    calls = []
+    runner.work_order_executor = lambda order: calls.append(order) or {
+        "final_result": "FAILED", "error_code": "EXPERT_FIXTURE_FAILED",
+    }
+
+    assert not runner._supervise_repair(item, runner.snapshot.contract)
+    episode = runner.repair_episode_store.get(runner.snapshot.repair_episode_ids[-1])
+    assert episode.external_review_failure_code == "OPENAI_AUTHENTICATION_FAILED"
+    assert [call["kind"] for call in calls] == ["CODEX_EXPERT_SOLVER"]
+    runner._external_repair_blocker(runner.snapshot.contract, runner._inventory(runner.snapshot.contract), item)
+    assert runner.view()["state"] == "EXTERNAL_ACTION_REQUIRED"
+    assert runner.view()["blocker"]["reason_code"] == "OPENAI_AUTHENTICATION_FAILED"
+    assert runner.view()["blocker"]["resolution_strategy"] == "EXTERNAL_REVIEW_PREREQUISITE"
+    runner.snapshot.work_items = [item]
+    assert runner.view()["enabled_controls"]["resume"] is True
+    assert allowed_path.read_text(encoding="utf-8") == before_source
+    runner.work_order_executor = lambda order: calls.append(order) or (
+        {"final_result": "COMPLETE", "verification_passed": True,
+         "evidence": _valid_evidence([name for criterion in runner.snapshot.contract.completion_criteria for name in criterion.required_evidence])}
+        if order["kind"] == "EXTERNAL_REVIEW_BUILDER"
+        else {"final_result": "FAILED", "error_code": "EXPERT_FIXTURE_FAILED"}
+    )
+    assert "error_code" not in runner.resume()
+    runner.join(5)
+    resumed = runner.repair_episode_store.get(runner.snapshot.repair_episode_ids[-1])
+    assert len(client.calls) == 2, runner.view()
+    assert [call["kind"] for call in calls] == ["CODEX_EXPERT_SOLVER", "EXTERNAL_REVIEW_BUILDER"]
+    assert resumed.external_review_resume_attempts == 1
+
+
+@pytest.mark.parametrize(("provider_failure", "reason_code"), [
+    (TimeoutError("fixture timeout"), "OPENAI_TIMEOUT"),
+    (_QuotaError("fixture quota"), "OPENAI_QUOTA_OR_RATE_LIMIT"),
+])
+def test_recoverable_external_provider_failure_retries_once_then_reblocks(tmp_path, monkeypatch, provider_failure, reason_code):
+    engine, root, _writer, _builder = _repair_engine(tmp_path)
+    runner = engine.local_llm_day_program
+    runner.smoke(6)
+    item, _diagnosis = _external_repair_item(runner)
+    monkeypatch.setenv("OPENAI_API_KEY", "fixture-key")
+    client = _FakeResponsesClient([provider_failure, provider_failure])
+    runner.external_review = ExternalReviewCoordinator(
+        root, config=ExternalReviewConfig(transport="OPENAI_RESPONSES"),
+        transport=ResponsesExternalReviewTransport(client_factory=lambda: client),
+    )
+    runner.repair_builder = _NoExternalLocalProposal()
+    runner.snapshot.state = LocalLLMDayState.REPAIR_SUPERVISOR
+    runner.work_order_executor = lambda _order: {"final_result": "FAILED", "error_code": "EXPERT_FIXTURE_FAILED"}
+
+    assert not runner._supervise_repair(item, runner.snapshot.contract)
+    runner._external_repair_blocker(runner.snapshot.contract, runner._inventory(runner.snapshot.contract), item)
+    runner.snapshot.work_items = [item]
+    assert runner.view()["blocker"]["reason_code"] == reason_code
+    assert runner.view()["enabled_controls"]["resume"] is True
+    assert "error_code" not in runner.resume()
+    runner.join(5)
+    episode = runner.repair_episode_store.get(runner.snapshot.repair_episode_ids[-1])
+    assert len(client.calls) == 2
+    assert episode.external_review_resume_attempts == 1
+    assert runner.view()["state"] == "EXTERNAL_ACTION_REQUIRED"
+    assert runner.view()["blocker"]["reason_code"] == reason_code
+    assert runner.view()["enabled_controls"]["resume"] is False
+
+
+def test_uncertain_external_submission_cannot_be_resubmitted_by_operator_resume(tmp_path):
+    engine, root, _writer, _builder = _repair_engine(tmp_path)
+    runner = engine.local_llm_day_program
+    runner.smoke(6)
+    item, _diagnosis = _external_repair_item(runner)
+    transport = _FixtureExternalReviewer(_review_json())
+    runner.external_review = ExternalReviewCoordinator(root, config=ExternalReviewConfig(transport="FIXTURE"), transport=transport)
+    runner.repair_builder = _NoExternalLocalProposal()
+    now = runner.clock()
+    episode = RepairEpisode(
+        episode_id="uncertain-external-episode", project_id=runner.project_id, day=6,
+        work_item_id=item.item_id, failure_class=DayIssueClassification.IMPLEMENTATION_DEFECT,
+        failure_fingerprint=runner._failure_fingerprint(item, item.evidence["failure_excerpt"]),
+        failure_excerpt=item.evidence["failure_excerpt"], component=item.item_id,
+        started_at_epoch=now, repair_deadline_epoch=now + 300,
+        expert_solver_outcome="EXPERT_FIXTURE_FAILED", external_review_phase="SUBMISSION_STARTED",
+        contract_version=runner.snapshot.contract.version,
+        scope_fingerprint=runner._text_fingerprint(item.dynamic_work_order.model_dump_json()),
+    )
+    runner.repair_episode_store.save(episode)
+    runner.snapshot.repair_episode_ids = [episode.episode_id]
+    runner.snapshot.work_items = [item]
+    runner.snapshot.state = LocalLLMDayState.REPAIR_SUPERVISOR
+
+    assert not runner._supervise_repair(item, runner.snapshot.contract)
+    runner._external_repair_blocker(runner.snapshot.contract, runner._inventory(runner.snapshot.contract), item)
+    assert runner.view()["blocker"]["reason_code"] == "EXTERNAL_REVIEW_SUBMISSION_UNCERTAIN"
+    assert runner.view()["enabled_controls"]["resume"] is False
+    assert "error_code" not in runner.resume()
+    runner.join(5)
+    assert runner.view()["blocker"]["reason_code"] == "EXTERNAL_REVIEW_SUBMISSION_UNCERTAIN"
+    assert transport.submissions == []
+
+
+def test_restart_reuses_captured_external_review_without_repeating_expert_or_submission(tmp_path):
+    engine, root, _writer, _builder = _repair_engine(tmp_path)
+    runner = engine.local_llm_day_program
+    runner.smoke(6)
+    item, diagnosis = _external_repair_item(runner)
+    response = _review_json()
+    transport = _FixtureExternalReviewer(response)
+    coordinator = ExternalReviewCoordinator(root, config=ExternalReviewConfig(transport="FIXTURE"), transport=transport)
+    order = item.dynamic_work_order
+    package = coordinator.build_package(
+        selected_day=runner.snapshot.contract.day, contract_version=runner.snapshot.contract.version,
+        contract_fingerprint=runner.snapshot.contract_fingerprint or runner._contract_fingerprint(runner.snapshot.contract),
+        criterion_id=diagnosis.criterion_id, evidence_type=diagnosis.evidence_type,
+        gap_diagnosis=diagnosis.model_dump(mode="json"),
+        failed_action=dict(runner.snapshot.last_action or {"task_id": order.task_id}),
+        allowed_files=order.allowed_files, context_files=order.context_files, acceptance_test_files=order.acceptance_test_files,
+        failure_excerpt=item.evidence["failure_excerpt"], stdout_excerpt="", stderr_excerpt="",
+        git_summary=runner._external_review_git_summary(runner._inventory(runner.snapshot.contract)),
+        previous_attempts=[], rejection_feedback=[], catalog_matches=[], expert_solver_outcome="EXPERT_FIXTURE_FAILED",
+        deterministic_verification_failure="EXPERT_FIXTURE_FAILED")
+    artifact = coordinator.request_review(package)
+    now = runner.clock()
+    episode = RepairEpisode(
+        episode_id="restart-external-episode", project_id=runner.project_id, day=6,
+        work_item_id=item.item_id, failure_class=DayIssueClassification.IMPLEMENTATION_DEFECT,
+        failure_fingerprint=runner._failure_fingerprint(item, item.evidence["failure_excerpt"]),
+        failure_excerpt=item.evidence["failure_excerpt"], component=item.item_id,
+        started_at_epoch=now, repair_deadline_epoch=now + 300,
+        expert_solver_outcome="EXPERT_FIXTURE_FAILED", external_review_fingerprint=package.fingerprint,
+        external_review_artifact=artifact.artifact_path, external_review_outcome="GUIDANCE_RECEIVED",
+        external_review_phase="ARTIFACT_RECORDED",
+        contract_version=runner.snapshot.contract.version,
+        scope_fingerprint=runner._text_fingerprint(item.dynamic_work_order.model_dump_json()),
+    )
+    runner.repair_episode_store.save(episode)
+    runner.snapshot.repair_episode_ids = [episode.episode_id]
+    runner.snapshot.work_items = [item]
+    runner.snapshot.state = LocalLLMDayState.REPAIR_SUPERVISOR
+    restored = LocalLLMDayProgram(root, saved=runner.view(), repair_episode_store=runner.repair_episode_store,
+        external_review=coordinator, repair_builder=_NoExternalLocalProposal())
+    calls = []
+    restored.work_order_executor = lambda order: calls.append(order) or {
+        "final_result": "COMPLETE", "verification_passed": True,
+        "evidence": _valid_evidence([name for criterion in restored.snapshot.contract.completion_criteria for name in criterion.required_evidence]),
+    }
+
+    assert restored._supervise_repair(restored.snapshot.work_items[0], restored.snapshot.contract)
+    assert [call["kind"] for call in calls] == ["EXTERNAL_REVIEW_BUILDER"]
+    assert len(transport.submissions) == 1
+
+
+def test_external_review_uses_source_root_and_separate_state_root(tmp_path):
+    source_root = tmp_path / "local-llm-lab"
+    state_root = tmp_path / "control-center" / "state" / "external-review"
+    (source_root / "scripts").mkdir(parents=True)
+    (source_root / "scripts" / "adapter.py").write_text("def adapter(): return True\n", encoding="utf-8")
+    transport = _FixtureExternalReviewer(_review_json(files=["scripts/adapter.py"]))
+    coordinator = ExternalReviewCoordinator(source_root, state_root=state_root,
+        config=ExternalReviewConfig(transport="FIXTURE"), transport=transport)
+    package = coordinator.build_package(selected_day=6, contract_version="fixture", contract_fingerprint="a" * 64,
+        criterion_id="criterion", evidence_type="source_check", gap_diagnosis={}, failed_action={},
+        allowed_files=["scripts/adapter.py"], context_files=[], acceptance_test_files=["tests/test_adapter.py"],
+        failure_excerpt="failure", stdout_excerpt="", stderr_excerpt="", git_summary={}, previous_attempts=[],
+        rejection_feedback=[], catalog_matches=[], expert_solver_outcome="FAILED", deterministic_verification_failure="failure")
+    artifact = coordinator.request_review(package)
+    assert artifact.artifact_path.startswith(str(state_root))
+    assert package.source_excerpts["scripts/adapter.py"] == "def adapter(): return True\n"
+    assert not (source_root / "state" / "external-review").exists()
+
+
+def test_external_review_sanitizes_nested_values_and_external_paths(tmp_path):
+    root = tmp_path / "local-llm-lab"
+    root.mkdir()
+    coordinator = ExternalReviewCoordinator(root, config=ExternalReviewConfig(transport="FIXTURE"),
+        transport=_FixtureExternalReviewer(_review_json()))
+    package = coordinator.build_package(selected_day=6, contract_version="fixture", contract_fingerprint="a" * 64,
+        criterion_id="criterion", evidence_type="source_check",
+        gap_diagnosis={"token": "sk-abcdefghijklmnop", "nested": {"password": "nope"}},
+        failed_action={"path": "C:/Users/test/private.txt"}, allowed_files=[], context_files=[], acceptance_test_files=[],
+        failure_excerpt="Bearer abcdefghijklmnop OPENAI_API_KEY=secret", stdout_excerpt="", stderr_excerpt="",
+        git_summary={"retained_evidence": {"token": "sk-abcdefghijklmnop"}},
+        previous_attempts=[{"secret": "nope"}], rejection_feedback=[], catalog_matches=[],
+        expert_solver_outcome="FAILED", deterministic_verification_failure="failure")
+    serialized = package.model_dump_json()
+    assert "abcdefghijklmnop" not in serialized and "private.txt" not in serialized and "nope" not in serialized
+    assert "retained_evidence" not in serialized
+
+
+def test_external_review_rejects_acceptance_test_as_editable_scope(tmp_path):
+    engine, _root, writer, _builder = _repair_engine(tmp_path)
+    runner = engine.local_llm_day_program
+    runner.smoke(6)
+    item, _diagnosis = _external_repair_item(runner)
+    dynamic = item.dynamic_work_order.model_copy(update={"allowed_files": [*item.dynamic_work_order.allowed_files, "tests/test_temporal_state.py"]})
+    result = engine._execute_local_llm_day_work_order({"kind": "EXTERNAL_REVIEW_BUILDER", "task_id": item.item_id,
+        "dynamic_work_order": dynamic.model_dump(mode="json"), "external_review": json.loads(_review_json(files=["tests/test_temporal_state.py"]))})
+    assert result["error_code"] == "EXTERNAL_REVIEW_BUILDER_REJECTED"
+    assert writer.roles == []
+
+
+def test_external_review_config_and_sdk_error_mapping_fail_closed(tmp_path):
+    config_path = tmp_path / "external-review.json"
+    base = {"enabled": True, "transport": "OPENAI_RESPONSES", "model": "gpt-5.6-sol", "fallback_model": "gpt-5.6-terra"}
+    config_path.write_text(json.dumps(base), encoding="utf-8")
+    assert load_external_review_config(config_path) is not None
+    for key, value in (("enabled", False), ("transport", "FIXTURE"), ("model", "unknown"), ("fallback_model", "unknown")):
+        invalid = {**base, key: value}
+        config_path.write_text(json.dumps(invalid), encoding="utf-8")
+        assert load_external_review_config(config_path) is None
+    config_path.write_text("{", encoding="utf-8")
+    assert load_external_review_config(config_path) is None
+    class SdkError(Exception):
+        def __init__(self, status_code, code):
+            self.status_code, self.code = status_code, code
+            super().__init__(code)
+    assert ResponsesExternalReviewTransport._error_code(SdkError(401, "authentication_error")) == "OPENAI_AUTHENTICATION_FAILED"
+    assert ResponsesExternalReviewTransport._error_code(SdkError(403, "permission_denied")) == "OPENAI_AUTHENTICATION_FAILED"
+    assert ResponsesExternalReviewTransport._error_code(SdkError(429, "rate_limit")) == "OPENAI_QUOTA_OR_RATE_LIMIT"
+    assert ResponsesExternalReviewTransport._error_code(SdkError(404, "model_not_found")) == "OPENAI_MODEL_ACCESS"
+
+
 def test_static_process_tasks_cannot_supply_day_one_evidence():
     calls = []
 
@@ -686,9 +1143,9 @@ def _repair_engine(tmp_path, root=None):
         def __init__(self):
             self.roles = []
         def run_worktree_task(self, working_directory, prompt):
-            role = "expert" if "Codex Expert Solver repair" in prompt else "local" if "LOCAL LLM COUNTERMEASURE" in prompt else "normal"
+            role = "external" if "external-review bounded repair" in prompt else "expert" if "Codex Expert Solver repair" in prompt else "local" if "LOCAL LLM COUNTERMEASURE" in prompt else "normal"
             self.roles.append(role)
-            if role == "expert":
+            if role in {"expert", "external"}:
                 (working_directory / "scripts/eval/temporal_state.py").write_text("def valid_time(): return True\n", encoding="utf-8")
             return ExecutionResult(status="completed", test_result="pending", summary="fixture provider", exit_code=0,
                 token_usage=TokenUsage(input_tokens=1, output_tokens=1, available=True),
@@ -703,6 +1160,28 @@ def _repair_engine(tmp_path, root=None):
     engine.real_runner = writer
     engine.local_llm_day_program.repair_builder = builder
     return engine, root, writer, builder
+
+
+def test_external_review_builder_uses_production_engine_worktree_and_adapter(tmp_path):
+    engine, root, writer, _builder = _repair_engine(tmp_path)
+    assert engine.local_llm_day_program.external_review.root == root.resolve()
+    assert engine.local_llm_day_program.external_review.store.root == (engine.project_root / "state" / "external-review").resolve()
+    runner = engine.local_llm_day_program
+    runner.smoke(6)
+    item, diagnosis = _external_repair_item(runner)
+    result = engine._execute_local_llm_day_work_order({
+        "kind": "EXTERNAL_REVIEW_BUILDER", "task_id": item.item_id,
+        "dynamic_work_order": item.dynamic_work_order.model_dump(mode="json"),
+        "external_review": json.loads(_review_json()),
+    })
+
+    assert result["final_result"] == "COMPLETE"
+    assert result["verification_passed"] is True
+    assert result["evidence"]
+    assert writer.roles == ["external"]
+    assert (root / "scripts/eval/temporal_state.py").read_text(encoding="utf-8") == "def valid_time(): return False\n"
+    assert Path(result["worktree_path"]).is_relative_to(engine.worktree_root)
+    assert diagnosis.evidence_type == "source_check"
 
 
 def test_unapproved_research_condition_is_configuration_boundary(tmp_path):

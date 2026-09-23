@@ -31,6 +31,7 @@ from backend.control.week1_program import Week1Program
 from backend.control.local_llm_day_program import LocalLLMDayProgram
 from backend.control.day_action_executor import DayActionExecutor
 from backend.control.solution_catalog import JsonSolutionCatalogStore, RepairEpisodeStore, SolutionCatalog
+from backend.control.external_review import ExternalReviewCoordinator, load_external_review_config
 from backend.models.goal import GoalPlan, GoalPlanStatus
 from backend.models.experiment import ExperimentOutcome, ExperimentRun
 from backend.models.local_runtime import LocalRuntimeReadinessState
@@ -158,6 +159,11 @@ class ControlCenterEngine:
             authority_resolver=self._resolve_local_llm_day_authority,
             solution_catalog=SolutionCatalog(JsonSolutionCatalogStore(project_root / "state" / "repair-catalog.json")),
             repair_episode_store=RepairEpisodeStore(project_root / "state" / "repair-episodes.json"),
+            external_review=ExternalReviewCoordinator(
+                local_llm.path if local_llm else project_root / "missing-local-llm",
+                state_root=project_root / "state" / "external-review",
+                config=load_external_review_config(project_root / "config" / "external-review.json"),
+            ),
         )
         self.day_action_executor = DayActionExecutor(self)
 
@@ -765,6 +771,8 @@ class ControlCenterEngine:
     def _resolve_local_llm_day_authority(self, blocker) -> bool:
         if blocker.resolution_strategy == "RUNTIME_REAL":
             return self.runtime.codex.mode == CodexMode.REAL
+        if blocker.resolution_strategy == "EXTERNAL_REVIEW_PREREQUISITE":
+            return False
         if blocker.resolution_strategy == "RESEARCH_CONDITION":
             from backend.control.day_research import research_inventory
             from backend.control.day_action_registry import STRATEGIES
@@ -806,6 +814,8 @@ class ControlCenterEngine:
             return self._execute_local_llm_countermeasure(work_order)
         if kind == "CODEX_EXPERT_SOLVER":
             return self._execute_codex_expert_solver(work_order)
+        if kind == "EXTERNAL_REVIEW_BUILDER":
+            return self._execute_external_review_builder(work_order)
         if kind == "DYNAMIC_ENGINEERING_WORK":
             try:
                 dynamic = DynamicDayWorkOrder.model_validate(work_order.get("dynamic_work_order"))
@@ -882,6 +892,41 @@ class ControlCenterEngine:
             return {"final_result": "FAILED", "error_code": "DAY_EXPERT_SOLVER_REJECTED", "issue_classification": "IMPLEMENTATION_DEFECT"}
         result = self.run_task(dynamic.task_id, task_definition=task)
         return {**self._adapt_day_repair(dynamic.task_id, result), "expert_solver": "INDEPENDENT"}
+
+    def _execute_external_review_builder(self, work_order: dict[str, object]) -> dict[str, object]:
+        """Pass reviewed guidance to the existing scoped Builder, never to a shell."""
+        review = work_order.get("external_review")
+        try:
+            dynamic = DynamicDayWorkOrder.model_validate(work_order.get("dynamic_work_order"))
+            self._validate_dynamic_day_work_order(dynamic)
+            if not isinstance(review, dict) or review.get("status") != "REPAIR_GUIDANCE":
+                raise ValueError("external guidance was not accepted by the server normalizer")
+            files = review.get("relevant_files")
+            tests = review.get("suggested_verification")
+            editable_files = [path for path in dynamic.allowed_files if path not in dynamic.acceptance_test_files]
+            if not isinstance(files, list) or any(path not in editable_files for path in files):
+                raise ValueError("external guidance expands source scope")
+            if not isinstance(tests, list) or any(path not in dynamic.acceptance_test_files for path in tests):
+                raise ValueError("external guidance expands verification scope")
+            task = ConfiguredTask(
+                task_id=dynamic.task_id, project_id=dynamic.project_id,
+                title="Day Runner external-review bounded repair",
+                task_type=TaskType(dynamic.task_type),
+                precheck=TaskCommand(argv=[sys.executable, "-m", "pytest", "-q", *dynamic.acceptance_test_files]),
+                postcheck=TaskCommand(argv=[sys.executable, "-m", "pytest", "-q", *dynamic.acceptance_test_files]),
+                allowed_files=editable_files, context_files=dynamic.context_files,
+                max_retry=1, requires_codex=True,
+            )
+        except (ValueError, TypeError):
+            return {"final_result": "FAILED", "error_code": "EXTERNAL_REVIEW_BUILDER_REJECTED", "issue_classification": "IMPLEMENTATION_DEFECT"}
+        bounded_guidance = {
+            "diagnosis": str(review.get("diagnosis", ""))[:1600],
+            "proposed_repair": str(review.get("proposed_repair", ""))[:2400],
+            "expected_behavior": str(review.get("expected_behavior", ""))[:1600],
+            "cautions": [str(value)[:400] for value in review.get("cautions", [])[:8]],
+        }
+        result = self.run_task(dynamic.task_id, task_definition=task, repair_proposal=bounded_guidance)
+        return {**self._adapt_day_repair(dynamic.task_id, result), "expert_solver": "EXTERNAL_REVIEW_GUIDED"}
 
     def _adapt_day_repair(self, task_id: str, result: dict) -> dict:
         from backend.control.day_action_registry import STRATEGIES

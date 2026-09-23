@@ -13,6 +13,7 @@ import sys
 import hashlib
 import json
 import os
+import re
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -29,6 +30,7 @@ from backend.control.day_state_machine import ACTIVE, AUTHORITY, validate_transi
 from backend.control.day_git import checkpoint, fingerprint as git_fingerprint, GitSafetyError
 from backend.control.retained_evidence import RetainedEvidenceResolver
 from backend.control.solution_catalog import RepairEpisodeStore, SolutionCatalog, SolutionCatalogEntry
+from backend.control.external_review import ExternalReviewCoordinator
 from backend.models.local_llm_day import (
     DayCriterion,
     DayIssueClassification,
@@ -65,6 +67,10 @@ class LocalLLMDayProgram:
     MAX_TASKS = 3
     MAX_LOCAL_PROPOSALS = 3
     ACTIVE_STATES = ACTIVE
+    RECOVERABLE_EXTERNAL_REVIEW_FAILURES = frozenset({
+        "OPENAI_AUTHENTICATION_FAILED", "OPENAI_QUOTA_OR_RATE_LIMIT",
+        "OPENAI_MODEL_ACCESS", "OPENAI_TIMEOUT", "OPENAI_RESPONSES_UNAVAILABLE",
+    })
 
     def __init__(
         self,
@@ -79,6 +85,7 @@ class LocalLLMDayProgram:
         repair_builder: LocalOllamaRepairBuilder | None = None,
         solution_catalog: SolutionCatalog | None = None,
         repair_episode_store: RepairEpisodeStore | None = None,
+        external_review: ExternalReviewCoordinator | None = None,
         retained_evidence_resolver: RetainedEvidenceResolver | None = None,
         clock: Callable[[], float] = time.time,
         project_id: str = "local_llm_lab",
@@ -92,6 +99,7 @@ class LocalLLMDayProgram:
         self.repair_builder = repair_builder or LocalOllamaRepairBuilder()
         self.solution_catalog = solution_catalog or SolutionCatalog()
         self.repair_episode_store = repair_episode_store or RepairEpisodeStore()
+        self.external_review = external_review or ExternalReviewCoordinator(self.root)
         self.retained_evidence_resolver = retained_evidence_resolver or RetainedEvidenceResolver(self.root)
         self.clock, self.project_id, self.evidence_registry = clock, project_id, REGISTRY
         # The contract is the denominator.  Both registries must cover it at
@@ -99,6 +107,7 @@ class LocalLLMDayProgram:
         self._assert_registry_conformance()
         self._lock, self._stop = RLock(), Event()
         self._thread: Thread | None = None
+        self._operator_external_resume_episode_id: str | None = None
         self._restore_snapshot()
         if self.snapshot.state in self.ACTIVE_STATES:
             if self.snapshot.state == LocalLLMDayState.REPAIR_SUPERVISOR and self.snapshot.repair_episode_ids:
@@ -143,6 +152,10 @@ class LocalLLMDayProgram:
         if blocker.resolution_strategy == "RETAINED_EVIDENCE" and blocker.evidence_type:
             record = inventory.get("retained_evidence", {}).get(blocker.evidence_type)
             return self.evidence_registry.validate(blocker.evidence_type, record)
+        if blocker.resolution_strategy == "EXTERNAL_REVIEW_PREREQUISITE":
+            if self.external_review.external_prerequisite_resolved(blocker.reason_code):
+                return True
+            return self.authority_resolver(blocker) is True if self.authority_resolver else False
         if self.authority_resolver:
             return self.authority_resolver(blocker) is True
         return False
@@ -159,13 +172,54 @@ class LocalLLMDayProgram:
                     and episode.scope_fingerprint == self._text_fingerprint(item.dynamic_work_order.model_dump_json() if item.dynamic_work_order else "")
                     and episode.failure_fingerprint == self._failure_fingerprint(item, episode.failure_excerpt))
 
+    def _external_review_operator_resume_episode(self) -> RepairEpisode | None:
+        """Return the single provider-failure episode an operator may explicitly retry."""
+        blocker, contract = self.snapshot.authority_blocker, self.snapshot.contract
+        if (self.snapshot.state != LocalLLMDayState.EXTERNAL_ACTION_REQUIRED or not blocker or not contract
+                or blocker.resolution_strategy != "EXTERNAL_REVIEW_PREREQUISITE"
+                or blocker.reason_code not in self.RECOVERABLE_EXTERNAL_REVIEW_FAILURES
+                or not self.snapshot.repair_episode_ids):
+            return None
+        episode = self.repair_episode_store.get(self.snapshot.repair_episode_ids[-1])
+        item = next((value for value in self.snapshot.work_items if episode and value.item_id == episode.work_item_id), None)
+        if not episode or not item or not item.dynamic_work_order:
+            return None
+        if (episode.external_review_failure_code != blocker.reason_code
+                or episode.external_review_resume_attempts >= 1
+                or episode.contract_version != contract.version
+                or episode.day != contract.day
+                or episode.scope_fingerprint != self._text_fingerprint(item.dynamic_work_order.model_dump_json())
+                or episode.failure_fingerprint != self._failure_fingerprint(item, episode.failure_excerpt)):
+            return None
+        return episode
+
+    def _begin_external_review_operator_resume(self, episode: RepairEpisode) -> None:
+        """Authorize one operator-triggered provider retry without widening the repair scope."""
+        episode.external_review_resume_attempts += 1
+        episode.external_review_artifact = None
+        episode.external_review_outcome = None
+        episode.external_review_failure_code = None
+        episode.external_review_phase = None
+        episode.final_outcome = None
+        episode.interrupted = True
+        self.repair_episode_store.save(episode)
+        self._operator_external_resume_episode_id = episode.episode_id
+        self.snapshot.authority_blocker = None
+        self._audit("EXTERNAL_REVIEW_OPERATOR_RESUME", {
+            "episode_id": episode.episode_id, "day": episode.day,
+            "scope_fingerprint": episode.scope_fingerprint,
+            "resume_attempt": episode.external_review_resume_attempts,
+        })
+        self._save()
+
     def _enabled_controls(self) -> dict[str, bool]:
         state = self.snapshot.state
         repair = self._repair_resumable()
         return {"go": state == LocalLLMDayState.IDLE,
                 "smoke": state == LocalLLMDayState.IDLE,
                 "resume": (state in {LocalLLMDayState.PAUSED, LocalLLMDayState.STOPPED} and not repair)
-                          or (state in AUTHORITY and self._blocker_resolved()),
+                          or (state in AUTHORITY and (self._blocker_resolved()
+                              or self._external_review_operator_resume_episode() is not None)),
                 "repair_and_go": repair, "stop": state in ACTIVE,
                 "select_day": state in {LocalLLMDayState.IDLE, LocalLLMDayState.COMPLETE}}
 
@@ -249,7 +303,10 @@ class LocalLLMDayProgram:
                 LocalLLMDayState.HUMAN_ACTION_REQUIRED, LocalLLMDayState.EXTERNAL_ACTION_REQUIRED,
             }:
                 return {"error_code": "DAY_NOT_RESUMABLE", **self.view()}
-            if self.snapshot.state not in AUTHORITY and not self._enabled_controls()["resume"]:
+            operator_episode = self._external_review_operator_resume_episode()
+            if self.snapshot.state in AUTHORITY and operator_episode is not None:
+                self._begin_external_review_operator_resume(operator_episode)
+            elif self.snapshot.state not in AUTHORITY and not self._enabled_controls()["resume"]:
                 return {"error_code": "DAY_BLOCKER_UNRESOLVED", **self.view()}
             day = self.snapshot.selected_day
             # Resume preserves the Day and rechecks the blocker; only a
@@ -318,7 +375,7 @@ class LocalLLMDayProgram:
         self._save()
         files = self._bounded_repair_files(item)
         seen_proposals: set[str] = {p.proposal_fingerprint for p in episode.proposal_attempts}
-        while len(episode.proposal_attempts) < self.MAX_LOCAL_PROPOSALS and self.clock() < episode.repair_deadline_epoch:
+        while episode.expert_solver_outcome is None and len(episode.proposal_attempts) < self.MAX_LOCAL_PROPOSALS and self.clock() < episode.repair_deadline_epoch:
             remaining = max(1, int(episode.repair_deadline_epoch - self.clock()))
             proposal = self.repair_builder.propose(
                 failure_excerpt=excerpt, files=files, timeout_seconds=min(120, remaining),
@@ -359,20 +416,119 @@ class LocalLLMDayProgram:
             episode.proposal_attempts.append(RepairProposalAttempt(proposal_fingerprint=proposal_fingerprint, outcome="REJECTED", feedback=feedback))
             episode.rejection_feedback.append(feedback)
             self.repair_episode_store.save(episode)
-        expert = self.work_order_executor({
-            "kind": "CODEX_EXPERT_SOLVER", "task_id": item.item_id,
-            "dynamic_work_order": item.dynamic_work_order.model_dump(mode="json") if item.dynamic_work_order else None,
-            "failure_excerpt": excerpt, "failure_fingerprint": fingerprint,
-            "catalog_matches": [self._catalog_guidance(entry) for entry in matches], "repair_episode_id": episode.episode_id,
-        })
+        expert: dict[str, object] = {"error_code": episode.expert_solver_outcome or "FAILED"}
+        if episode.expert_solver_outcome is None:
+            expert = self.work_order_executor({
+                "kind": "CODEX_EXPERT_SOLVER", "task_id": item.item_id,
+                "dynamic_work_order": item.dynamic_work_order.model_dump(mode="json") if item.dynamic_work_order else None,
+                "failure_excerpt": excerpt, "failure_fingerprint": fingerprint,
+                "catalog_matches": [self._catalog_guidance(entry) for entry in matches], "repair_episode_id": episode.episode_id,
+            })
         if expert.get("final_result") in {"COMPLETE", "COMPLETE_NO_CHANGE"} and expert.get("verification_passed") is True:
             episode.expert_solver_outcome, episode.verification_result, episode.final_outcome = "VERIFIED", "PASS", "CODEX_VERIFIED"
             self._accept_repair(item, expert, episode, source="CODEX_VERIFIED", diagnosis="Codex Expert Solver independently repaired the verified failure.")
             return True
-        episode.expert_solver_outcome = str(expert.get("error_code") or "FAILED")[:80]
-        episode.final_outcome = "EXPERT_FAILED"
+        if episode.expert_solver_outcome is None:
+            episode.expert_solver_outcome = str(expert.get("error_code") or "FAILED")[:80]
+            self.repair_episode_store.save(episode)
+        return self._request_external_repair_guidance(item, contract, episode, matches, expert)
+
+    def _request_external_repair_guidance(self, item: LocalLLMDayWorkItem, contract: LocalLLMDayContract,
+                                          episode: RepairEpisode, matches: list[SolutionCatalogEntry],
+                                          expert: dict[str, object]) -> bool:
+        """Use one advisory external review without extending the repair order."""
+        order = item.dynamic_work_order
+        diagnosis = next((value for value in self.snapshot.gap_diagnoses
+                          if value.criterion_id in item.criterion_ids and value.classification == DayIssueClassification.ENGINEERING_REPAIR), None)
+        if order is None or diagnosis is None or not diagnosis.evidence_type:
+            episode.final_outcome = "EXTERNAL_REVIEW_NOT_ELIGIBLE"
+            self.repair_episode_store.save(episode)
+            return False
+        package = self.external_review.build_package(
+            selected_day=contract.day, contract_version=contract.version,
+            contract_fingerprint=self.snapshot.contract_fingerprint or self._contract_fingerprint(contract),
+            criterion_id=diagnosis.criterion_id, evidence_type=diagnosis.evidence_type,
+            gap_diagnosis=diagnosis.model_dump(mode="json"),
+            failed_action=dict(self.snapshot.last_action or {"task_id": order.task_id}),
+            allowed_files=order.allowed_files, context_files=order.context_files,
+            acceptance_test_files=order.acceptance_test_files, failure_excerpt=item.evidence.get("failure_excerpt", ""),
+            stdout_excerpt=expert.get("stdout", ""), stderr_excerpt=expert.get("stderr", ""),
+            git_summary=self._external_review_git_summary(self._inventory(contract)),
+            previous_attempts=[attempt.model_dump(mode="json") for attempt in episode.proposal_attempts],
+            rejection_feedback=episode.rejection_feedback,
+            catalog_matches=[self._catalog_guidance(entry) for entry in matches],
+            expert_solver_outcome=episode.expert_solver_outcome or "FAILED",
+            deterministic_verification_failure=expert.get("error_code") or expert.get("failure_excerpt") or "Expert Solver did not produce verified repair evidence.",
+        )
+        artifact = self.external_review.store.load_artifact(episode.external_review_artifact) if episode.external_review_artifact else None
+        if artifact is not None and (artifact.package.selected_day != contract.day or artifact.package.repair_scope != package.repair_scope):
+            artifact = None
+        if episode.external_review_phase in {"SUBMISSION_STARTED", "ARTIFACT_RECORDED", "BUILDER_STARTED"} and artifact is None:
+            episode.external_review_failure_code = "EXTERNAL_REVIEW_SUBMISSION_UNCERTAIN"
+            episode.final_outcome = "EXTERNAL_REVIEW_UNRESOLVED"
+            self.repair_episode_store.save(episode)
+            return False
+        if artifact is None:
+            episode.external_review_fingerprint = package.fingerprint
+            episode.external_review_phase = "SUBMISSION_STARTED"
+            self.repair_episode_store.save(episode)
+            artifact = self.external_review.request_review(package)
+            episode.external_review_artifact = artifact.artifact_path
+            episode.external_review_outcome = artifact.status
+            episode.external_review_failure_code = artifact.failure_code
+            episode.external_review_phase = "ARTIFACT_RECORDED"
+            self.repair_episode_store.save(episode)
+        review = artifact.normalized
+        if artifact.status != "GUIDANCE_RECEIVED" or review is None or review.status != "REPAIR_GUIDANCE":
+            episode.final_outcome = "EXTERNAL_REVIEW_UNRESOLVED"
+            self.repair_episode_store.save(episode)
+            return False
+        episode.external_review_phase = "BUILDER_STARTED"
+        self.repair_episode_store.save(episode)
+        result = self.work_order_executor({
+            "kind": "EXTERNAL_REVIEW_BUILDER", "task_id": item.item_id,
+            "dynamic_work_order": order.model_dump(mode="json"),
+            "failure_package": package.model_dump(mode="json"),
+            "external_review": review.model_dump(mode="json"),
+            "repair_episode_id": episode.episode_id,
+        })
+        if result.get("final_result") in {"COMPLETE", "COMPLETE_NO_CHANGE"} and result.get("verification_passed") is True:
+            episode.external_review_builder_outcome, episode.verification_result, episode.final_outcome = "VERIFIED", "PASS", "EXTERNAL_REVIEW_VERIFIED"
+            episode.external_review_phase = "BUILDER_VERIFIED"
+            self.repair_episode_store.save(episode)
+            self._accept_repair(item, result, episode, source="EXTERNAL_REVIEW_VERIFIED", diagnosis=review.diagnosis)
+            return True
+        episode.external_review_builder_outcome = str(result.get("error_code") or "FAILED")[:80]
+        episode.verification_result = episode.external_review_builder_outcome
+        episode.final_outcome = "EXTERNAL_REVIEW_BUILDER_FAILED"
+        episode.external_review_phase = "BUILDER_FAILED"
         self.repair_episode_store.save(episode)
         return False
+
+    @staticmethod
+    def _external_review_git_summary(inventory: dict[str, object]) -> dict[str, object]:
+        """Only bounded Git identity/status facts may leave the controller."""
+        head = inventory.get("head")
+        return {
+            "branch": str(inventory.get("branch") or "")[:160],
+            "head": str(head)[:64] if isinstance(head, str) and re.fullmatch(r"[0-9a-fA-F]{7,64}", head) else "",
+            "working_tree_clean": inventory.get("working_tree_clean") is True,
+            "status_count": min(max(int(inventory.get("status_count") or 0), 0), 10000),
+        }
+
+    def _external_repair_blocker(self, contract: LocalLLMDayContract, inventory: dict[str, object], item: LocalLLMDayWorkItem) -> None:
+        diagnosis = next((value for value in self.snapshot.gap_diagnoses if value.criterion_id in item.criterion_ids), None)
+        episode = self.repair_episode_store.get(self.snapshot.repair_episode_ids[-1]) if self.snapshot.repair_episode_ids else None
+        if episode and episode.external_review_failure_code:
+            self._terminal_blocker(contract, DayIssueClassification.EXTERNAL_AUTHORITY_REQUIRED,
+                episode.external_review_failure_code,
+                "The configured External Reviewer API prerequisite is unavailable; no source change was attempted.",
+                inventory, diagnosis)
+            return
+        self._terminal_blocker(contract, DayIssueClassification.HUMAN_PRODUCT_DECISION_REQUIRED,
+            "EXTERNAL_REPAIR_UNRESOLVED",
+            "All bounded internal and external-guided repair routes were exhausted without verified evidence; an authority decision is required before expanding scope or criteria.",
+            inventory, diagnosis)
 
     @staticmethod
     def _text_fingerprint(value: str) -> str:
@@ -478,6 +634,30 @@ class LocalLLMDayProgram:
                 if not contract.remaining_gaps:
                     self._complete(contract, inventory)
                     return
+                if self._operator_external_resume_episode_id:
+                    episode = self.repair_episode_store.get(self._operator_external_resume_episode_id)
+                    item = next((value for value in self.snapshot.work_items
+                                 if episode and value.item_id == episode.work_item_id), None)
+                    self._operator_external_resume_episode_id = None
+                    if not episode or not item or not episode.interrupted or episode.final_outcome:
+                        self._terminal_blocker(contract, DayIssueClassification.EXTERNAL_AUTHORITY_REQUIRED,
+                                               "EXTERNAL_REVIEW_RESUME_SCOPE_INVALID",
+                                               "The requested External Reviewer retry no longer matches the persisted repair scope.", inventory)
+                        return
+                    self._transition(LocalLLMDayState.DIAGNOSING_GAP)
+                    self._transition(LocalLLMDayState.REPAIR_SUPERVISOR)
+                    episode.interrupted = False
+                    self.repair_episode_store.save(episode)
+                    if not self._supervise_repair(item, contract):
+                        self._external_repair_blocker(contract, inventory, item)
+                        return
+                    self._ingest_legacy_evidence(contract, item.evidence.get("evidence", {}),
+                                                 provider_id="repair-supervisor",
+                                                 source_fingerprint=self._inventory_fingerprint(inventory))
+                    self._transition(LocalLLMDayState.REVALIDATING)
+                    inventory = self._inventory(contract)
+                    self._transition(LocalLLMDayState.VALIDATING)
+                    continue
                 self._transition(LocalLLMDayState.DIAGNOSING_GAP)
                 diagnoses = self._diagnose_gaps(contract, inventory)
                 self.snapshot.gap_diagnoses = diagnoses
@@ -488,7 +668,8 @@ class LocalLLMDayProgram:
                     self._transition(LocalLLMDayState.REPAIR_SUPERVISOR)
                     episode.interrupted = False
                     if not self._supervise_repair(item, contract):
-                        raise GitSafetyError("REPAIR_ROUTES_EXHAUSTED")
+                        self._external_repair_blocker(contract, inventory, item)
+                        return
                     self._ingest_legacy_evidence(contract, item.evidence.get("evidence", {}), provider_id="repair-supervisor", source_fingerprint=self._inventory_fingerprint(inventory))
                     self._transition(LocalLLMDayState.REVALIDATING)
                     inventory = self._inventory(contract)
@@ -676,7 +857,15 @@ class LocalLLMDayProgram:
                       "RESEARCH_CONDITION_CHANGED": "RESEARCH_CONDITION",
                       "SOURCE_TASK_DEPENDENCY_DIRTY": "SOURCE_DEPENDENCIES",
                       "REPAIR_SCOPE_AUTHORITY_REQUIRED": "AUTHORIZED_SCOPE",
-                      "RESEARCH_CONDITION_EXPANSION_REQUIRED": "AUTHORIZED_SCOPE"}.get(reason_code, "RETAINED_EVIDENCE")
+                      "EXTERNAL_REPAIR_UNRESOLVED": "AUTHORIZED_SCOPE",
+                      "OPENAI_CREDENTIALS_MISSING": "EXTERNAL_REVIEW_PREREQUISITE",
+                      "OPENAI_AUTHENTICATION_FAILED": "EXTERNAL_REVIEW_PREREQUISITE",
+                      "OPENAI_QUOTA_OR_RATE_LIMIT": "EXTERNAL_REVIEW_PREREQUISITE",
+                      "OPENAI_MODEL_ACCESS": "EXTERNAL_REVIEW_PREREQUISITE",
+                      "OPENAI_TIMEOUT": "EXTERNAL_REVIEW_PREREQUISITE",
+                      "OPENAI_RESPONSES_UNAVAILABLE": "EXTERNAL_REVIEW_PREREQUISITE",
+                      "RESEARCH_CONDITION_EXPANSION_REQUIRED": "AUTHORIZED_SCOPE"}.get(
+                          reason_code, "RETAINED_EVIDENCE")
         strategy = STRATEGIES.get((contract.day, diagnosis.evidence_type)) if diagnosis else None
         self.snapshot.authority_blocker = AuthorityBlocker(classification=classification, reason_code=reason_code, message=message, criterion_id=diagnosis.criterion_id if diagnosis else None, evidence_type=diagnosis.evidence_type if diagnosis else None,
             resolution_strategy=resolution, action_template_id=strategy.template.template_id if strategy and strategy.template else None)
@@ -711,6 +900,8 @@ class LocalLLMDayProgram:
                 self.snapshot.activity = "Repair verification succeeded; re-evaluating the Day Contract."
                 self._save()
                 return
+            self._external_repair_blocker(contract, inventory, item)
+            return
         self._fail(contract, "DAY_TASK_FAILED", "A planned task did not produce trusted evidence.", classification, inventory)
 
     def _complete(self, contract: LocalLLMDayContract, inventory: dict[str, object]) -> None:
@@ -821,7 +1012,8 @@ class LocalLLMDayProgram:
                     if isinstance(repair_evidence, dict):
                         self._ingest_legacy_evidence(contract, repair_evidence, provider_id="repair-supervisor", source_fingerprint=diagnosis.input_fingerprint)
                     return
-                raise GitSafetyError("REPAIR_ROUTES_EXHAUSTED")
+                self._external_repair_blocker(contract, {}, item)
+                return
         if classification == DayIssueClassification.MODEL_QUALITY_FINDING:
             # Retention is evidence; quality is not an engineering repair.
             self.snapshot.issue_classification = classification

@@ -220,7 +220,7 @@ class AuthorityBlocker(BaseModel):
     message: str = Field(min_length=1, max_length=1200)
     criterion_id: str | None = Field(default=None, max_length=100)
     evidence_type: str | None = Field(default=None, max_length=100)
-    resolution_strategy: Literal["AUTHORITATIVE_SOURCES", "RETAINED_EVIDENCE", "RUNTIME_REAL", "RESEARCH_CONDITION", "SOURCE_DEPENDENCIES", "AUTHORIZED_SCOPE"] = "RETAINED_EVIDENCE"
+    resolution_strategy: Literal["AUTHORITATIVE_SOURCES", "RETAINED_EVIDENCE", "RUNTIME_REAL", "RESEARCH_CONDITION", "SOURCE_DEPENDENCIES", "AUTHORIZED_SCOPE", "EXTERNAL_REVIEW_PREREQUISITE"] = "RETAINED_EVIDENCE"
     action_template_id: str | None = None
 
 
@@ -252,6 +252,13 @@ class RepairEpisode(BaseModel):
     verification_result: str | None = Field(default=None, max_length=80)
     final_outcome: str | None = Field(default=None, max_length=80)
     catalog_update_id: str | None = Field(default=None, max_length=80)
+    external_review_fingerprint: str | None = Field(default=None, max_length=128)
+    external_review_artifact: str | None = Field(default=None, max_length=600)
+    external_review_outcome: str | None = Field(default=None, max_length=80)
+    external_review_failure_code: str | None = Field(default=None, max_length=100)
+    external_review_builder_outcome: str | None = Field(default=None, max_length=80)
+    external_review_phase: str | None = Field(default=None, max_length=80)
+    external_review_resume_attempts: int = Field(default=0, ge=0, le=1)
     contract_version: str = ""
     scope_fingerprint: str = ""
     interrupted: bool = False

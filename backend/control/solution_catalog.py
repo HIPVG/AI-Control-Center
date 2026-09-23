@@ -29,7 +29,7 @@ class SolutionCatalogEntry(BaseModel):
     preconditions: list[str] = Field(default_factory=list)
     affected_files_or_scope: list[str] = Field(default_factory=list)
     verification: str = Field(min_length=1)
-    source: Literal["CODEX_VERIFIED", "LOCAL_VERIFIED"]
+    source: Literal["CODEX_VERIFIED", "LOCAL_VERIFIED", "EXTERNAL_REVIEW_VERIFIED"]
     status: Literal["VERIFIED", "RETIRED"] = "VERIFIED"
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     updated_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
