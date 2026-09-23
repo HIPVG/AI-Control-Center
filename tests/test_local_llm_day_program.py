@@ -304,17 +304,41 @@ def test_retained_day_two_evidence_is_typed_complete_and_fails_closed(tmp_path):
     assert RetainedEvidenceResolver(tmp_path).resolve(2) == {}
 
 
-def test_retained_day_four_evidence_is_typed_complete_and_fails_closed(tmp_path):
-    run = _write_retained_day_four_fixture(tmp_path)
+def test_retained_day_four_cross_model_evidence_is_typed_complete_and_fails_closed(tmp_path):
+    run = tmp_path / "results" / "day4-cross-model" / "EXP-20260923T151059-424c537a66"
+    run.mkdir(parents=True)
+    cases = ["PC-001-A", "PC-001-C", "PC-003-A", "PC-003-C"]
+    inputs = {case: f"hash-{case}" for case in cases}
+    profile = {"id": "week1-day4-cross-family", "cases": cases, "temperature": 0, "seed": 42,
+               "context_length": 8192, "max_output_tokens": 1024, "reasoning_mode": "disabled", "repeat": 1}
+    models = [{"id": "phi4-14b-q4", "runtime_model_name": "phi4:14b"},
+              {"id": "qwen3-14b-q4", "runtime_model_name": "qwen3-14b-q4:latest"}]
+    (run / "manifest.json").write_text(json.dumps({"run_id": run.name, "status": "completed", "dry_run": False,
+        "profile": profile, "selected_models": models, "selected_case_ids": cases}), encoding="utf-8")
+    comparison_models = []
+    rows = []
+    for index, model in enumerate(models):
+        child = run / "runs" / f"PCSMOKE-20260923T151{index:03d}Z-fixture"
+        child.mkdir(parents=True)
+        (child / "manifest.json").write_text(json.dumps({"run_id": child.name, "model": model["runtime_model_name"],
+            "status": "completed", "success_count": 4, "failed_count": 0, "input_sha256": inputs}), encoding="utf-8")
+        comparison_models.append({"model_id": model["id"], "performance": {"average_elapsed_seconds": 1}, "success_count": 4})
+        rows.extend({"model_id": model["id"], "case_id": case, "status": "success",
+                     "raw_response_metadata": {"done_reason": "length" if model["id"] == "qwen3-14b-q4" and case == "PC-001-A" else "stop"}}
+                    for case in cases)
+    (run / "comparison.json").write_text(json.dumps({"models": comparison_models}), encoding="utf-8")
+    (run / "responses.jsonl").write_text("".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8")
     resolver = RetainedEvidenceResolver(tmp_path)
     evidence = resolver.resolve(4)
-    assert set(evidence) == {"holdout_manifest", "architecture_ref", "dagb_artifact", "anti_leakage_check", "retained_failures"}
+    assert set(evidence) == {"cross_model_baseline_artifact", "cross_model_comparison_artifact", "cross_model_condition", "cross_model_validation", "cross_model_metrics", "cross_model_quality_assessment"}
     assert all(REGISTRY.validate(name, record) for name, record in evidence.items())
     runner = LocalLLMDayProgram(tmp_path, retained_evidence_resolver=resolver)
     contract = runner._load_contracts()[4]
     runner._evaluate_contract(contract, runner._inventory(contract))
     assert not contract.remaining_gaps
-    (run / "freeze" / "freeze-verification.json").write_text(json.dumps({"unchanged": False, "changed_files": ["scripts/eval.py"]}), encoding="utf-8")
+    broken = json.loads((run / "runs" / "PCSMOKE-20260923T151000Z-fixture" / "manifest.json").read_text(encoding="utf-8"))
+    broken["input_sha256"] = {"PC-001-A": "different"}
+    (run / "runs" / "PCSMOKE-20260923T151000Z-fixture" / "manifest.json").write_text(json.dumps(broken), encoding="utf-8")
     assert RetainedEvidenceResolver(tmp_path).resolve(4) == {}
 
 
@@ -1343,8 +1367,8 @@ def test_day_one_disposable_git_integration_collects_real_evidence(tmp_path):
 def test_frozen_registry_covers_each_configured_day_evidence_pair():
     document = __import__("yaml").safe_load(LocalLLMDayProgram.PROGRAM_PATH.read_text(encoding="utf-8"))
     pairs = {(day["day"], evidence) for day in document["days"] for criterion in day["completion_criteria"] for evidence in criterion["evidence"]}
-    assert len(REGISTRY.names) == 46
-    assert len(pairs) == 62
+    assert len(REGISTRY.names) == 52
+    assert len(pairs) == 63
     assert_coverage(pairs, REGISTRY.names)
     assert set(STRATEGIES) == pairs
 

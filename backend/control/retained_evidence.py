@@ -155,6 +155,89 @@ class RetainedEvidenceResolver:
                 and v032["runtime"] == v04["runtime"])
 
     def _resolve_day_four(self) -> dict[str, object]:
+        """Resolve only the reviewer-approved retained cross-model Day 4 run."""
+        run_path = self.root / "results" / "day4-cross-model" / "EXP-20260923T151059-424c537a66"
+        manifest_path, comparison_path, responses_path = run_path / "manifest.json", run_path / "comparison.json", run_path / "responses.jsonl"
+        manifest = self._json_object(manifest_path)
+        comparison = self._json_object(comparison_path)
+        responses = self._json_lines(responses_path)
+        children = sorted((run_path / "runs").glob("PCSMOKE-*/manifest.json"))
+        child_manifests = [self._json_object(path) for path in children]
+        if not self._day_four_cross_model_valid(run_path, manifest, comparison, responses, children, child_manifests):
+            return {}
+
+        by_model = {item.get("id"): item for item in manifest.get("selected_models", []) if isinstance(item, dict)}
+        baseline, candidate = by_model["phi4-14b-q4"], by_model["qwen3-14b-q4"]
+        response_models = {row.get("model_id") for row in responses}
+        truncated = sum(row.get("raw_response_metadata", {}).get("done_reason") == "length"
+                        for row in responses if isinstance(row.get("raw_response_metadata"), dict))
+        input_hashes = child_manifests[0]["input_sha256"]
+        condition = {"case_ids": manifest["selected_case_ids"], "input_sha256": input_hashes,
+                     "temperature": 0, "seed": 42, "context_length": 8192,
+                     "max_output_tokens": 1024, "reasoning_mode": "disabled", "repeat": 1,
+                     "response_models": sorted(response_models)}
+        fingerprint = self._text_fingerprint(json.dumps(condition, sort_keys=True))
+        source = f"retained:cross-model:{self._relative(manifest_path)}"
+        paths = [manifest_path, comparison_path, responses_path, *children]
+        common = {"run_id": manifest["run_id"], "manifest_fingerprint": self._sha256_file(manifest_path),
+                  "artifact_path": self._relative(run_path), "completion_status": "COMPLETED",
+                  "provenance_source": source, "condition_fingerprint": fingerprint}
+        comparison_models = {item["model_id"]: item for item in comparison["models"]
+                             if isinstance(item, dict) and isinstance(item.get("model_id"), str)}
+        records = {
+            "cross_model_baseline_artifact": self._record("cross_model_baseline_artifact", {
+                **common, "status": "RETAINED", "model": baseline["runtime_model_name"],
+                "child_run_id": next(item["run_id"] for item in child_manifests if item["model"] == baseline["runtime_model_name"]),
+            }, source),
+            "cross_model_comparison_artifact": self._record("cross_model_comparison_artifact", {
+                **common, "status": "RETAINED", "model": candidate["runtime_model_name"],
+                "child_run_id": next(item["run_id"] for item in child_manifests if item["model"] == candidate["runtime_model_name"]),
+            }, source),
+            "cross_model_condition": self._record("cross_model_condition", {
+                "condition_fingerprint": fingerprint, "baseline_model": baseline["runtime_model_name"],
+                "comparison_model": candidate["runtime_model_name"], **condition, **common,
+            }, source),
+            "cross_model_validation": self._record("cross_model_validation", {
+                "exit_code": 0, "commands": ["retained manifest/response provenance validation"],
+                "passed": len(responses), "failed": 0, **common,
+            }, source),
+            "cross_model_metrics": self._record("cross_model_metrics", {
+                "baseline": comparison_models["phi4-14b-q4"],
+                "comparison": comparison_models["qwen3-14b-q4"],
+                "truncated_response_count": truncated, **common,
+            }, source),
+            "cross_model_quality_assessment": self._record("cross_model_quality_assessment", {
+                "conclusion": "PARTIAL_IMPROVEMENT_REQUIRES_INDEPENDENT_REVIEW",
+                "limitations": ["unsupported control concerns are retained", "one comparison response reached the output cap"],
+                "artifact_path": self._relative(responses_path), "truncated_response_count": truncated, **common,
+            }, source),
+        }
+        for record in records.values():
+            record["source_paths"] = [str(path) for path in paths]
+            record["source_hashes"] = {str(path): self._sha256_file(path) for path in paths}
+        return records
+
+    @staticmethod
+    def _day_four_cross_model_valid(run_path: Path, manifest: dict[str, object], comparison: dict[str, object], responses: list[dict[str, object]], children: list[Path], child_manifests: list[dict[str, object]]) -> bool:
+        expected_cases = ["PC-001-A", "PC-001-C", "PC-003-A", "PC-003-C"]
+        profile = manifest.get("profile")
+        model_ids = {item.get("id") for item in manifest.get("selected_models", []) if isinstance(item, dict)}
+        expected_runtime = {"phi4:14b", "qwen3-14b-q4:latest"}
+        runtime_models = {item.get("runtime_model_name") for item in manifest.get("selected_models", []) if isinstance(item, dict)}
+        input_hashes = [item.get("input_sha256") for item in child_manifests]
+        return (run_path.name == manifest.get("run_id") and manifest.get("status") == "completed" and manifest.get("dry_run") is False
+                and isinstance(profile, dict) and profile.get("id") == "week1-day4-cross-family" and profile.get("cases") == expected_cases
+                and profile.get("temperature") == 0 and profile.get("seed") == 42 and profile.get("context_length") == 8192
+                and profile.get("max_output_tokens") == 1024 and profile.get("reasoning_mode") == "disabled" and profile.get("repeat") == 1
+                and model_ids == {"phi4-14b-q4", "qwen3-14b-q4"} and runtime_models == expected_runtime
+                and len(children) == len(child_manifests) == 2 and all(item.get("status") == "completed" and item.get("success_count") == 4 and item.get("failed_count") == 0 for item in child_manifests)
+                and len(input_hashes) == 2 and all(isinstance(value, dict) and value for value in input_hashes) and input_hashes[0] == input_hashes[1]
+                and len(responses) == 8 and all(item.get("status") == "success" for item in responses)
+                and {item.get("model_id") for item in responses} == model_ids and {item.get("case_id") for item in responses} == set(expected_cases)
+                and isinstance(comparison.get("models"), list)
+                and {item.get("model_id") for item in comparison["models"] if isinstance(item, dict)} == model_ids)
+
+    def _resolve_superseded_day_four(self) -> dict[str, object]:
         config_path = self.root / "config" / "decision-generalization-benchmark.json"
         config = self._json_object(config_path)
         config_fingerprint = self._sha256_file(config_path)

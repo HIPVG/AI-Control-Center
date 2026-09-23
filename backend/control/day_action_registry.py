@@ -102,7 +102,7 @@ STRATEGIES |= _strategies(2, ("source_check", "deterministic_tests", "architectu
 STRATEGIES |= _strategies(2, ("preservation_audit",), "COLLECT_EVIDENCE", READ_ONLY)
 STRATEGIES |= _strategies(3, ("v032_artifact", "v04_artifact"), "HUMAN_PRODUCT_DECISION_REQUIRED", None, "PREREQUISITE_DAY_REQUIRED")
 STRATEGIES |= _strategies(3, ("condition_record", "comparison_metrics", "failure_policy"), "PRODUCE_DAY_EVIDENCE", RESEARCH)
-STRATEGIES |= _strategies(4, ("holdout_manifest", "architecture_ref", "dagb_artifact", "retained_failures", "anti_leakage_check"), "PRODUCE_DAY_EVIDENCE", RESEARCH)
+STRATEGIES |= _strategies(4, ("cross_model_baseline_artifact", "cross_model_comparison_artifact", "cross_model_condition", "cross_model_validation", "cross_model_metrics", "cross_model_quality_assessment"), "PRODUCE_DAY_EVIDENCE", RESEARCH)
 STRATEGIES |= _strategies(5, ("teacher_evidence",), "EXTERNAL_AUTHORITY_REQUIRED", None, "FROZEN_TEACHER_EVIDENCE_REQUIRED")
 STRATEGIES |= _strategies(5, ("validator_result", "local_artifact"), "PRODUCE_DAY_EVIDENCE", RESEARCH)
 STRATEGIES |= _strategies(5, ("limitation_record", "decision_record"), "PRODUCE_DAY_EVIDENCE", DECISION)
@@ -126,9 +126,8 @@ STRATEGIES |= _strategies(14, ("human_review_marker",), "HUMAN_PRODUCT_DECISION_
 _ACTION_GROUPS = (
     (2, "D2_FEASIBLE_RELEVANT_GATE", ("source_check", "deterministic_tests", "architecture_check", "test_result")),
     (3, "D3_FIXED_REGRESSION", ("condition_record", "comparison_metrics", "failure_policy")),
-    (4, "D4_FREEZE_HOLDOUT", ("holdout_manifest", "architecture_ref")),
-    (4, "D4_DAGB_RUN", ("dagb_artifact", "retained_failures")),
-    (4, "D4_ANTI_LEAKAGE", ("anti_leakage_check",)),
+    (4, "D4_CROSS_MODEL_PAIR", ("cross_model_baseline_artifact", "cross_model_comparison_artifact", "cross_model_condition")),
+    (4, "D4_CROSS_MODEL_VALIDATION", ("cross_model_validation", "cross_model_metrics", "cross_model_quality_assessment")),
     (5, "D5_PLAN_SELECTION_PRECISION", ("validator_result", "local_artifact")),
     (5, "D5_PRECISION_DECISION", ("limitation_record", "decision_record")),
     (6, "D6_TEMPORAL_STATE_DESIGN", ("schema_contract", "source_check", "provenance_test", "deterministic_tests", "architecture_check")),

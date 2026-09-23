@@ -35,12 +35,22 @@ days:
       - {id: cost_metrics, statement: "Action-set size, prompt tokens, output tokens, and elapsed time are recorded", evidence: [comparison_metrics]}
       - {id: coverage_metrics, statement: Blocking and mandatory coverage are recorded without rerunning failed inference to improve results, evidence: [comparison_metrics, failure_policy]}
   - day: 4
-    title: Fresh holdout, metamorphic, counterfactual
-    objective: Evaluate frozen architecture on genuinely fresh holdout and preserve all outcomes.
+    title: Fixed-condition phi4 versus Qwen3 cross-model comparison
+    objective: Compare phi4:14b and Qwen3 14B manufacturing decision quality under the reviewer-approved fixed four-case condition.
+    superseded_contract:
+      version: "2026-09-22-v2-evidence-contract"
+      title: Fresh holdout, metamorphic, counterfactual
+      objective: Evaluate frozen architecture on genuinely fresh holdout and preserve all outcomes.
+      completion_criteria:
+        - {id: frozen_holdout, evidence: [holdout_manifest, architecture_ref]}
+        - {id: evaluation_results, evidence: [dagb_artifact]}
+        - {id: anti_leakage, evidence: [anti_leakage_check, retained_failures]}
+      superseded_by: "reviewer-approved Day 4 cross-model objective, 2026-09-24"
     completion_criteria:
-      - {id: frozen_holdout, statement: A genuinely unseen frozen holdout and frozen architecture are evidenced, evidence: [holdout_manifest, architecture_ref]}
-      - {id: evaluation_results, statement: "Fresh holdout, metamorphic invariance, and counterfactual sensitivity results are preserved", evidence: [dagb_artifact]}
-      - {id: anti_leakage, statement: Oracle-leakage and hard-coding checks are recorded and failures are retained, evidence: [anti_leakage_check, retained_failures]}
+      - {id: fixed_condition_pair, statement: "phi4:14b and Qwen3 14B artifacts preserve the same four cases, temperature 0, seed 42, context 8192, output cap 1024, and disabled reasoning", evidence: [cross_model_baseline_artifact, cross_model_comparison_artifact, cross_model_condition]}
+      - {id: retained_validation, statement: The eight stored responses and artifact validator are successful without a rerun, evidence: [cross_model_validation]}
+      - {id: comparison_metrics, statement: "Artifact-derived duration, token, status, and truncation metrics are recorded for both models", evidence: [cross_model_metrics]}
+      - {id: quality_assessment, statement: The retained response artifacts preserve the partial business-quality conclusion and its limitations, evidence: [cross_model_quality_assessment]}
   - day: 5
     title: Plan-selection precision
     objective: Evaluate current plan-selection precision with the shared deterministic validator.

@@ -1088,7 +1088,7 @@ class LocalLLMDayProgram:
         self._update_progress(contract)
 
     def _assert_registry_conformance(self) -> None:
-        """Fail startup closed unless all 46 names and all 62 pairs are owned."""
+        """Fail startup closed unless every configured evidence name and pair is owned."""
         try:
             document = yaml.safe_load(self.PROGRAM_PATH.read_text(encoding="utf-8"))
             definitions = document.get("days", []) if isinstance(document, dict) else []
