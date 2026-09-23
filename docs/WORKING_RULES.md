@@ -88,7 +88,7 @@ action, or LocalLLM invocation.
 
 Unless the human specifies otherwise, an autonomous work window is 30 minutes.
 
-- Emit a reviewer-facing `PROGRESS_UPDATE` about every 5 minutes during active work,
+- Emit a reviewer-facing `PROGRESS_UPDATE` about every 2 minutes during active work,
   even if no major event occurred.
 - `PROGRESS_UPDATE` is a reviewer checkpoint: if delivery succeeds, pause at the safe checkpoint and wait for the reviewer response before continuing; if delivery cannot be completed, continue within existing authority and try again at the next scheduled report.
 - At about 25 minutes, avoid starting a new large investigation or redesign; prefer
@@ -114,7 +114,7 @@ continuing. Apply that response before the next action.
 If delivery cannot be completed through either direct ChatGPT delivery or the
 Review-Bridge, do not stop ordinary work solely because reporting transport failed.
 Record the failed delivery, continue within existing authority, and try again at the
-next scheduled progress checkpoint. Reporting does not consume or revoke an existing
+next 2-minute progress checkpoint. Reporting does not consume or revoke an existing
 Day-start authorization.
 
 ### `DECISION_REQUEST` — blocking
