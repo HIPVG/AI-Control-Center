@@ -20,6 +20,7 @@ from backend.control.external_review import (
     load_external_review_config,
 )
 from backend.models.local_llm_day import ActionAttempt, AuthorityBlocker, DayIssueClassification, DynamicDayWorkOrder, GapDiagnosis, LocalLLMDayState, LocalLLMDayWorkItem, LocalLLMWorkItemState, RepairEpisode
+from backend.models.audit import AuditEventType
 
 
 FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "day-contract"
@@ -330,7 +331,11 @@ def test_retained_day_three_pair_registers_typed_evidence_without_mutation(tmp_p
     assert before == {str(path): hashlib.sha256(path.read_bytes()).hexdigest()
                       for run in runs.values() for path in run.rglob("*") if path.is_file()}
 
-    runner = LocalLLMDayProgram(FIXTURE_ROOT, retained_evidence_resolver=resolver)
+    audit_events = []
+    runner = LocalLLMDayProgram(
+        FIXTURE_ROOT, retained_evidence_resolver=resolver,
+        audit=lambda _task, event, details: audit_events.append((AuditEventType(event), details)),
+    )
     runner.smoke(3)
     history_before = list(runner.snapshot.state_history)
     result = runner.register_retained_evidence()
@@ -339,6 +344,7 @@ def test_retained_day_three_pair_registers_typed_evidence_without_mutation(tmp_p
     assert not runner.snapshot.contract.remaining_gaps
     assert runner.snapshot.state_history == history_before
     assert len(runner.snapshot.evidence_store) == 5
+    assert audit_events[-1][0] is AuditEventType.RETAINED_EVIDENCE_REGISTERED
 
 
 def test_retained_day_three_pair_rejects_mismatched_provenance(tmp_path):
