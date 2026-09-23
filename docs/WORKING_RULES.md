@@ -429,6 +429,25 @@ Every reviewer-facing report must include:
 These fields are operational instructions, not commentary: the subsequent action
 must follow them unless the reviewer explicitly authorizes a broader action.
 
+## Reviewer instruction against overreach
+
+Every reviewer-facing report must explicitly instruct the ChatGPT reviewer to keep the
+next instruction result-oriented and minimum-sufficient.
+
+Include this exact control field in every report:
+
+`REVIEWER_GUIDANCE: Eliminate unnecessary overreach. Give only the minimum-sufficient, result-oriented instruction needed for the current objective. Do not recommend broader work merely because it is possible, cleaner, more general, more future-proof, or theoretically better. No speculative redesign, broad refactor, full-repository operation, extra validation, extra research, or higher-level optimization unless it is required to achieve the current DoD or remove the current blocker.`
+
+The reviewer should prefer:
+- the smallest action that directly advances the current DoD;
+- evidence/result production over framework improvement;
+- local fixes over generalized redesign;
+- existing valid evidence over rerun;
+- stopping once the current objective is satisfied.
+
+A broader instruction is allowed only when the narrower action cannot safely achieve the
+current objective; the reviewer must state why the narrow action is insufficient.
+
 ## Required report metadata
 
 Every reviewer-facing report must include at least:
@@ -446,6 +465,7 @@ Every reviewer-facing report must include at least:
 - `MINIMUM_SUFFICIENT_ACTION: <the smallest next action>`
 - `WHY_NOT_BROADER: <why broader actions are unnecessary now>`
 - `SIMPLE_REPORT: yes`
+- `REVIEWER_GUIDANCE: <mandatory anti-overreach instruction to the reviewer>`
 - a compact `REVIEW_POLICY_CONTEXT` line when unchanged; expand it only when changed or deviating
 
 `COMPLETION_REPORT` additionally requires:
