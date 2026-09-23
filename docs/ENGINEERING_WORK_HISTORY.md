@@ -1651,3 +1651,12 @@ SCOPE: No production, test, LocalLLM-Lab, research, commit, or push change.
 - Clarified `ZERO_TOUCH_CONTROL_LOOP.md`: zero-touch is a long-term target and does not bypass current reviewer blocking boundaries.
 - Documented `HIPVG/AI-Control-Center-Review-Bridge` as the formal fallback transport for blocking reviewer reports.
 - No `main` branch change was authorized or performed in AI-Control-Center.
+
+## 2026-09-24 — Composer placeholder false-positive incident
+
+- Codex reported `COMPOSER_DRAFT_DETECTED: yes` based on the visible string `フォローアップ` in the ChatGPT composer UI.
+- Human observation showed there was no actual unsent draft; Codex had mistaken placeholder/UI state for editable user content.
+- Corrected classification: draft presence was not verified.
+- This incident is recorded as `REPORTING_PROTOCOL_FAILURE`.
+- Canonical policy now requires direct inspection of the actual editable buffer and explicitly rejects placeholder text, ARIA/placeholder attributes, quick-reply labels, status text, generation state, and mere composer presence as draft evidence.
+- Uncertain state must be reported as `COMPOSER_DRAFT_DETECTED: unknown`, which never excuses reviewer delivery.
