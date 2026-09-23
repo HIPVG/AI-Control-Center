@@ -28,7 +28,7 @@ line or on an old `NEXT_ACTION`; read and apply the complete latest reviewer res
 
 Follow `docs/WORKING_RULES.md` exactly. In particular:
 
-- `PROGRESS_UPDATE` is non-blocking and is emitted about every 5 minutes during active work.
+- `PROGRESS_UPDATE` is emitted about every 5 minutes during active work. If it is successfully delivered, pause at the safe checkpoint and wait for reviewer guidance; if delivery fails, continue within existing authority and retry at the next checkpoint.
 - `DECISION_REQUEST` and `COMPLETION_REPORT` are blocking.
 - Blocking reports require successful delivery to the ChatGPT reviewer directly or
   through `HIPVG/AI-Control-Center-Review-Bridge`; user-facing display alone is not delivery.
