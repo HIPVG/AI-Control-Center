@@ -19,10 +19,37 @@ from backend.control.external_review import (
     ResponsesExternalReviewTransport,
     load_external_review_config,
 )
-from backend.models.local_llm_day import DayIssueClassification, DynamicDayWorkOrder, GapDiagnosis, LocalLLMDayState, LocalLLMDayWorkItem, LocalLLMWorkItemState, RepairEpisode
+from backend.models.local_llm_day import ActionAttempt, DayIssueClassification, DynamicDayWorkOrder, GapDiagnosis, LocalLLMDayState, LocalLLMDayWorkItem, LocalLLMWorkItemState, RepairEpisode
 
 
 FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "day-contract"
+
+
+def test_day_one_checkpoint_template_v2_is_a_new_action_identity():
+    strategy = STRATEGIES[(1, "commit_ref")]
+    assert strategy.template is not None
+    assert strategy.template.template_id == "D1_BASELINE_CHECKPOINT_V2"
+    assert strategy.template.template_id != "D1_BASELINE_CHECKPOINT"
+
+
+def test_day_one_checkpoint_v2_bypasses_old_attempt_once_then_is_suppressed():
+    runner = LocalLLMDayProgram(FIXTURE_ROOT)
+    runner.smoke(1)
+    contract = runner.snapshot.contract
+    inventory = runner._inventory(contract)
+    diagnosis = next(item for item in runner._diagnose_gaps(contract, inventory) if item.evidence_type == "commit_ref")
+    runner.snapshot.action_attempts.append(ActionAttempt(
+        action_fingerprint="old-attempt", strategy_id="D1_COMMIT_REF", criterion_id="d1-regression_baseline",
+        evidence_type="commit_ref", input_fingerprint=diagnosis.input_fingerprint,
+        outcome="HUMAN_ACTION_REQUIRED", action_template_id="D1_BASELINE_CHECKPOINT",
+        failure_reason="UNAPPROVED_SOURCE_PATHS"))
+    assert runner._select_registered_action([next(item for item in runner._diagnose_gaps(contract, inventory) if item.evidence_type == "commit_ref")]).evidence_type == "commit_ref"
+    runner.snapshot.action_attempts.append(ActionAttempt(
+        action_fingerprint=diagnosis.action_fingerprint, strategy_id="D1_COMMIT_REF", criterion_id="d1-regression_baseline",
+        evidence_type="commit_ref", input_fingerprint=diagnosis.input_fingerprint,
+        outcome="HUMAN_ACTION_REQUIRED", action_template_id="D1_BASELINE_CHECKPOINT_V2",
+        failure_reason="UNAPPROVED_SOURCE_PATHS"))
+    assert runner._select_registered_action([next(item for item in runner._diagnose_gaps(contract, inventory) if item.evidence_type == "commit_ref")]) is None
 
 
 def _record(name, value=None, *, passed=True, verified=True):

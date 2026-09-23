@@ -74,7 +74,7 @@ class AcquisitionStrategy:
 
 
 READ_ONLY = ActionTemplate("READ_ONLY_COLLECT", ExecutionMode.READ_ONLY, "NONE", (), "typed validator")
-CHECKPOINT = ActionTemplate("D1_BASELINE_CHECKPOINT", ExecutionMode.BASELINE_CHECKPOINT, "TEMPORARY_GIT_INDEX_ONLY", ("refs/heads/ai-control-center/",), "tree equals approved source snapshot")
+CHECKPOINT = ActionTemplate("D1_BASELINE_CHECKPOINT_V2", ExecutionMode.BASELINE_CHECKPOINT, "TEMPORARY_GIT_INDEX_ONLY", ("refs/heads/ai-control-center/",), "tree equals approved source snapshot")
 ENGINEERING = ActionTemplate("ENGINEERING_DAY_WORK", ExecutionMode.ENGINEERING_WORKTREE, "MANAGED_WORKTREE", ("approved source/config/schema/tests/docs",), "configured deterministic tests")
 RESEARCH = ActionTemplate("RESEARCH_DAY_WORK", ExecutionMode.RESEARCH_RUN, "RESULTS_ONLY", ("approved results/artifacts/logs",), "artifact validator and provenance")
 DECISION = ActionTemplate("DECISION_DOCUMENTATION_DAY_WORK", ExecutionMode.DECISION_OR_DOCUMENTATION_WORKTREE, "MANAGED_WORKTREE", ("approved docs",), "typed document validator")
