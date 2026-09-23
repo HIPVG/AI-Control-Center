@@ -1126,7 +1126,13 @@ class LocalLLMDayProgram:
                 continue
             value = legacy.get("value")
             fingerprint = self._text_fingerprint(json.dumps(value, sort_keys=True, ensure_ascii=False))
-            record_id = self._text_fingerprint(f"{self.project_id}|{contract.day}|{contract.version}|{evidence_type}|{fingerprint}")[:32]
+            # The same read-only observation value can be valid under more than
+            # one Day 1 source snapshot. Retain each observation independently
+            # so a newly authorized snapshot scope can be revalidated without
+            # mutating the historical record.
+            record_id = self._text_fingerprint(
+                f"{self.project_id}|{contract.day}|{contract.version}|{evidence_type}|{fingerprint}|{source_fingerprint}"
+            )[:32]
             if record_id in self.snapshot.evidence_store:
                 self.snapshot.evidence_store[record_id].compatibility_result = True
                 continue

@@ -72,6 +72,20 @@ def test_approved_scope_retry_is_not_eligible_after_v2_checkpoint_succeeds():
     assert not runner._authorized_day_one_scope_retry(diagnosis, strategy)
 
 
+def test_read_only_evidence_versions_identical_values_by_observation_fingerprint():
+    runner = LocalLLMDayProgram(FIXTURE_ROOT)
+    runner.smoke(1)
+    contract = runner.snapshot.contract
+    evidence = {"git_head": _record("git_head", _value("git_head"))}
+
+    runner._ingest_legacy_evidence(contract, evidence, provider_id="fixture", source_fingerprint="a" * 64)
+    runner._ingest_legacy_evidence(contract, evidence, provider_id="fixture", source_fingerprint="b" * 64)
+
+    records = [record for record in runner.snapshot.evidence_store.values() if record.evidence_type == "git_head"]
+    assert len(records) == 2
+    assert {record.observation_fingerprint for record in records} == {"a" * 64, "b" * 64}
+
+
 def _legacy_day_one_blocker_runner():
     runner = LocalLLMDayProgram(FIXTURE_ROOT)
     runner.smoke(1)
