@@ -30,10 +30,9 @@ Follow `docs/WORKING_RULES.md` exactly. In particular:
 
 - `PROGRESS_UPDATE` is emitted about every 5 minutes during active work. If it is successfully delivered, pause at the safe checkpoint and wait for reviewer guidance; if delivery fails, continue within existing authority and retry at the next checkpoint.
 - `DECISION_REQUEST` and `COMPLETION_REPORT` are blocking.
-- Blocking reports require successful delivery to the ChatGPT reviewer directly or
-  through `HIPVG/AI-Control-Center-Review-Bridge`; user-facing display alone is not delivery.
-- If both blocking-report channels fail, use the canonical 2-minute retry sequence
-  (initial attempt plus 2 retries) before declaring `DELIVERY_FAILED`.
+- Blocking reports should be delivered directly to ChatGPT. Review-Bridge is only an
+  audit/relay fallback and does not wake ChatGPT or imply reviewer receipt.
+- For blocking reports, retry direct ChatGPT delivery three times total with two-minute waits; if all fail, publish once to Review-Bridge, show the report to the human, and stop for relay/attention.
 - Composer-draft protection never excuses reviewer delivery.
 - Completion requires `ARTIFACT_QUALITY_CHECK: PASS` and reviewer clearance before the next Day.
 - After any successfully delivered report that requires reviewer guidance, actively acquire reviewer responses using the polling loop in `docs/WORKING_RULES.md`; do not enter a passive indefinite wait.
