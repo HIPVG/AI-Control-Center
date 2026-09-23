@@ -90,7 +90,7 @@ Unless the human specifies otherwise, an autonomous work window is 30 minutes.
 
 - Emit a reviewer-facing `PROGRESS_UPDATE` about every 5 minutes during active work,
   even if no major event occurred.
-- `PROGRESS_UPDATE` is non-blocking: report and continue within existing authority.
+- `PROGRESS_UPDATE` is a reviewer checkpoint: if delivery succeeds, pause at the safe checkpoint and wait for the reviewer response before continuing; if delivery cannot be completed, continue within existing authority and try again at the next scheduled report.
 - At about 25 minutes, avoid starting a new large investigation or redesign; prefer
   evidence preservation, commit/push when appropriate, history update, and a safe
   checkpoint.
@@ -99,14 +99,23 @@ Unless the human specifies otherwise, an autonomous work window is 30 minutes.
 
 ## Reviewer report types
 
-Exactly three control report types are used:
+Exactly three control report types are used. `PROGRESS_UPDATE` is delivery-dependent: successful delivery pauses for reviewer guidance; failed delivery does not halt ordinary work.
 
-### `PROGRESS_UPDATE` — non-blocking
+### `PROGRESS_UPDATE` — reviewer checkpoint
 
 Use for routine state transitions, validation, commit/push, LocalLLM activity,
-evidence creation, remaining gaps, and ordinary checkpoints. Reporting does not
-consume or revoke an existing Day-start authorization. After delivery attempts,
-continue when the next action remains within existing authority.
+evidence creation, remaining gaps, and ordinary checkpoints. Its purpose is to give
+the reviewer a chance to stop over-investigation, redirect work, or tighten scope.
+
+If a `PROGRESS_UPDATE` is successfully delivered to the ChatGPT reviewer, pause at
+the current safe checkpoint and wait for the complete reviewer response before
+continuing. Apply that response before the next action.
+
+If delivery cannot be completed through either direct ChatGPT delivery or the
+Review-Bridge, do not stop ordinary work solely because reporting transport failed.
+Record the failed delivery, continue within existing authority, and try again at the
+next scheduled progress checkpoint. Reporting does not consume or revoke an existing
+Day-start authorization.
 
 ### `DECISION_REQUEST` — blocking
 
@@ -138,9 +147,11 @@ Canonical delivery channels:
 2. fallback transport repository `HIPVG/AI-Control-Center-Review-Bridge` when direct
    delivery is unavailable or unsafe.
 
-For `PROGRESS_UPDATE`, delivery is best-effort and non-blocking. If both channels
-fail, display the full report, record the failure/pending status, and continue within
-existing authority.
+For `PROGRESS_UPDATE`, delivery is best-effort. If either channel succeeds, the
+report becomes a reviewer checkpoint: pause and wait for the reviewer response before
+continuing. If both channels fail, display the full report, record the failure/pending
+status, continue within existing authority, and try delivery again at the next
+scheduled progress checkpoint.
 
 For `DECISION_REQUEST` and `COMPLETION_REPORT`, successful direct delivery or
 successful Review-Bridge publication is required before the report is considered
@@ -341,7 +352,7 @@ particular:
   defined here;
 - user-facing Codex display alone does not satisfy blocking-report delivery;
 - composer-draft protection does not excuse delivery;
-- ordinary progress reports do not block execution;
+- successfully delivered progress reports pause execution until reviewer response; undelivered progress reports do not block ordinary work;
 - completion always requires artifact-quality checking and reviewer clearance before
   the next Day.
 
