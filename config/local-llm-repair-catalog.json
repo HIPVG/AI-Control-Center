@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "purpose": "Codex-authored semantic repair guidance for the LocalLLM Day Runner. Entries never contain executable edits, commands, or line-level instructions.",
+  "repairs": [
+    {
+      "problem_id": "windows-temp-benchmark-fixture",
+      "title": "Windows temporary-directory access conflict",
+      "cause": "A benchmark fixture creates disposable files in a shared Windows temporary location where an interrupted process can retain access.",
+      "investigation": "Reproduce the isolated benchmark test and confirm the access-denied signature without changing benchmark data.",
+      "resolution_logic": "Give the test a test-owned disposable fixture location with reliable creation and cleanup; preserve all benchmark assertions and data contracts.",
+      "verification": "Rerun the isolated benchmark test, then the deterministic regression suite.",
+      "failure_class": "DAGB_TEMP_DIRECTORY_ACCESS_DENIED",
+      "failed_work_item": "decision_benchmark_tests"
+    },
+    {
+      "problem_id": "preflight-nonrepository-fixture",
+      "title": "Preflight non-repository fixture isolation",
+      "cause": "The preflight test needs a writable folder outside the repository. A shared temporary folder can remain locked, while an in-repository folder fails the test's Git-state contract.",
+      "investigation": "Run the preflight test alone and inspect the disposable fixture's named Git-state check before and after the test initializes Git.",
+      "resolution_logic": "Use a test-owned writable scratch parent outside the repository, preserve the initial non-repository condition, and keep the test's assertions intact.",
+      "verification": "Rerun the preflight test in isolation, then the deterministic regression suite.",
+      "failure_class": "PREFLIGHT_TEMP_DIRECTORY_ACCESS_DENIED",
+      "failed_work_item": "preflight_tests"
+    },
+    {
+      "problem_id": "preflight-unclassified-failure",
+      "title": "Preflight failure requiring evidence-based classification",
+      "cause": "The isolated preflight test failed, but its captured trace does not prove that the temporary-fixture condition is the cause.",
+      "investigation": "Preserve the bounded stderr excerpt, reproduce only preflight, and identify the failing assertion or external command before selecting a more specific catalog entry.",
+      "resolution_logic": "Do not reuse a temporary-directory repair solely because the failed work item is preflight. Propose a change only when the actual trace and supplied source establish a specific cause; otherwise return a handoff for Codex investigation.",
+      "verification": "Rerun the isolated preflight test after the specific cause is addressed, then the deterministic regression suite.",
+      "failure_class": "UNCLASSIFIED_PREFLIGHT_FAILURE",
+      "failed_work_item": "preflight_tests"
+    },
+    {
+      "problem_id": "preflight-powershell-json-encoding",
+      "title": "Background PowerShell JSON encoding mismatch",
+      "cause": "The preflight test passes interactively but its pwsh JSON output is decoded as non-UTF-8 when the dashboard is launched from a hidden Windows PowerShell host.",
+      "investigation": "Compare the captured UnicodeDecodeError with an isolated preflight run under the same launcher, then confirm the target test and its three-check sequence pass outside the hidden host.",
+      "resolution_logic": "Fix the runner launch environment so the server and its child PowerShell JSON processes use UTF-8. Preserve strict JSON decoding and all preflight assertions; do not hide decoding errors.",
+      "verification": "Restart the dashboard, run Smoke, confirm preflight exits zero, then run the deterministic regression suite.",
+      "failure_class": "PREFLIGHT_POWERSHELL_OUTPUT_ENCODING",
+      "failed_work_item": "preflight_tests"
+    },
+    {
+      "problem_id": "context-profile-selection-drift",
+      "title": "Run-profile selection drift",
+      "cause": "A negative test selects a run profile by position even though the configured profile order may change.",
+      "investigation": "Compare configured profile identifiers with the profile selected by the negative test.",
+      "resolution_logic": "Bind the test to the profile's stable semantic identifier rather than a positional assumption; do not weaken the negative-test expectation.",
+      "verification": "Rerun experiment-config tests, then the deterministic regression suite.",
+      "failure_class": "CONTEXT_PROFILE_INDEX_DRIFT",
+      "failed_work_item": "experiment_config_tests"
+    },
+    {
+      "problem_id": "decision-run-terminal-finalization",
+      "title": "Decision run terminal-manifest ordering",
+      "cause": "A completed LocalLLM run can leave a manifest in an inconsistent terminal state when final output writes occur after the manifest is marked complete.",
+      "investigation": "Confirm all planned case and metric records exist, then inspect whether summary and results outputs were written before the terminal manifest update.",
+      "resolution_logic": "Ask LocalLLM for a bounded finalization proposal. Keep the manifest non-terminal until summary and results writes succeed; validate the proposal with a write-failure focused test before implementation.",
+      "verification": "Run the focused finalization test, then validate the preserved run artifact without starting a new inference.",
+      "failure_class": "MANIFEST_FINALIZATION_INCONSISTENT",
+      "failed_work_item": "primary_work"
+    },
+    {
+      "problem_id": "dagb-baseline-fingerprint-drift",
+      "title": "DAGB baseline fingerprint drift",
+      "cause": "A versioned benchmark configuration records a SHA256 that no longer matches its immutable baseline file.",
+      "investigation": "Measure the named baseline file SHA256 deterministically and compare it with the versioned configuration before proposing any change.",
+      "resolution_logic": "Ask LocalLLM to propose an exact replacement only after the measured SHA256 is supplied. Preserve all other experiment conditions and validate with the version-specific focused test.",
+      "verification": "Run the benchmark version's focused configuration tests, then continue the deterministic regression.",
+      "failure_class": "DAGB_BASELINE_FINGERPRINT_DRIFT",
+      "failed_work_item": "primary_work"
+    }
+  ]
+}

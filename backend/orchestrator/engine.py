@@ -29,6 +29,7 @@ from backend.control.git_completion import GitCompletionService
 from backend.control.local_runtime import ApprovedLocalRuntimeService
 from backend.control.week1_program import Week1Program
 from backend.control.local_llm_day_program import LocalLLMDayProgram
+from backend.control.day_action_executor import DayActionExecutor
 from backend.control.solution_catalog import JsonSolutionCatalogStore, RepairEpisodeStore, SolutionCatalog
 from backend.models.goal import GoalPlan, GoalPlanStatus
 from backend.models.experiment import ExperimentOutcome, ExperimentRun
@@ -154,9 +155,11 @@ class ControlCenterEngine:
             audit=self._local_llm_day_audit,
             planner=self.local_llm_contract_planner.plan,
             work_order_executor=self._execute_local_llm_day_work_order,
+            authority_resolver=self._resolve_local_llm_day_authority,
             solution_catalog=SolutionCatalog(JsonSolutionCatalogStore(project_root / "state" / "repair-catalog.json")),
             repair_episode_store=RepairEpisodeStore(project_root / "state" / "repair-episodes.json"),
         )
+        self.day_action_executor = DayActionExecutor(self)
 
     @staticmethod
     def _codex_role_workspace_root() -> Path:
@@ -759,6 +762,34 @@ class ControlCenterEngine:
     def _local_llm_day_audit(self, task_id: str, event_name: str, details: dict[str, object]) -> None:
         self._event(task_id, AuditEventType(event_name), f"LocalLLM Day runner: {event_name}", details=details)
 
+    def _resolve_local_llm_day_authority(self, blocker) -> bool:
+        if blocker.resolution_strategy == "RUNTIME_REAL":
+            return self.runtime.codex.mode == CodexMode.REAL
+        if blocker.resolution_strategy == "RESEARCH_CONDITION":
+            from backend.control.day_research import research_inventory
+            from backend.control.day_action_registry import STRATEGIES
+            template = next((s.template for s in STRATEGIES.values() if s.template
+                             and s.template.template_id == blocker.action_template_id), None)
+            controller = self.local_llm_day_program
+            if template and controller.snapshot.contract:
+                request = research_inventory(controller.root, controller.snapshot.contract, template)
+                # Status/Resume preflight never starts an Architect/model call.
+                return len(request["candidates"]) == 1
+            return False
+        if blocker.resolution_strategy == "SOURCE_DEPENDENCIES":
+            from backend.control.day_action_registry import STRATEGIES
+            from backend.control.day_git import git, GitSafetyError
+            project = self.projects.get("local_llm_lab")
+            template = next((s.template for s in STRATEGIES.values() if s.template
+                             and s.template.template_id == blocker.action_template_id), None)
+            if project and template:
+                try:
+                    return not git(project.path, "status", "--porcelain", "--", *template.allowed_output_scope, *template.context_scope).strip()
+                except GitSafetyError:
+                    return False
+        # Expanding the registered scope is not authorized by a boolean marker.
+        return False
+
     def _execute_local_llm_day_work_order(self, work_order: dict[str, object]) -> dict[str, object]:
         """Bridge Day work items into the existing guarded task engine.
 
@@ -767,6 +798,8 @@ class ControlCenterEngine:
         browser command text or unbounded filesystem authority.
         """
         kind = work_order.get("kind")
+        if kind == "DAY_ACTION_TEMPLATE":
+            return self.day_action_executor.execute(work_order)
         if kind == "EVIDENCE_CHECK":
             return {"final_result": "COMPLETE", "evidence": {}, "inspection": "inventory only"}
         if kind == "LOCAL_LLM_COUNTERMEASURE":
@@ -828,7 +861,8 @@ class ControlCenterEngine:
         except (ValueError, TypeError):
             return {"final_result": "FAILED", "error_code": "DAY_COUNTERMEASURE_REJECTED", "issue_classification": "IMPLEMENTATION_DEFECT"}
         review = {"diagnosis": str(getattr(proposal, "diagnosis", ""))[:500], "edits": [{"path": edit.path, "find": edit.find, "replace": edit.replace} for edit in edits]}
-        return self.run_task(dynamic.task_id, task_definition=task, repair_proposal=review)
+        result = self.run_task(dynamic.task_id, task_definition=task, repair_proposal=review)
+        return self._adapt_day_repair(dynamic.task_id, result)
 
     def _execute_codex_expert_solver(self, work_order: dict[str, object]) -> dict[str, object]:
         """Run an independent guarded repair after bounded local proposals fail."""
@@ -847,7 +881,15 @@ class ControlCenterEngine:
         except (ValueError, TypeError):
             return {"final_result": "FAILED", "error_code": "DAY_EXPERT_SOLVER_REJECTED", "issue_classification": "IMPLEMENTATION_DEFECT"}
         result = self.run_task(dynamic.task_id, task_definition=task)
-        return {**result, "expert_solver": "INDEPENDENT"}
+        return {**self._adapt_day_repair(dynamic.task_id, result), "expert_solver": "INDEPENDENT"}
+
+    def _adapt_day_repair(self, task_id: str, result: dict) -> dict:
+        from backend.control.day_action_registry import STRATEGIES
+        strategy = next((strategy for strategy in STRATEGIES.values() if strategy.template
+                         and task_id == f"day-{strategy.day}-{strategy.template.template_id.lower().replace('_', '-')}"), None)
+        if strategy is None:
+            return result
+        return self.day_action_executor.adapt_engine_result(strategy, result)
 
     def _validate_dynamic_day_work_order(self, work_order: DynamicDayWorkOrder) -> None:
         """Reject protected research material before the managed worktree exists."""

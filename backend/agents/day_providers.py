@@ -55,6 +55,12 @@ class DayContractPlanner(Protocol):
 class MockDayContractPlanner:
     """Safe no-provider fallback used when Codex is configured in mock mode."""
 
+    def plan_research(self, request):
+        candidates = request.get("candidates", [])
+        if len(candidates) != 1:
+            raise ValueError("RESEARCH_CONDITION_CHOICE_REQUIRED" if candidates else "RESEARCH_CONDITION_NOT_APPROVED")
+        return candidates[0]
+
     def plan(self, contract: LocalLLMDayContract, _inventory: dict[str, object]) -> list[LocalLLMDayWorkItem]:
         return [
             LocalLLMDayWorkItem(
@@ -77,6 +83,21 @@ class CodexDayContractPlanner:
         workspace = (self.workspace_root / role).resolve()
         workspace.mkdir(parents=True, exist_ok=True)
         return workspace
+
+    def plan_research(self, request):
+        from backend.control.day_research import ResearchExecutionPlan
+        workspace = self._workspace("research-execution-planner")
+        schema_path = workspace / "output-schema.json"
+        schema_path.write_text(json.dumps(strict_provider_schema(ResearchExecutionPlan)), encoding="utf-8")
+        prompt = ("You are the read-only Research Architect. Construct a bounded execution plan from the supplied existing repository context. "
+                  "Do not run commands, change files, invent conditions, models, inputs, evidence or acceptance rules. "
+                  "Preserve the Day objective, fixed configuration, holdout freeze and authority. Return a data-only plan; Python independently validates it. "
+                  "Do not choose between materially different research conditions. Use only supplied file content and references.\n"
+                  + json.dumps(request, ensure_ascii=False))
+        result = self.runner.run_readonly_structured(workspace, prompt, schema_path)
+        if result.status != "completed" or not result.output_text:
+            raise _codex_role_error("RESEARCH_EXECUTION_PLANNER", result)
+        return ResearchExecutionPlan.model_validate_json(result.output_text)
 
     def plan(self, contract: LocalLLMDayContract, inventory: dict[str, object]) -> list[LocalLLMDayWorkItem]:
         schema = {

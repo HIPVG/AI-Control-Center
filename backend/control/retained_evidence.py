@@ -19,6 +19,16 @@ class RetainedEvidenceResolver:
             return self._resolve_day_two()
         if day == 4:
             return self._resolve_day_four()
+        if day == 14:
+            path = self.root / "docs" / "reviews" / "day14-human-review.json"
+            marker = self._json_object(path)
+            if (marker.get("day") == 14 and marker.get("project_id") == "local_llm_lab"
+                    and marker.get("authority") == "human" and marker.get("approved") is True
+                    and isinstance(marker.get("marker_id"), str) and marker["marker_id"]):
+                record = self._record("human_review_marker", marker, str(path))
+                record["source_paths"] = [str(path)]
+                record["source_hashes"] = {str(path): self._sha256_file(path)}
+                return {"human_review_marker": record}
         return {}
 
     def _resolve_day_four(self) -> dict[str, object]:

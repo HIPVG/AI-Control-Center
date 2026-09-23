@@ -52,7 +52,11 @@ def test_dashboard_is_the_single_local_llm_day_runner(client):
     assert "/api/local-llm/day/" in script
     assert "/smoke" in script
     assert "repair-and-go" in script
-    assert 'recommendation.action_id !== "REPAIR_AND_GO"' in script
+    assert "snapshot.enabled_controls" in script
+    assert 'recommendation.action_id !== "REPAIR_AND_GO"' not in script
+    snapshot = client.get("/api/local-llm/day/status").json()
+    assert set(snapshot["enabled_controls"]) == {"go", "smoke", "resume", "repair_and_go", "stop", "select_day"}
+    assert all(type(value) is bool for value in snapshot["enabled_controls"].values())
     assert "SMOKE_PASS" in script
     assert '"SMOKE_PASS"' in script
     assert "codex-resolution" not in script

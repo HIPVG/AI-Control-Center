@@ -36,8 +36,8 @@ class EvidenceRegistry:
             "git_head": EvidenceDefinition("git_head", _mapping_with("branch", "head", "is_commit")),
             "origin_ref": EvidenceDefinition("origin_ref", _mapping_with("origin_url", "upstream_ref", "upstream_sha")),
             "status_audit": EvidenceDefinition("status_audit", self._status_audit),
-            "staging_audit": EvidenceDefinition("staging_audit", _mapping_with("generated_artifacts_not_staged")),
-            "documentation_check": EvidenceDefinition("documentation_check", _list_with("checked_files", "checks")),
+            "staging_audit": EvidenceDefinition("staging_audit", lambda v: isinstance(v, dict) and v.get("generated_artifacts_not_staged") is True and v.get("staged_generated_paths") == []),
+            "documentation_check": EvidenceDefinition("documentation_check", lambda v: _list_with("checked_files", "checks")(v) and v.get("failures") == [] and all(isinstance(c, dict) and c.get("passed") is True for c in v["checks"])),
             "test_result": EvidenceDefinition("test_result", self._test_result),
             "commit_ref": EvidenceDefinition("commit_ref", _mapping_with("branch", "head", "is_commit")),
             "source_check": EvidenceDefinition("source_check", _list_with("checked_paths", "assertions")),
@@ -78,7 +78,7 @@ class EvidenceRegistry:
             "classification_record": EvidenceDefinition("classification_record", _mapping_with("classification", "artifact_path")),
             "status_summary": EvidenceDefinition("status_summary", _mapping_with("summary_path", "evidence_refs")),
             "sprint_review": EvidenceDefinition("sprint_review", _mapping_with("review_path", "conclusions")),
-            "human_review_marker": EvidenceDefinition("human_review_marker", _mapping_with("marker_id", "authority")),
+            "human_review_marker": EvidenceDefinition("human_review_marker", lambda v: isinstance(v, dict) and isinstance(v.get("marker_id"), str) and bool(v["marker_id"]) and v.get("authority") == "human"),
         }
 
     @property
@@ -107,7 +107,7 @@ class EvidenceRegistry:
 
     @staticmethod
     def _test_result(value: object) -> bool:
-        return isinstance(value, dict) and value.get("exit_code") == 0 and isinstance(value.get("commands"), list) and bool(value["commands"]) and isinstance(value.get("passed"), int) and value["passed"] > 0 and isinstance(value.get("failed"), int) and value["failed"] == 0
+        return isinstance(value, dict) and type(value.get("exit_code")) is int and value["exit_code"] == 0 and isinstance(value.get("commands"), list) and bool(value["commands"]) and type(value.get("passed")) is int and value["passed"] > 0 and type(value.get("failed")) is int and value["failed"] == 0
 
 
 REGISTRY = EvidenceRegistry()

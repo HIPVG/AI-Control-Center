@@ -22,21 +22,18 @@ const issueClassification = document.querySelector("#issue-classification");
 const evidenceStatus = document.querySelector("#evidence-status");
 let gitCandidate = null;
 let activeRequest = null;
+let lastSnapshot = {};
 
 function setCommandAvailability(snapshot, running) {
-  document.querySelector("#smoke").disabled = running;
-  document.querySelector("#go").disabled = running;
-  const recommendation = snapshot.recommended_action || {};
-  document.querySelector("#repair-and-go").disabled = running
-    || recommendation.action_id !== "REPAIR_AND_GO"
-    || recommendation.enabled !== true;
-  document.querySelector("#resume").disabled = running;
-  selector.disabled = running;
-  document.querySelector("#stop").disabled = !running;
+  const controls = snapshot.enabled_controls || {};
+  for (const [id, key] of Object.entries({smoke: "smoke", go: "go", resume: "resume", "repair-and-go": "repair_and_go", stop: "stop"})) {
+    document.querySelector(`#${id}`).disabled = controls[key] !== true || Boolean(activeRequest);
+  }
+  selector.disabled = controls.select_day !== true || Boolean(activeRequest);
 }
 
 function renderRunIndicator(snapshot) {
-  const running = Boolean(activeRequest) || snapshot.state === "RUNNING";
+  const running = Boolean(activeRequest) || snapshot.recommended_action?.action_id === "WAIT";
   runIndicator.hidden = !running;
   runIndicatorDetail.textContent = activeRequest || (snapshot.selected_day ? `Day ${snapshot.selected_day} の処理を続行しています。` : "処理を続行しています。");
   setCommandAvailability(snapshot, running);
@@ -79,17 +76,17 @@ function renderRepairKnowledge(cards) {
 }
 
 function render(snapshot) {
+  lastSnapshot = snapshot;
   renderRunIndicator(snapshot);
   const smokePassed = snapshot.state === "IDLE" && snapshot.smoke_report?.result === "SMOKE_PASS";
-  putText(state, snapshot.state === "RUNNING" ? "WORKING" : smokePassed ? "SMOKE_PASS" : snapshot.state);
-  putText(activity, snapshot.activity);
+  putText(state, smokePassed ? "SMOKE_PASS" : snapshot.state);
+  putText(activity, `${snapshot.phase || snapshot.state}: ${snapshot.activity}`);
   putText(issueClassification, snapshot.issue_classification || "None");
   const criteria = snapshot.contract?.completion_criteria || [];
   putText(evidenceStatus, `${criteria.filter((item) => item.satisfied).length} / ${criteria.length} criteria`);
   // A request can start while the server still exposes the preceding terminal
   // snapshot.  Never render that old 100% as progress for a live operation.
-  const running = Boolean(activeRequest) || snapshot.state === "RUNNING";
-  const displayedProgress = running ? Math.min(95, Math.max(3, snapshot.progress || 0)) : (snapshot.progress || 0);
+  const displayedProgress = snapshot.progress || 0;
   putText(progress, `${displayedProgress}%`);
   progressMeter.style.width = `${displayedProgress}%`;
   renderWorkItems(snapshot.work_items);
@@ -135,7 +132,7 @@ async function loadGitPushCandidate() {
 
 async function request(path, label) {
   activeRequest = label;
-  renderRunIndicator({ state: "RUNNING", selected_day: selector.value });
+  renderRunIndicator(lastSnapshot);
   putText(state, "WORKING");
   putText(activity, `${label} を受け付けました。結果を待機しています。`);
   putText(progress, "3%");
@@ -151,7 +148,7 @@ async function request(path, label) {
     render(snapshot);
   } catch (error) {
     activeRequest = null;
-    renderRunIndicator({ state: "IDLE", selected_day: selector.value });
+    renderRunIndicator(lastSnapshot);
     putText(state, "REQUEST_FAILED");
     putText(activity, `${label} の要求を送信できませんでした: ${error.name}`);
   } finally {
@@ -161,6 +158,7 @@ async function request(path, label) {
 }
 
 document.querySelector("#go").addEventListener("click", () => request(`/api/local-llm/day/${encodeURIComponent(selector.value)}/start`, `Day ${selector.value} Go`));
+selector.addEventListener("change", () => request(`/api/local-llm/day/${encodeURIComponent(selector.value)}/select`, `Day ${selector.value} Select`));
 document.querySelector("#smoke").addEventListener("click", () => request(`/api/local-llm/day/${encodeURIComponent(selector.value)}/smoke`, `Day ${selector.value} Smoke`));
 document.querySelector("#repair-and-go").addEventListener("click", () => request("/api/local-llm/day/repair-and-go", "修復＆GO"));
 document.querySelector("#stop").addEventListener("click", () => request("/api/local-llm/day/stop", "Stop"));

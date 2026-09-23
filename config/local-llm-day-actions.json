@@ -1,0 +1,170 @@
+{
+  "version": "1.1",
+  "target_project": "local_llm_lab",
+  "catalog_purpose": "Trusted Day 2-14 work-order registry. Registration never starts a Day.",
+  "execution_policy": {
+    "default_state": "TRUSTED_NOT_EXECUTED",
+    "start_condition": "EXPLICIT_USER_GO_ONLY",
+    "forbidden_implicit_starts": ["catalog_load", "Smoke", "Repair & GO", "status_refresh"],
+    "repair_role_boundary": "LocalLLM proposes a repair method; AI Control Center validates, tests, implements, and records an accepted repair."
+  },
+  "days": [
+    {
+      "day": 2,
+      "trusted_execution_item_id": "day-02-drap-v04-feasible-relevant-gate",
+      "trust_state": "TRUSTED_NOT_EXECUTED",
+      "source_authority": "docs/runbooks/work-plan-day1-14.md#day-2",
+      "objective": "Run the DRAP v0.4 Feasible and Relevant Action Gate condition.",
+      "mode": "LOCAL_LLM_EXPERIMENT",
+      "command": ["scripts/decision_reasoning_v5.py"],
+      "output_root": "results/decision-reasoning-v0.5",
+      "output_json": "results/decision-reasoning-v0.5/<run-id>/summary.json",
+      "acceptance": ["manifest reaches a terminal status", "Python owns the non-normal decision status", "the action gate remains feasible and relevant"],
+      "auto_repair": "CONFIGURATION_OR_HARNESS_ONLY"
+    },
+    {
+      "day": 3,
+      "trusted_execution_item_id": "day-03-v032-v04-regression",
+      "trust_state": "TRUSTED_NOT_EXECUTED",
+      "source_authority": "docs/runbooks/work-plan-day1-14.md#day-3",
+      "objective": "Preserve the recorded v0.3.2 versus v0.4 regression evidence.",
+      "mode": "RECORDED_EVIDENCE",
+      "evidence_path": "docs/research-director-day2-checkpoint.md",
+      "output_json": "state/day-artifacts/day-03-regression-evidence.json",
+      "acceptance": ["fixed-condition comparison remains recorded", "no failed inference is retried automatically"],
+      "auto_repair": "HARNESS_ONLY"
+    },
+    {
+      "day": 4,
+      "trusted_execution_item_id": "day-04-holdout-metamorphic-counterfactual",
+      "trust_state": "TRUSTED_NOT_EXECUTED",
+      "source_authority": "docs/runbooks/work-plan-day1-14.md#day-4",
+      "objective": "Preserve fresh-holdout, metamorphic, and counterfactual evidence.",
+      "mode": "RECORDED_EVIDENCE",
+      "evidence_path": "docs/research-director-day2-checkpoint.md",
+      "output_json": "state/day-artifacts/day-04-holdout-evidence.json",
+      "acceptance": ["holdout remains separate from tuning", "counterfactual evidence is retained"],
+      "auto_repair": "HARNESS_ONLY"
+    },
+    {
+      "day": 5,
+      "trusted_execution_item_id": "day-05-plan-selection-precision",
+      "trust_state": "TRUSTED_NOT_EXECUTED",
+      "source_authority": "docs/runbooks/work-plan-day1-14.md#day-5",
+      "objective": "Record the plan-selection precision decision and retained model-quality evidence.",
+      "mode": "RECORDED_EVIDENCE",
+      "evidence_path": "docs/research-director-day2-checkpoint.md",
+      "output_json": "state/day-artifacts/day-05-plan-selection-decision.json",
+      "acceptance": ["model-quality failures are distinguished from harness defects", "no Plan Critic or Selector is added without new evidence"],
+      "auto_repair": "HARNESS_ONLY"
+    },
+    {
+      "day": 6,
+      "trusted_execution_item_id": "day-06-temporal-state-design",
+      "trust_state": "TRUSTED_NOT_EXECUTED",
+      "source_authority": "docs/runbooks/work-plan-day1-14.md#day-6",
+      "objective": "Separate planned, actual, forecast, and snapshot time in the decision architecture.",
+      "mode": "STRUCTURED_BUILDER",
+      "inputs": ["docs/runbooks/work-plan-day1-14.md", "docs/architecture/decision-reasoning-architecture.md", "schemas/decision-reasoning"],
+      "output_json": "state/day-artifacts/day-06-temporal-state-design.json",
+      "acceptance": ["time domains are schema-separated", "missing time facts fail closed", "no model owns time-state validation"],
+      "auto_repair": "CONFIGURATION_OR_HARNESS_ONLY"
+    },
+    {
+      "day": 7,
+      "trusted_execution_item_id": "day-07-temporal-case-validation",
+      "trust_state": "TRUSTED_NOT_EXECUTED",
+      "source_authority": "docs/runbooks/work-plan-day1-14.md#day-7",
+      "objective": "Validate temporal contradictions against the Day 6 contract.",
+      "mode": "STRUCTURED_BUILDER",
+      "inputs": ["state/day-artifacts/day-06-temporal-state-design.json", "tests", "schemas/decision-reasoning"],
+      "output_json": "state/day-artifacts/day-07-temporal-validation.json",
+      "acceptance": ["contradictory completed-production and blocking-shortage cases are covered", "deterministic state and issue behavior is recorded"],
+      "auto_repair": "CONFIGURATION_OR_HARNESS_ONLY"
+    },
+    {
+      "day": 8,
+      "trusted_execution_item_id": "day-08-novelty-scout-proof-of-concept",
+      "trust_state": "TRUSTED_NOT_EXECUTED",
+      "source_authority": "docs/runbooks/work-plan-day1-14.md#day-8",
+      "objective": "Run a bounded Novelty Scout proof of concept; proposals never become facts automatically.",
+      "mode": "LOCAL_LLM_EXPERIMENT",
+      "inputs": ["docs/runbooks/work-plan-day1-14.md", "config/model-matrix.json", "scripts"],
+      "output_json": "state/day-artifacts/day-08-novelty-scout.json",
+      "acceptance": ["known issues remain Python-owned", "registry-external output is labeled proposal", "no automatic fact mutation occurs"],
+      "auto_repair": "HARNESS_ONLY"
+    },
+    {
+      "day": 9,
+      "trusted_execution_item_id": "day-09-explanation-and-tradeoffs",
+      "trust_state": "TRUSTED_NOT_EXECUTED",
+      "source_authority": "docs/runbooks/work-plan-day1-14.md#day-9",
+      "objective": "Generate explanation and trade-offs separately from the validated plan skeleton.",
+      "mode": "LOCAL_LLM_EXPERIMENT",
+      "inputs": ["validated plan skeleton", "docs/architecture/decision-reasoning-architecture.md"],
+      "output_json": "state/day-artifacts/day-09-explanation-tradeoffs.json",
+      "acceptance": ["benefits, risks, and trade-offs are separate from planning", "validated plan skeleton remains unchanged"],
+      "auto_repair": "HARNESS_ONLY"
+    },
+    {
+      "day": 10,
+      "trusted_execution_item_id": "day-10-end-to-end-performance",
+      "trust_state": "TRUSTED_NOT_EXECUTED",
+      "source_authority": "docs/runbooks/work-plan-day1-14.md#day-10",
+      "objective": "Measure end-to-end local execution under a recorded fixed condition.",
+      "mode": "LOCAL_LLM_EXPERIMENT",
+      "inputs": ["config/run-profiles.json", "config/model-matrix.json", "existing telemetry runner"],
+      "output_json": "state/day-artifacts/day-10-performance.json",
+      "acceptance": ["call count, tokens, elapsed time, VRAM, CPU, RAM, and failure rate are recorded", "conditions are fixed"],
+      "auto_repair": "HARNESS_ONLY"
+    },
+    {
+      "day": 11,
+      "trusted_execution_item_id": "day-11-product-configuration",
+      "trust_state": "TRUSTED_NOT_EXECUTED",
+      "source_authority": "docs/runbooks/work-plan-day1-14.md#day-11",
+      "objective": "Produce an evidence-based candidate product-tier matrix without selecting a final commercial tier.",
+      "mode": "STRUCTURED_BUILDER",
+      "inputs": ["state/day-artifacts/day-10-performance.json", "config/model-matrix.json", "docs/strategy"],
+      "output_json": "state/day-artifacts/day-11-product-configuration.json",
+      "acceptance": ["12-16 GB standard-tier candidate is evidence-bound", "larger hardware remains an escalation candidate", "no final commercial decision is claimed"],
+      "auto_repair": "CONFIGURATION_OR_HARNESS_ONLY"
+    },
+    {
+      "day": 12,
+      "trusted_execution_item_id": "day-12-reproducibility-and-operations",
+      "trust_state": "TRUSTED_NOT_EXECUTED",
+      "source_authority": "docs/runbooks/work-plan-day1-14.md#day-12",
+      "objective": "Record reproducibility, backup, recovery, artifact handling, and local-only operations.",
+      "mode": "STRUCTURED_BUILDER",
+      "inputs": ["docs", "scripts", "config", "state/day-artifacts"],
+      "output_json": "state/day-artifacts/day-12-operations.json",
+      "acceptance": ["setup and recovery are reproducible", "generated artifacts and models remain outside Git"],
+      "auto_repair": "CONFIGURATION_OR_HARNESS_ONLY"
+    },
+    {
+      "day": 13,
+      "trusted_execution_item_id": "day-13-full-regression-and-fresh-holdout",
+      "trust_state": "TRUSTED_NOT_EXECUTED",
+      "source_authority": "docs/runbooks/work-plan-day1-14.md#day-13",
+      "objective": "Run full regression and a new unseen holdout against the frozen architecture.",
+      "mode": "LOCAL_LLM_EXPERIMENT",
+      "inputs": ["frozen architecture configuration", "fresh-holdout generator", "full regression runner"],
+      "output_json": "state/day-artifacts/day-13-regression-holdout.json",
+      "acceptance": ["full regression result is preserved", "fresh holdout is distinct from tuning data", "failures remain evidence"],
+      "auto_repair": "HARNESS_ONLY"
+    },
+    {
+      "day": 14,
+      "trusted_execution_item_id": "day-14-sprint-review",
+      "trust_state": "TRUSTED_NOT_EXECUTED",
+      "source_authority": "docs/runbooks/work-plan-day1-14.md#day-14",
+      "objective": "Produce the sprint review, architecture conclusion candidates, gaps, and hardware business case.",
+      "mode": "STRUCTURED_BUILDER",
+      "inputs": ["state/day-artifacts", "docs/architecture/decision-reasoning-architecture.md", "docs/runbooks/work-plan-day1-14.md"],
+      "output_json": "state/day-artifacts/day-14-sprint-review.json",
+      "acceptance": ["conclusions cite recorded evidence", "remaining gaps are explicit", "final decision is DAY14_FINAL_DECISION_REVIEW"],
+      "auto_repair": "CONFIGURATION_OR_HARNESS_ONLY"
+    }
+  ]
+}

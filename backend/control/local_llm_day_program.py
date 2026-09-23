@@ -11,6 +11,8 @@ from __future__ import annotations
 import subprocess
 import sys
 import hashlib
+import json
+import os
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -22,11 +24,18 @@ import yaml
 
 from backend.control.local_ollama_repair import LocalOllamaRepairBuilder
 from backend.control.evidence_registry import REGISTRY, EvidenceRegistry
+from backend.control.day_action_registry import ExecutionMode, STRATEGIES, assert_coverage
+from backend.control.day_state_machine import ACTIVE, AUTHORITY, validate_transition
+from backend.control.day_git import checkpoint, fingerprint as git_fingerprint, GitSafetyError
 from backend.control.retained_evidence import RetainedEvidenceResolver
 from backend.control.solution_catalog import RepairEpisodeStore, SolutionCatalog, SolutionCatalogEntry
 from backend.models.local_llm_day import (
     DayCriterion,
     DayIssueClassification,
+    GapDiagnosis,
+    EvidenceRecord,
+    ActionAttempt,
+    AuthorityBlocker,
     LocalLLMDayContract,
     LocalLLMDayReport,
     LocalLLMDaySnapshot,
@@ -54,8 +63,8 @@ class LocalLLMDayProgram:
 
     PROGRAM_PATH = Path(__file__).resolve().parents[2] / "config" / "local_llm_day_program.yaml"
     MAX_TASKS = 3
-    MAX_REPLANS = 2
     MAX_LOCAL_PROPOSALS = 3
+    ACTIVE_STATES = ACTIVE
 
     def __init__(
         self,
@@ -66,6 +75,7 @@ class LocalLLMDayProgram:
         audit: Callable[[str, str, dict[str, object]], None] | None = None,
         planner: Planner | None = None,
         work_order_executor: WorkOrderExecutor | None = None,
+        authority_resolver: Callable[[AuthorityBlocker], bool] | None = None,
         repair_builder: LocalOllamaRepairBuilder | None = None,
         solution_catalog: SolutionCatalog | None = None,
         repair_episode_store: RepairEpisodeStore | None = None,
@@ -78,15 +88,24 @@ class LocalLLMDayProgram:
         self.snapshot = LocalLLMDaySnapshot.model_validate(saved or {})
         self.planner = planner or self._deterministic_plan
         self.work_order_executor = work_order_executor or self._read_only_executor
+        self.authority_resolver = authority_resolver
         self.repair_builder = repair_builder or LocalOllamaRepairBuilder()
         self.solution_catalog = solution_catalog or SolutionCatalog()
         self.repair_episode_store = repair_episode_store or RepairEpisodeStore()
         self.retained_evidence_resolver = retained_evidence_resolver or RetainedEvidenceResolver(self.root)
         self.clock, self.project_id, self.evidence_registry = clock, project_id, REGISTRY
+        # The contract is the denominator.  Both registries must cover it at
+        # construction time, before a browser can start a Day.
+        self._assert_registry_conformance()
         self._lock, self._stop = RLock(), Event()
         self._thread: Thread | None = None
         self._restore_snapshot()
-        if self.snapshot.state == LocalLLMDayState.RUNNING:
+        if self.snapshot.state in self.ACTIVE_STATES:
+            if self.snapshot.state == LocalLLMDayState.REPAIR_SUPERVISOR and self.snapshot.repair_episode_ids:
+                episode = self.repair_episode_store.get(self.snapshot.repair_episode_ids[-1])
+                if episode:
+                    episode.interrupted = True
+                    self.repair_episode_store.save(episode)
             self.snapshot.state = LocalLLMDayState.PAUSED
             self.snapshot.stop_reason = "INTERRUPTED_REQUIRES_RESUME"
             self.snapshot.activity = "Interrupted by restart; Resume continues from the persisted contract and task states."
@@ -104,7 +123,51 @@ class LocalLLMDayProgram:
 
     def view(self) -> dict[str, object]:
         with self._lock:
-            return {**self.snapshot.model_dump(mode="json"), "recommended_action": self._recommended_action()}
+            return {**self.snapshot.model_dump(mode="json"), "recommended_action": self._recommended_action(),
+                    "enabled_controls": self._enabled_controls(), "blocker": self.snapshot.authority_blocker.model_dump(mode="json") if self.snapshot.authority_blocker else None}
+
+    def _transition(self, state: LocalLLMDayState) -> None:
+        validate_transition(self.snapshot.state, state)
+        self.snapshot.state = state
+        self.snapshot.phase = state.value
+        self.snapshot.state_history.append(state.value)
+        self._save()
+
+    def _blocker_resolved(self) -> bool:
+        blocker, contract = self.snapshot.authority_blocker, self.snapshot.contract
+        if not blocker or not contract:
+            return False
+        inventory = self._inventory(contract)
+        if blocker.resolution_strategy == "AUTHORITATIVE_SOURCES":
+            return not inventory["missing_sources"]
+        if blocker.resolution_strategy == "RETAINED_EVIDENCE" and blocker.evidence_type:
+            record = inventory.get("retained_evidence", {}).get(blocker.evidence_type)
+            return self.evidence_registry.validate(blocker.evidence_type, record)
+        if self.authority_resolver:
+            return self.authority_resolver(blocker) is True
+        return False
+
+    def _repair_resumable(self) -> bool:
+        if self.snapshot.state != LocalLLMDayState.PAUSED or not self.snapshot.contract:
+            return False
+        if not self.snapshot.repair_episode_ids:
+            return False
+        episode = self.repair_episode_store.get(self.snapshot.repair_episode_ids[-1])
+        item = next((item for item in self.snapshot.work_items if episode and item.item_id == episode.work_item_id), None)
+        return bool(episode and item and episode.interrupted and not episode.final_outcome
+                    and episode.contract_version == self.snapshot.contract.version
+                    and episode.scope_fingerprint == self._text_fingerprint(item.dynamic_work_order.model_dump_json() if item.dynamic_work_order else "")
+                    and episode.failure_fingerprint == self._failure_fingerprint(item, episode.failure_excerpt))
+
+    def _enabled_controls(self) -> dict[str, bool]:
+        state = self.snapshot.state
+        repair = self._repair_resumable()
+        return {"go": state == LocalLLMDayState.IDLE,
+                "smoke": state == LocalLLMDayState.IDLE,
+                "resume": (state in {LocalLLMDayState.PAUSED, LocalLLMDayState.STOPPED} and not repair)
+                          or (state in AUTHORITY and self._blocker_resolved()),
+                "repair_and_go": repair, "stop": state in ACTIVE,
+                "select_day": state in {LocalLLMDayState.IDLE, LocalLLMDayState.COMPLETE}}
 
     def smoke(self, day: int) -> dict[str, object]:
         contract = self._load_contracts().get(day)
@@ -114,6 +177,8 @@ class LocalLLMDayProgram:
         missing = inventory["missing_sources"]
         result = "SMOKE_PASS" if not missing else "SMOKE_SOURCE_MISSING"
         with self._lock:
+            if self.snapshot.state != LocalLLMDayState.IDLE:
+                return {"error_code": "SMOKE_NOT_PERMITTED", **self.view()}
             # Selecting a different contract is not a resume.  Do not permit
             # old work, repair state, or claimed evidence to cross that boundary.
             if self.snapshot.selected_day != day or self.snapshot.contract is None or self.snapshot.contract.version != contract.version:
@@ -134,14 +199,30 @@ class LocalLLMDayProgram:
             self._save()
             return self.view()
 
+    def select_day(self, day: int) -> dict[str, object]:
+        with self._lock:
+            if day not in self._load_contracts():
+                return {"error_code": "DAY_NOT_CONFIGURED", **self.view()}
+            if not self._enabled_controls()["select_day"]:
+                return {"error_code": "DAY_SELECTION_NOT_PERMITTED", **self.view()}
+            if self.snapshot.state == LocalLLMDayState.COMPLETE and day == self.snapshot.selected_day:
+                return self.view()
+            self.snapshot = LocalLLMDaySnapshot(selected_day=day)
+            self._save()
+            return self.view()
+
     def start(self, day: int) -> dict[str, object]:
         contracts = self._load_contracts()
         contract = contracts.get(day)
         if contract is None:
             return {"error_code": "DAY_NOT_CONFIGURED", **self.view()}
         with self._lock:
-            if self.snapshot.state == LocalLLMDayState.RUNNING:
+            if self.snapshot.state in self.ACTIVE_STATES:
                 return {"error_code": "DAY_ALREADY_RUNNING", **self.view()}
+            if self.snapshot.state == LocalLLMDayState.COMPLETE and day != self.snapshot.selected_day:
+                self.snapshot = LocalLLMDaySnapshot()
+            if self.snapshot.state != LocalLLMDayState.IDLE:
+                return {"error_code": "DAY_START_NOT_PERMITTED", **self.view()}
             # Only same-version, validated same-Day evidence may survive Resume.
             if (self.snapshot.selected_day != day or self.snapshot.contract is None
                     or self.snapshot.contract.version != contract.version):
@@ -150,7 +231,9 @@ class LocalLLMDayProgram:
                 self.snapshot.contract = self._restore_contract(contract, self.snapshot.contract)
                 self.snapshot.work_items = self._valid_work_items(self.snapshot.work_items, contract)
             self._stop.clear()
-            self.snapshot.state = LocalLLMDayState.RUNNING
+            if self.snapshot.contract_fingerprint is None:
+                self.snapshot.contract_fingerprint = self._contract_fingerprint(self.snapshot.contract)
+            self._transition(LocalLLMDayState.PREFLIGHT)
             self.snapshot.activity = "Loading the Day Contract and current trusted evidence."
             self.snapshot.stop_reason = None
             self._audit("LOCAL_LLM_DAY_STARTED", {"day": day, "objective": contract.objective})
@@ -161,14 +244,26 @@ class LocalLLMDayProgram:
 
     def resume(self) -> dict[str, object]:
         with self._lock:
-            if self.snapshot.selected_day is None or self.snapshot.state not in {LocalLLMDayState.PAUSED, LocalLLMDayState.STOPPED}:
+            if self.snapshot.selected_day is None or self.snapshot.state not in {
+                LocalLLMDayState.PAUSED, LocalLLMDayState.STOPPED,
+                LocalLLMDayState.HUMAN_ACTION_REQUIRED, LocalLLMDayState.EXTERNAL_ACTION_REQUIRED,
+            }:
                 return {"error_code": "DAY_NOT_RESUMABLE", **self.view()}
+            if self.snapshot.state not in AUTHORITY and not self._enabled_controls()["resume"]:
+                return {"error_code": "DAY_BLOCKER_UNRESOLVED", **self.view()}
             day = self.snapshot.selected_day
-        return self.start(day)
+            # Resume preserves the Day and rechecks the blocker; only a
+            # resolved prerequisite proceeds past PREFLIGHT.
+            self._transition(LocalLLMDayState.PREFLIGHT)
+            self._stop.clear()
+            self._save()
+            self._thread = Thread(target=self._execute, name=f"local-llm-day-{day}-resume", daemon=True)
+            self._thread.start()
+            return self.view()
 
     def stop(self) -> dict[str, object]:
         with self._lock:
-            if self.snapshot.state == LocalLLMDayState.RUNNING:
+            if self.snapshot.state in self.ACTIVE_STATES:
                 self._stop.set()
                 self.snapshot.activity = "Stop requested; preserving the current task result."
                 self._save()
@@ -181,14 +276,22 @@ class LocalLLMDayProgram:
     def repair_and_go(self) -> dict[str, object]:
         """Resume a persisted automatic repair episode only when interrupted."""
         with self._lock:
-            if self.snapshot.state != LocalLLMDayState.FAILED or self.snapshot.issue_classification != DayIssueClassification.IMPLEMENTATION_DEFECT:
+            if not self._repair_resumable():
                 return {"error_code": "AUTONOMOUS_REPAIR_NOT_AVAILABLE", **self.view()}
             item = next((value for value in self.snapshot.work_items if value.state == LocalLLMWorkItemState.FAILED), None)
             contract = self.snapshot.contract
             if item is None or contract is None:
                 return {"error_code": "REPAIR_TARGET_MISSING", **self.view()}
-        self._supervise_repair(item, contract)
-        return self.view()
+            self._transition(LocalLLMDayState.PREFLIGHT)
+            self._stop.clear()
+            self._thread = Thread(target=self._resume_repair, args=(item, contract), daemon=True)
+            self._thread.start()
+            return self.view()
+
+    def _resume_repair(self, item: LocalLLMDayWorkItem, contract: LocalLLMDayContract) -> None:
+        # Full preflight precedes resumed repair; the episode is selected in the
+        # normal diagnosis loop and retains its absolute local-phase deadline.
+        self._execute()
 
     def _supervise_repair(self, item: LocalLLMDayWorkItem, contract: LocalLLMDayContract) -> bool:
         """Run the entire bounded local-to-expert repair control loop."""
@@ -199,17 +302,22 @@ class LocalLLMDayProgram:
             project_id=self.project_id, failure_class=DayIssueClassification.IMPLEMENTATION_DEFECT.value,
             fingerprint=fingerprint, component=item.item_id,
         )
-        episode = RepairEpisode(
+        existing = self.repair_episode_store.get(self.snapshot.repair_episode_ids[-1]) if self.snapshot.repair_episode_ids else None
+        episode = existing if existing and not existing.final_outcome and existing.failure_fingerprint == fingerprint and existing.contract_version == contract.version else RepairEpisode(
             episode_id=uuid4().hex, project_id=self.project_id, day=contract.day,
             work_item_id=item.item_id, failure_class=DayIssueClassification.IMPLEMENTATION_DEFECT,
             failure_fingerprint=fingerprint, failure_excerpt=excerpt, component=item.item_id,
             started_at_epoch=now, repair_deadline_epoch=now + self.snapshot.repair_deadline_seconds,
             catalog_match_ids=[entry.catalog_id for entry in matches],
+            contract_version=contract.version,
+            scope_fingerprint=self._text_fingerprint(item.dynamic_work_order.model_dump_json() if item.dynamic_work_order else ""),
         )
         self.repair_episode_store.save(episode)
-        self.snapshot.repair_episode_ids.append(episode.episode_id)
+        if episode.episode_id not in self.snapshot.repair_episode_ids:
+            self.snapshot.repair_episode_ids.append(episode.episode_id)
+        self._save()
         files = self._bounded_repair_files(item)
-        seen_proposals: set[str] = set()
+        seen_proposals: set[str] = {p.proposal_fingerprint for p in episode.proposal_attempts}
         while len(episode.proposal_attempts) < self.MAX_LOCAL_PROPOSALS and self.clock() < episode.repair_deadline_epoch:
             remaining = max(1, int(episode.repair_deadline_epoch - self.clock()))
             proposal = self.repair_builder.propose(
@@ -221,7 +329,7 @@ class LocalLLMDayProgram:
                 episode.proposal_attempts.append(RepairProposalAttempt(proposal_fingerprint=self._text_fingerprint("NO_PROPOSAL"), outcome="NO_PROPOSAL", feedback="LocalLLM returned no bounded proposal."))
                 episode.rejection_feedback.append("No parseable LocalLLM proposal was returned.")
                 self.repair_episode_store.save(episode)
-                continue
+                break
             proposal_fingerprint = self._proposal_fingerprint(proposal)
             if proposal_fingerprint in seen_proposals:
                 episode.proposal_attempts.append(RepairProposalAttempt(proposal_fingerprint=proposal_fingerprint, outcome="DUPLICATE", feedback="Duplicate proposal fingerprint."))
@@ -229,12 +337,17 @@ class LocalLLMDayProgram:
                 self.repair_episode_store.save(episode)
                 break
             seen_proposals.add(proposal_fingerprint)
+            edits = getattr(proposal, "edits", ())
+            if not edits or item.dynamic_work_order is None or any(getattr(edit, "path", "") not in item.dynamic_work_order.allowed_files for edit in edits):
+                episode.proposal_attempts.append(RepairProposalAttempt(proposal_fingerprint=proposal_fingerprint, outcome="PREFILTER_REJECTED"))
+                self.repair_episode_store.save(episode)
+                break
             result = self.work_order_executor({
                 "kind": "LOCAL_LLM_COUNTERMEASURE", "task_id": item.item_id, "proposal": proposal,
                 "files": sorted(files), "dynamic_work_order": item.dynamic_work_order.model_dump(mode="json") if item.dynamic_work_order else None,
                 "repair_episode_id": episode.episode_id,
             })
-            if result.get("final_result") in {"COMPLETE", "COMPLETE_NO_CHANGE"}:
+            if result.get("final_result") in {"COMPLETE", "COMPLETE_NO_CHANGE"} and result.get("verification_passed") is True:
                 episode.proposal_attempts.append(RepairProposalAttempt(proposal_fingerprint=proposal_fingerprint, outcome="VERIFIED"))
                 episode.codex_review_outcome = "ACCEPTED_AND_VERIFIED"
                 episode.verification_result = "PASS"
@@ -252,7 +365,7 @@ class LocalLLMDayProgram:
             "failure_excerpt": excerpt, "failure_fingerprint": fingerprint,
             "catalog_matches": [self._catalog_guidance(entry) for entry in matches], "repair_episode_id": episode.episode_id,
         })
-        if expert.get("final_result") in {"COMPLETE", "COMPLETE_NO_CHANGE"}:
+        if expert.get("final_result") in {"COMPLETE", "COMPLETE_NO_CHANGE"} and expert.get("verification_passed") is True:
             episode.expert_solver_outcome, episode.verification_result, episode.final_outcome = "VERIFIED", "PASS", "CODEX_VERIFIED"
             self._accept_repair(item, expert, episode, source="CODEX_VERIFIED", diagnosis="Codex Expert Solver independently repaired the verified failure.")
             return True
@@ -276,7 +389,9 @@ class LocalLLMDayProgram:
         return self._text_fingerprint(f"{item.item_id}|{item.dynamic_work_order.task_id if item.dynamic_work_order else ''}|{excerpt[:1200]}")
 
     def _inventory_fingerprint(self, inventory: dict[str, object]) -> str:
-        return self._text_fingerprint(repr({key: inventory.get(key) for key in ("head", "branch", "status_count", "source_presence")}))
+        material = {key: inventory.get(key) for key in ("head", "branch", "source_fingerprint", "configuration_fingerprint")}
+        material["authority_resolution"] = self.snapshot.authority_resolution_fingerprint
+        return self._text_fingerprint(json.dumps(material, sort_keys=True))
 
     def _proposal_fingerprint(self, proposal: object) -> str:
         edits = getattr(proposal, "edits", ())
@@ -315,6 +430,13 @@ class LocalLLMDayProgram:
         ))
         item.state = LocalLLMWorkItemState.COMPLETE
         item.evidence = self._bounded(result)
+        # Display telemetry is bounded by key count; the adapter's evidence
+        # payload is a separate contract and must never be truncated by the
+        # insertion order of the engine result. It still passes the normal
+        # Evidence Registry / Store ingestion and criterion validators below.
+        evidence = result.get("evidence")
+        if isinstance(evidence, dict):
+            item.evidence["evidence"] = dict(evidence)
         self.snapshot.repair_attempted = True
         self.snapshot.issue_classification = None
         self.snapshot.codex_handoff = None
@@ -322,45 +444,243 @@ class LocalLLMDayProgram:
 
     def _execute(self) -> None:
         try:
+            contract = self.snapshot.contract
+            current = self._load_contracts().get(self.snapshot.selected_day)
+            if not contract or not current:
+                raise GitSafetyError("CONTRACT_VERSION_INVARIANT")
+            expected = self.snapshot.contract_fingerprint or self._contract_fingerprint(contract)
+            if self._contract_fingerprint(current) != expected or self._contract_fingerprint(contract) != expected:
+                reason = "CONTRACT_VERSION_CONTENT_MISMATCH" if current.version == contract.version else "CONTRACT_VERSION_CHANGED"
+                self._invalidate_contract_identity(current, expected, reason)
+                raise GitSafetyError(reason)
+            self.snapshot.contract_fingerprint = expected
+            self._assert_registry_conformance()
+            inventory = self._inventory(contract)
+            blocker = self.snapshot.authority_blocker
+            if blocker:
+                if not self._blocker_resolved():
+                    self._fail(contract, blocker.reason_code, blocker.message, blocker.classification, inventory)
+                    return
+                self.snapshot.authority_resolution_fingerprint = self._text_fingerprint(
+                    blocker.model_dump_json() + self._inventory_fingerprint(inventory))
+                self.snapshot.authority_blocker = None
+                self._save()
+            if inventory["missing_sources"]:
+                self._terminal_blocker(contract, DayIssueClassification.EXTERNAL_AUTHORITY_REQUIRED,
+                                       "AUTHORITATIVE_SOURCE_MISSING", "Required authoritative sources are unavailable.", inventory)
+                return
+            self._transition(LocalLLMDayState.LOADING_CONTRACT)
+            self._transition(LocalLLMDayState.INVENTORY)
+            self._ingest_reusable_evidence(contract, inventory)
+            self._transition(LocalLLMDayState.VALIDATING)
             while not self._stop.is_set():
-                contract = self.snapshot.contract
-                if contract is None:
-                    raise RuntimeError("missing persisted Day contract")
-                inventory = self._inventory()
                 self._evaluate_contract(contract, inventory)
                 if not contract.remaining_gaps:
                     self._complete(contract, inventory)
                     return
-                pending = next((item for item in self.snapshot.work_items if item.state == LocalLLMWorkItemState.PENDING), None)
-                if pending is None:
-                    if self.snapshot.replan_count >= self.MAX_REPLANS:
-                        self._fail(contract, "DAY_INSUFFICIENT_EVIDENCE", "The bounded replanning limit was reached before all criteria gained evidence.", DayIssueClassification.INSUFFICIENT_EVIDENCE, inventory)
-                        return
-                    proposed = self._validated_plan(contract, inventory)
-                    action_fingerprint = self._text_fingerprint(
-                        f"{self._inventory_fingerprint(inventory)}|{','.join(contract.remaining_gaps)}|{','.join(sorted(item.item_id for item in proposed))}"
-                    )
-                    if action_fingerprint in self.snapshot.replan_fingerprints:
-                        self._fail(contract, "DAY_NO_OP_REPLAN", "The unchanged repository state would repeat an identical evidence action.", DayIssueClassification.INSUFFICIENT_EVIDENCE, inventory)
-                        return
-                    self.snapshot.work_items.extend(proposed)
-                    self.snapshot.replan_count += 1
-                    self.snapshot.replan_fingerprints.append(action_fingerprint)
-                    self.snapshot.activity = "Codex Architect produced a bounded plan for the remaining evidence gaps."
-                    self._save()
+                self._transition(LocalLLMDayState.DIAGNOSING_GAP)
+                diagnoses = self._diagnose_gaps(contract, inventory)
+                self.snapshot.gap_diagnoses = diagnoses
+                self._save()
+                episode = self.repair_episode_store.get(self.snapshot.repair_episode_ids[-1]) if self.snapshot.repair_episode_ids else None
+                if episode and episode.interrupted and not episode.final_outcome:
+                    item = next(item for item in self.snapshot.work_items if item.item_id == episode.work_item_id)
+                    self._transition(LocalLLMDayState.REPAIR_SUPERVISOR)
+                    episode.interrupted = False
+                    if not self._supervise_repair(item, contract):
+                        raise GitSafetyError("REPAIR_ROUTES_EXHAUSTED")
+                    self._ingest_legacy_evidence(contract, item.evidence.get("evidence", {}), provider_id="repair-supervisor", source_fingerprint=self._inventory_fingerprint(inventory))
+                    self._transition(LocalLLMDayState.REVALIDATING)
+                    inventory = self._inventory(contract)
+                    self._transition(LocalLLMDayState.VALIDATING)
                     continue
-                self._run_item(pending, contract, inventory)
-                if self.snapshot.state != LocalLLMDayState.RUNNING:
+                selected = self._select_registered_action(diagnoses)
+                if selected is None:
+                    authority = next((item for item in diagnoses if item.classification in {
+                        DayIssueClassification.EXTERNAL_AUTHORITY_REQUIRED,
+                        DayIssueClassification.HUMAN_PRODUCT_DECISION_REQUIRED,
+                    }), None)
+                    if authority:
+                        self._terminal_blocker(contract, authority.classification,
+                            authority.authority_basis or "AUTHORITY_REQUIRED", authority.reason, inventory, authority)
+                    else:
+                        self._route_observed_gap(contract, inventory, diagnoses[0])
+                        if self.snapshot.state in ACTIVE:
+                            inventory = self._inventory(contract)
+                            self._transition(LocalLLMDayState.VALIDATING)
+                            continue
                     return
-        except Exception as exc:
-            contract = self.snapshot.contract
-            if contract:
-                self._fail(contract, "DAY_HARNESS_FAILURE", f"Day runner stopped safely: {type(exc).__name__}.", DayIssueClassification.IMPLEMENTATION_DEFECT, self._inventory())
-        if self._stop.is_set() and self.snapshot.contract:
-            self.snapshot.state = LocalLLMDayState.STOPPED
+                self._execute_registered_action(contract, inventory, selected)
+                if self.snapshot.state not in ACTIVE:
+                    return
+                inventory = self._inventory(contract)
+                self._ingest_reusable_evidence(contract, inventory)
+                self._transition(LocalLLMDayState.VALIDATING)
+            self._transition(LocalLLMDayState.STOPPED)
             self.snapshot.stop_reason = "STOP_REQUESTED"
-            self.snapshot.activity = "Stopped; completed tasks and evidence remain persisted for Resume."
+            self.snapshot.activity = "Stopped at a durable action boundary; Resume continues this Day."
             self._save()
+        except Exception as exc:
+            if self.snapshot.contract:
+                code = str(exc) if isinstance(exc, GitSafetyError) and str(exc).startswith("CONTRACT_VERSION") else "CONTROLLER_INVARIANT"
+                self._fail(self.snapshot.contract, code,
+                           f"Controller cannot safely continue: {type(exc).__name__}: {str(exc)[:300]}",
+                           DayIssueClassification.ENGINEERING_REPAIR, {})
+
+    def _diagnose_gaps(self, contract: LocalLLMDayContract, inventory: dict[str, object]) -> list[GapDiagnosis]:
+        input_fingerprint = self._inventory_fingerprint(inventory)
+        diagnoses: list[GapDiagnosis] = []
+        for criterion in contract.completion_criteria:
+            if criterion.satisfied:
+                continue
+            for evidence_type in criterion.required_evidence:
+                if criterion.evidence_record_ids.get(evidence_type) and self._evidence_record_valid(evidence_type, self.snapshot.evidence_store.get(criterion.evidence_record_ids[evidence_type])):
+                    continue
+                strategy = STRATEGIES[(contract.day, evidence_type)]
+                action_fingerprint = self._text_fingerprint(
+                    f"{self.project_id}|{contract.version}|{contract.day}|{criterion.criterion_id}|{evidence_type}|{strategy.template.template_id if strategy.template else strategy.strategy_id}|{input_fingerprint}"
+                )
+                attempted = [attempt.action_fingerprint for attempt in self.snapshot.action_attempts if attempt.criterion_id == criterion.criterion_id and attempt.evidence_type == evidence_type]
+                try:
+                    classification = DayIssueClassification(strategy.classification)
+                except ValueError as exc:
+                    raise RuntimeError("invalid server strategy classification") from exc
+                previous = next((attempt for attempt in reversed(self.snapshot.action_attempts)
+                                 if strategy.template and attempt.action_template_id == strategy.template.template_id
+                                 and attempt.input_fingerprint == input_fingerprint), None)
+                failure_reason = "NOT_YET_PRODUCED"
+                if previous:
+                    failure_reason = previous.failure_reason or "ACTION_OUTPUT_FAILED_EVIDENCE_VALIDATION"
+                    classification = previous.observed_classification or DayIssueClassification.ENGINEERING_REPAIR
+                    if classification == DayIssueClassification.INSUFFICIENT_EVIDENCE:
+                        classification = DayIssueClassification.ENGINEERING_REPAIR
+                diagnoses.append(GapDiagnosis(
+                    criterion_id=criterion.criterion_id, evidence_type=evidence_type,
+                    classification=classification, failure_reason=failure_reason,
+                    reason=f"{evidence_type} has no compatible validated Evidence Record: {failure_reason}.",
+                    required_evidence=[evidence_type], strategy_id=strategy.strategy_id,
+                    authority_basis=strategy.authority_requirement, input_fingerprint=input_fingerprint,
+                    action_fingerprint=action_fingerprint, expected_information_gain=strategy.expected_information_gain,
+                    expected_state_change=strategy.expected_state_change, attempted_action_fingerprints=attempted,
+                ))
+        return diagnoses
+
+    def _select_registered_action(self, diagnoses: list[GapDiagnosis]) -> GapDiagnosis | None:
+        priority = {
+            ExecutionMode.READ_ONLY: 0, ExecutionMode.BASELINE_CHECKPOINT: 1,
+            ExecutionMode.ENGINEERING_WORKTREE: 2, ExecutionMode.RESEARCH_RUN: 2,
+            ExecutionMode.DECISION_OR_DOCUMENTATION_WORKTREE: 2,
+        }
+        candidates: list[tuple[int, str, str, GapDiagnosis]] = []
+        attempted = {item.action_fingerprint for item in self.snapshot.action_attempts}
+        for diagnosis in diagnoses:
+            strategy = STRATEGIES[(self.snapshot.contract.day, diagnosis.evidence_type)] if self.snapshot.contract and diagnosis.evidence_type else None
+            if strategy is None or strategy.template is None or diagnosis.action_fingerprint in attempted:
+                continue
+            # A prerequisite is never produced by automatically running its Day.
+            if any(any(gap.evidence_type == name for gap in diagnoses) for name in strategy.template.input_evidence_types):
+                continue
+            if any(attempt.action_template_id == strategy.template.template_id
+                   and attempt.input_fingerprint == diagnosis.input_fingerprint
+                   for attempt in self.snapshot.action_attempts):
+                continue
+            candidates.append((priority[strategy.template.execution_mode], strategy.strategy_id, diagnosis.criterion_id, diagnosis))
+        return sorted(candidates, key=lambda item: item[:3])[0][3] if candidates else None
+
+    def _route_observed_gap(self, contract, inventory, diagnosis):
+        """Repair an observed adapter/work defect, never retry an unchanged action.
+
+        Missing output after work is different from work not yet attempted.
+        Repair authority remains the registered template's exact source/test
+        scope. Read-only/research templates cannot authorize source edits.
+        """
+        strategy = STRATEGIES[(contract.day, diagnosis.evidence_type)]
+        template = strategy.template
+        if diagnosis.classification == DayIssueClassification.MODEL_QUALITY_FINDING:
+            self._terminal_blocker(contract, DayIssueClassification.HUMAN_PRODUCT_DECISION_REQUIRED,
+                "RESEARCH_CONDITION_EXPANSION_REQUIRED",
+                "The retained model finding does not satisfy this requirement. Repeating inference is forbidden; a new research condition requires an explicit decision.", inventory, diagnosis)
+            return
+        tests = [path for path in template.allowed_output_scope if path.startswith("tests/") and path.endswith(".py")] if template else []
+        if not template or template.execution_mode != ExecutionMode.ENGINEERING_WORKTREE or not tests:
+            self._terminal_blocker(contract, DayIssueClassification.HUMAN_PRODUCT_DECISION_REQUIRED,
+                "REPAIR_SCOPE_AUTHORITY_REQUIRED",
+                "The registered collector/result adapter did not produce valid evidence. Its current read-only/results-only scope does not authorize the source changes needed to repair it.", inventory, diagnosis)
+            return
+        item_id = f"repair-{diagnosis.strategy_id}"
+        # Never repeat an already verified repair against the identical inputs.
+        if any(item.item_id == item_id for item in self.snapshot.work_items):
+            self._terminal_blocker(contract, DayIssueClassification.HUMAN_PRODUCT_DECISION_REQUIRED,
+                "REPAIR_SCOPE_AUTHORITY_REQUIRED",
+                "The bounded repair was verified but the evidence adapter remains invalid. Repeating the same repair is forbidden; repairing outside the registered source/test scope needs authority.", inventory, diagnosis)
+            return
+        self._ingest_action_result(contract, diagnosis, {
+            "final_result": "FAILED", "issue_classification": "ENGINEERING_REPAIR",
+            "failure_excerpt": diagnosis.reason,
+            "dynamic_work_order": {
+                "task_id": f"day-{contract.day}-{template.template_id.lower().replace('_', '-')}",
+                "allowed_files": list(template.allowed_output_scope),
+                "context_files": list(template.context_scope), "acceptance_test_files": tests,
+            },
+        })
+        if self.snapshot.state in ACTIVE:
+            self._transition(LocalLLMDayState.REVALIDATING)
+
+    def _execute_registered_action(self, contract: LocalLLMDayContract, inventory: dict[str, object], diagnosis: GapDiagnosis) -> None:
+        assert diagnosis.evidence_type and diagnosis.strategy_id and diagnosis.action_fingerprint
+        strategy = STRATEGIES[(contract.day, diagnosis.evidence_type)]
+        assert strategy.template is not None
+        self.snapshot.active_action = {"strategy_id": strategy.strategy_id, "template_id": strategy.template.template_id, "evidence_type": diagnosis.evidence_type, "criterion_id": diagnosis.criterion_id, "execution_mode": strategy.template.execution_mode.value}
+        self.snapshot.phase = strategy.template.execution_mode.value
+        self._transition(LocalLLMDayState.COLLECTING_EVIDENCE if strategy.template.execution_mode == ExecutionMode.READ_ONLY else LocalLLMDayState.EXECUTING_DAY_WORK)
+        self.snapshot.activity = f"Executing server-owned {strategy.template.execution_mode.value} for {diagnosis.evidence_type}."
+        self._save()
+        attempt = ActionAttempt(action_fingerprint=diagnosis.action_fingerprint, strategy_id=strategy.strategy_id,
+            criterion_id=diagnosis.criterion_id, evidence_type=diagnosis.evidence_type,
+            input_fingerprint=diagnosis.input_fingerprint, outcome="STARTED", action_template_id=strategy.template.template_id)
+        self.snapshot.action_attempts.append(attempt)
+        self._save()
+        if strategy.template.execution_mode == ExecutionMode.READ_ONLY:
+            result = self._collect_day_one_evidence(contract, execute_tests=not any(self._evidence_record_valid("test_result", record) for record in self.snapshot.evidence_store.values())) if contract.day == 1 else self.work_order_executor({"kind": "DAY_ACTION_TEMPLATE", "strategy_id": strategy.strategy_id, "day": contract.day})
+        elif strategy.template.execution_mode == ExecutionMode.BASELINE_CHECKPOINT:
+            result = self._create_day_one_baseline_checkpoint(contract)
+        else:
+            result = self.work_order_executor({
+                "kind": "DAY_ACTION_TEMPLATE", "strategy_id": strategy.strategy_id,
+                "day": contract.day,
+                "action_template_id": strategy.template.template_id,
+                "execution_mode": strategy.template.execution_mode.value,
+                "criterion_id": diagnosis.criterion_id, "evidence_type": diagnosis.evidence_type,
+                "criterion_ids": [diagnosis.criterion_id],
+                "contract": contract.model_dump(mode="json"), "allowed_output_scope": list(strategy.template.allowed_output_scope),
+                "mutation_policy": strategy.template.mutation_policy,
+            })
+        attempt.outcome = str(result.get("final_result", "UNKNOWN"))
+        attempt.observed_classification = self._classify_result(result)
+        attempt.failure_reason = str(result.get("error_code") or "ACTION_OUTPUT_FAILED_EVIDENCE_VALIDATION")[:500]
+        self._ingest_action_result(contract, diagnosis, result)
+        self.snapshot.last_action = self.snapshot.active_action
+        self.snapshot.active_action = None
+        if self.snapshot.state not in ACTIVE:
+            self._save()
+            return
+        self._transition(LocalLLMDayState.REVALIDATING)
+        self._save()
+
+    def _terminal_blocker(self, contract: LocalLLMDayContract, classification: DayIssueClassification, reason_code: str, message: str, inventory: dict[str, object], diagnosis: GapDiagnosis | None = None) -> None:
+        resolution = {"AUTHORITATIVE_SOURCE_MISSING": "AUTHORITATIVE_SOURCES",
+                      "REAL_MODE_REQUIRED": "RUNTIME_REAL",
+                      "RESEARCH_CONDITION_REQUIRED": "RESEARCH_CONDITION",
+                      "RESEARCH_CONDITION_NOT_APPROVED": "RESEARCH_CONDITION",
+                      "RESEARCH_CONDITION_CHOICE_REQUIRED": "RESEARCH_CONDITION",
+                      "RESEARCH_CONDITION_CHANGED": "RESEARCH_CONDITION",
+                      "SOURCE_TASK_DEPENDENCY_DIRTY": "SOURCE_DEPENDENCIES",
+                      "REPAIR_SCOPE_AUTHORITY_REQUIRED": "AUTHORIZED_SCOPE",
+                      "RESEARCH_CONDITION_EXPANSION_REQUIRED": "AUTHORIZED_SCOPE"}.get(reason_code, "RETAINED_EVIDENCE")
+        strategy = STRATEGIES.get((contract.day, diagnosis.evidence_type)) if diagnosis else None
+        self.snapshot.authority_blocker = AuthorityBlocker(classification=classification, reason_code=reason_code, message=message, criterion_id=diagnosis.criterion_id if diagnosis else None, evidence_type=diagnosis.evidence_type if diagnosis else None,
+            resolution_strategy=resolution, action_template_id=strategy.template.template_id if strategy and strategy.template else None)
+        self._fail(contract, reason_code, message, classification, inventory)
 
     def _run_item(self, item: LocalLLMDayWorkItem, contract: LocalLLMDayContract, inventory: dict[str, object]) -> None:
         item.state = LocalLLMWorkItemState.RUNNING
@@ -383,18 +703,18 @@ class LocalLLMDayProgram:
         if classification == DayIssueClassification.IMPLEMENTATION_DEFECT and item.dynamic_work_order is not None:
             # Ordinary engineering failures automatically run the full bounded
             # repair episode. Research findings never enter this path.
-            self.snapshot.state = LocalLLMDayState.FAILED
+            self.snapshot.state = LocalLLMDayState.REPAIR_SUPERVISOR
             self.snapshot.issue_classification = classification
             self._save()
             if self._supervise_repair(item, contract):
-                self.snapshot.state = LocalLLMDayState.RUNNING
+                self.snapshot.state = LocalLLMDayState.REVALIDATING
                 self.snapshot.activity = "Repair verification succeeded; re-evaluating the Day Contract."
                 self._save()
                 return
         self._fail(contract, "DAY_TASK_FAILED", "A planned task did not produce trusted evidence.", classification, inventory)
 
     def _complete(self, contract: LocalLLMDayContract, inventory: dict[str, object]) -> None:
-        self.snapshot.state = LocalLLMDayState.COMPLETE
+        self._transition(LocalLLMDayState.COMPLETE)
         self.snapshot.progress = 100
         self.snapshot.report = LocalLLMDayReport(day=contract.day, objective=contract.objective, result="DAY_COMPLETE", summary="Completion criteria are supported by persisted evidence.", evidence={"satisfied_criteria": contract.satisfied_criteria, "inventory": inventory})
         self.snapshot.activity = self.snapshot.report.summary
@@ -402,34 +722,142 @@ class LocalLLMDayProgram:
         self._save()
 
     def _fail(self, contract: LocalLLMDayContract, result: str, summary: str, classification: DayIssueClassification, inventory: dict[str, object]) -> None:
-        self.snapshot.state, self.snapshot.issue_classification = LocalLLMDayState.FAILED, classification
+        terminal = LocalLLMDayState.FAILED_UNRECOVERABLE
+        if classification in {DayIssueClassification.MISSING_EXTERNAL_AUTHORITY, DayIssueClassification.EXTERNAL_AUTHORITY_REQUIRED}:
+            terminal = LocalLLMDayState.EXTERNAL_ACTION_REQUIRED
+        elif classification == DayIssueClassification.HUMAN_PRODUCT_DECISION_REQUIRED:
+            terminal = LocalLLMDayState.HUMAN_ACTION_REQUIRED
+        if self.snapshot.state != terminal:
+            self._transition(terminal)
+        self.snapshot.issue_classification = classification
         self.snapshot.report = LocalLLMDayReport(day=contract.day, objective=contract.objective, result=result, summary=summary, evidence={"issue_classification": classification.value, "remaining_gaps": contract.remaining_gaps, "inventory": inventory})
         self.snapshot.activity = summary
         self._save()
 
     def _evaluate_contract(self, contract: LocalLLMDayContract, inventory: dict[str, object]) -> None:
-        # Task state is never proof.  A criterion is recomputed exclusively
-        # from named evidence records passing server-owned validators.
+        # A work item is never proof.  Criteria only retain references to
+        # records that have passed the per-type validator.
+        self._ingest_reusable_evidence(contract, inventory)
         for criterion in contract.completion_criteria:
-            candidates: list[dict[str, object]] = [criterion.evidence]
-            retained = inventory.get("retained_evidence")
-            if isinstance(retained, dict):
-                candidates.append(retained)
-            matching = [item for item in self.snapshot.work_items
-                        if criterion.criterion_id in item.criterion_ids
-                        and item.state == LocalLLMWorkItemState.COMPLETE
-                        and item.contract_day == contract.day
-                        and item.contract_version == contract.version]
-            for item in matching:
-                evidence = item.evidence.get("evidence")
-                if isinstance(evidence, dict):
-                    candidates.append(evidence)
-            chosen = next((evidence for evidence in candidates if self._criterion_evidence_valid(criterion, evidence)), None)
-            criterion.satisfied = chosen is not None
-            criterion.evidence = self._bounded(chosen or {})
+            references: dict[str, str] = {}
+            for evidence_type in criterion.required_evidence:
+                candidates = [record for record in self.snapshot.evidence_store.values()
+                              if record.day == contract.day and record.contract_version == contract.version
+                              and (contract.day != 1 or record.observation_fingerprint == self._inventory_fingerprint(inventory))
+                              and record.evidence_type == evidence_type and self._evidence_record_valid(evidence_type, record)]
+                if candidates:
+                    selected = sorted(candidates, key=lambda record: record.collected_at)[-1]
+                    references[evidence_type] = selected.record_id
+            criterion.evidence_record_ids = references
+            criterion.satisfied = len(references) == len(criterion.required_evidence)
+            criterion.evidence = dict(references)
         contract.satisfied_criteria = [item.criterion_id for item in contract.completion_criteria if item.satisfied]
         contract.remaining_gaps = [item.criterion_id for item in contract.completion_criteria if not item.satisfied]
         self._update_progress(contract)
+
+    def _assert_registry_conformance(self) -> None:
+        """Fail startup closed unless all 46 names and all 62 pairs are owned."""
+        try:
+            document = yaml.safe_load(self.PROGRAM_PATH.read_text(encoding="utf-8"))
+            definitions = document.get("days", []) if isinstance(document, dict) else []
+            pairs = {
+                (definition["day"], evidence)
+                for definition in definitions if isinstance(definition, dict) and isinstance(definition.get("day"), int)
+                for criterion in definition.get("completion_criteria", []) if isinstance(criterion, dict)
+                for evidence in criterion.get("evidence", []) if isinstance(evidence, str)
+            }
+            assert_coverage(pairs, self.evidence_registry.names)
+        except (OSError, UnicodeError, yaml.YAMLError, ValueError, KeyError, TypeError) as exc:
+            raise RuntimeError("DAY_REGISTRY_CONFORMANCE_FAILURE") from exc
+
+    def _ingest_reusable_evidence(self, contract: LocalLLMDayContract, inventory: dict[str, object]) -> None:
+        retained = inventory.get("retained_evidence")
+        if isinstance(retained, dict):
+            for record in self.snapshot.evidence_store.values():
+                if record.provider_id == "retained-resolver" and record.day == contract.day:
+                    record.compatibility_result = self.evidence_registry.validate(record.evidence_type, retained.get(record.evidence_type))
+            self._ingest_legacy_evidence(contract, retained, provider_id="retained-resolver", source_fingerprint=self._inventory_fingerprint(inventory))
+
+    def _ingest_action_result(self, contract: LocalLLMDayContract, diagnosis: GapDiagnosis, result: dict[str, object]) -> None:
+        evidence = result.get("evidence")
+        if isinstance(evidence, dict):
+            strategy = STRATEGIES[(contract.day, diagnosis.evidence_type)]
+            allowed = set(strategy.template.post_action_evidence_types) if strategy.template else set()
+            if contract.day == 1:
+                allowed = {"commit_ref"} if diagnosis.evidence_type == "commit_ref" else {"git_head", "origin_ref", "status_audit", "staging_audit", "documentation_check", "test_result"}
+            evidence = {name: value for name, value in evidence.items() if name in allowed}
+            # Day 1's ordinary observation may see HEAD, but only the
+            # BASELINE_CHECKPOINT template is allowed to satisfy commit_ref.
+            if contract.day == 1 and diagnosis.evidence_type != "commit_ref":
+                evidence = {name: value for name, value in evidence.items() if name != "commit_ref"}
+            self._ingest_legacy_evidence(contract, evidence, provider_id=diagnosis.strategy_id or "action", source_fingerprint=diagnosis.input_fingerprint)
+        classification = self._classify_result(result)
+        if classification in {DayIssueClassification.EXTERNAL_AUTHORITY_REQUIRED, DayIssueClassification.HUMAN_PRODUCT_DECISION_REQUIRED}:
+            self._terminal_blocker(contract, classification, str(result.get("error_code", "AUTHORITY_REQUIRED")),
+                                   str(result.get("reason", diagnosis.reason)), {}, diagnosis)
+            return
+        if result.get("final_result") not in {"COMPLETE", "COMPLETE_NO_CHANGE"} and classification in {DayIssueClassification.IMPLEMENTATION_DEFECT, DayIssueClassification.ENGINEERING_REPAIR}:
+            # Repair is an internal transition, never a request for a second Go.
+            diagnosis.classification = DayIssueClassification.ENGINEERING_REPAIR
+            diagnosis.failure_reason = str(result.get("error_code") or "DETERMINISTIC_WORK_FAILURE")[:500]
+            diagnosis.reason = f"Registered work failed deterministic verification: {diagnosis.failure_reason}."
+            self._transition(LocalLLMDayState.REPAIR_SUPERVISOR)
+            self.snapshot.issue_classification = DayIssueClassification.ENGINEERING_REPAIR
+            item = LocalLLMDayWorkItem(item_id=f"repair-{diagnosis.strategy_id}", title="Registered engineering repair", objective=diagnosis.reason, kind="DYNAMIC_ENGINEERING_WORK", criterion_ids=[diagnosis.criterion_id], contract_day=contract.day, contract_version=contract.version)
+            # A template executor may provide an explicitly bounded dynamic order.
+            dynamic = result.get("dynamic_work_order")
+            if isinstance(dynamic, dict):
+                try:
+                    from backend.models.local_llm_day import DynamicDayWorkOrder
+                    item.dynamic_work_order = DynamicDayWorkOrder.model_validate(dynamic)
+                except (TypeError, ValueError):
+                    pass
+            if item.dynamic_work_order is not None:
+                item.evidence = self._bounded(result)
+                item.state = LocalLLMWorkItemState.FAILED
+                self.snapshot.work_items.append(item)
+                if self._supervise_repair(item, contract):
+                    repair_evidence = item.evidence.get("evidence")
+                    if isinstance(repair_evidence, dict):
+                        self._ingest_legacy_evidence(contract, repair_evidence, provider_id="repair-supervisor", source_fingerprint=diagnosis.input_fingerprint)
+                    return
+                raise GitSafetyError("REPAIR_ROUTES_EXHAUSTED")
+        if classification == DayIssueClassification.MODEL_QUALITY_FINDING:
+            # Retention is evidence; quality is not an engineering repair.
+            self.snapshot.issue_classification = classification
+
+    def _ingest_legacy_evidence(self, contract: LocalLLMDayContract, evidence: dict[str, object], *, provider_id: str, source_fingerprint: str) -> None:
+        for evidence_type, legacy in evidence.items():
+            if evidence_type not in self.evidence_registry.names or not isinstance(legacy, dict):
+                continue
+            if not self.evidence_registry.validate(evidence_type, legacy):
+                continue
+            value = legacy.get("value")
+            fingerprint = self._text_fingerprint(json.dumps(value, sort_keys=True, ensure_ascii=False))
+            record_id = self._text_fingerprint(f"{self.project_id}|{contract.day}|{contract.version}|{evidence_type}|{fingerprint}")[:32]
+            if record_id in self.snapshot.evidence_store:
+                self.snapshot.evidence_store[record_id].compatibility_result = True
+                continue
+            self.snapshot.evidence_store[record_id] = EvidenceRecord(
+                record_id=record_id, project_id=self.project_id, day=contract.day, contract_version=contract.version,
+                evidence_type=evidence_type, provider_id=provider_id, provider_version="v1",
+                validator_id=f"evidence-registry:{evidence_type}", validator_version="v1",
+                source_paths=list(legacy.get("source_paths", [])), source_revision=str(legacy.get("source_revision") or "unknown"),
+                source_fingerprint=fingerprint, configuration_fingerprint=source_fingerprint,
+                value=value, status="VALID", validator_result=True, compatibility_result=True,
+                source_hashes=legacy.get("source_hashes", {}), observation_fingerprint=source_fingerprint,
+                retained_artifact_reference=legacy.get("retained_artifact_reference"),
+            )
+
+    def _evidence_record_valid(self, evidence_type: str, record: EvidenceRecord | None) -> bool:
+        if record is None or record.evidence_type != evidence_type or not record.validator_result or not record.compatibility_result or record.status != "VALID":
+            return False
+        if record.project_id != self.project_id or any(self._file_fingerprint(Path(path)) != digest for path, digest in record.source_hashes.items()):
+            return False
+        return self.evidence_registry.validate(evidence_type, {
+            "evidence_type": evidence_type, "value": record.value, "source": record.provider_id,
+            "verified": True, "validation": {"passed": record.validator_result, "validator": record.validator_id},
+        })
 
     def _validated_plan(self, contract: LocalLLMDayContract, inventory: dict[str, object]) -> list[LocalLLMDayWorkItem]:
         # Day 1 evidence is collected only by the server-owned Git/document/
@@ -519,7 +947,14 @@ class LocalLLMDayProgram:
         sources = contract.authoritative_sources if contract else []
         source_presence = {source: (self.root / source).is_file() for source in sources}
         retained_evidence = self.retained_evidence_resolver.resolve(contract.day) if contract else {}
+        try:
+            source_fingerprint = git_fingerprint(self.root)
+        except (GitSafetyError, OSError):
+            source_fingerprint = self._text_fingerprint(json.dumps({path: self._file_fingerprint(self.root / path) for path in sources}, sort_keys=True))
+        if contract and contract.day == 1 and self.snapshot.baseline_checkpoint:
+            retained_evidence.update(self._recollect_checkpoint())
         return {**self._git_state(), "source_presence": source_presence,
+                "source_fingerprint": source_fingerprint, "configuration_fingerprint": self._file_fingerprint(self.PROGRAM_PATH),
                 "missing_sources": [path for path, present in source_presence.items() if not present],
                 "retained_evidence": retained_evidence}
 
@@ -667,7 +1102,7 @@ class LocalLLMDayProgram:
         staging["generated_artifacts_not_staged"] = not staging["staged_generated_paths"]
         documentation = self._day_one_documentation_check(contract)
         test_paths = [self.root / path for path in ("tests/test_process_consistency_smoke.py", "tests/test_process_consistency_review_set.py")]
-        cache_material = "|".join([head, *status["relevant_dirty_paths"], *[
+        cache_material = "|".join([head, git_fingerprint(self.root), contract.version, self._file_fingerprint(self.PROGRAM_PATH), *[
             f"{path.relative_to(self.root).as_posix()}:{self._file_fingerprint(path)}" for path in test_paths
         ]])
         tests = self._day_one_test_result(execute=execute_tests, cache_key=self._text_fingerprint(cache_material))
@@ -682,6 +1117,25 @@ class LocalLLMDayProgram:
             "commit_ref": self._record("commit_ref", commit_ref, "git rev-parse HEAD; git cat-file -e HEAD^{commit}; git status --porcelain=v1 -uall", is_commit and commit_ref["reproducible"]),
         }
         return {"final_result": "COMPLETE", "evidence": evidence, "collection": "day1_deterministic"}
+
+    def _create_day_one_baseline_checkpoint(self, contract: LocalLLMDayContract) -> dict[str, object]:
+        value = checkpoint(self.root)
+        if value.get("authority_required"):
+            return {"final_result": "HUMAN_ACTION_REQUIRED", "issue_classification": "HUMAN_PRODUCT_DECISION_REQUIRED",
+                    "error_code": value["authority_required"], "reason": "Approved source scope cannot be identified safely."}
+        self.snapshot.baseline_checkpoint = value
+        self._save()
+        # Checkpoint creation is work; collection independently resolves the ref.
+        return {"final_result": "COMPLETE", "evidence": self._recollect_checkpoint()}
+
+    def _recollect_checkpoint(self) -> dict[str, object]:
+        value = self.snapshot.baseline_checkpoint
+        if not value:
+            return {}
+        code, tree, _ = self._git("rev-parse", f"{value['checkpoint_ref']}^{{tree}}")
+        if code or tree != value["tree"] or git_fingerprint(self.root) != value["source_fingerprint"]:
+            return {}
+        return {"commit_ref": self._record("commit_ref", value, str(value["checkpoint_ref"]), True)}
 
     def _record_repair_rejection(self, item: LocalLLMDayWorkItem, code: str, *, card: LocalLLMRepairCard | None = None, executor_result: dict[str, object] | None = None) -> dict[str, object]:
         with self._lock:
@@ -730,8 +1184,8 @@ class LocalLLMDayProgram:
         criteria: list[DayCriterion] = []
         for criterion in current.completion_criteria:
             old = prior.get(criterion.criterion_id)
-            evidence = old.evidence if old and self._criterion_evidence_valid(criterion, old.evidence) else {}
-            criteria.append(criterion.model_copy(update={"evidence": evidence, "satisfied": bool(evidence)}))
+            references = old.evidence_record_ids if old else {}
+            criteria.append(criterion.model_copy(update={"evidence": references, "evidence_record_ids": references, "satisfied": False}))
         restored = current.model_copy(update={"completion_criteria": criteria})
         restored.satisfied_criteria = [criterion.criterion_id for criterion in criteria if criterion.satisfied]
         restored.remaining_gaps = [criterion.criterion_id for criterion in criteria if not criterion.satisfied]
@@ -742,18 +1196,52 @@ class LocalLLMDayProgram:
         return [item for item in items if item.contract_day == contract.day and item.contract_version == contract.version
                 and item.criterion_ids and set(item.criterion_ids).issubset(known)]
 
+    @staticmethod
+    def _contract_fingerprint(contract: LocalLLMDayContract) -> str:
+        material = contract.model_dump(exclude={"completion_criteria", "satisfied_criteria", "remaining_gaps"})
+        material["completion_criteria"] = sorted([
+            {"criterion_id": c.criterion_id, "statement": c.statement,
+             "required_evidence": sorted(c.required_evidence)} for c in contract.completion_criteria
+        ], key=lambda c: c["criterion_id"])
+        material["constraints"] = sorted(material["constraints"])
+        material["authoritative_sources"] = sorted(material["authoritative_sources"])
+        return hashlib.sha256(json.dumps(material, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode()).hexdigest()
+
+    def _invalidate_contract_identity(self, current: LocalLLMDayContract, saved_fingerprint: str | None, reason: str) -> None:
+        """Retain mismatched state for audit, but make it unusable as proof."""
+        saved = self.snapshot.contract
+        for record in self.snapshot.evidence_store.values():
+            record.compatibility_result = False
+        if saved:
+            for criterion in saved.completion_criteria:
+                criterion.satisfied = False
+            saved.satisfied_criteria = []
+            saved.remaining_gaps = [criterion.criterion_id for criterion in saved.completion_criteria]
+        self.snapshot.stop_reason = reason
+        self.snapshot.activity = reason
+        self.snapshot.report = LocalLLMDayReport(
+            day=self.snapshot.selected_day,
+            objective=current.objective,
+            result=reason,
+            summary="Persisted contract identity differs from its authoritative definition; no evidence or action may be reused.",
+            evidence={"saved_fingerprint": saved_fingerprint, "current_fingerprint": self._contract_fingerprint(current)},
+        )
+
     def _restore_snapshot(self) -> None:
         """A persisted boolean is never authority after process restart."""
         day = self.snapshot.selected_day
         current = self._load_contracts().get(day) if day is not None else None
         if current is None:
             return
-        if self.snapshot.contract is None or self.snapshot.contract.version != current.version:
-            self.snapshot = LocalLLMDaySnapshot(
-                selected_day=day, objective=current.objective, contract=current,
-                activity="Saved Day state requires evidence revalidation under the current contract.",
-            )
+        saved = self.snapshot.contract
+        fingerprint = self.snapshot.contract_fingerprint or (self._contract_fingerprint(saved) if saved else None)
+        if saved is None or fingerprint != self._contract_fingerprint(current) or fingerprint != self._contract_fingerprint(saved):
+            reason = "CONTRACT_VERSION_CONTENT_MISMATCH" if saved and saved.version == current.version else "CONTRACT_VERSION_CHANGED"
+            self._invalidate_contract_identity(current, fingerprint, reason)
+            self.snapshot.state = LocalLLMDayState.FAILED_UNRECOVERABLE
+            self._save()
             return
+        self.snapshot.contract_fingerprint = fingerprint
         self.snapshot.contract = self._restore_contract(current, self.snapshot.contract)
         self.snapshot.work_items = self._valid_work_items(self.snapshot.work_items, current)
         self._evaluate_contract(self.snapshot.contract, self._inventory(current))
@@ -772,13 +1260,19 @@ class LocalLLMDayProgram:
         self.snapshot.progress = round(len(contract.satisfied_criteria) * 100 / total) if total else 0
 
     def _recommended_action(self) -> dict[str, object]:
+        if self.snapshot.state in self.ACTIVE_STATES:
+            return {"action_id": "WAIT", "label": "Working", "enabled": False, "reason": "The selected Day is autonomously collecting, diagnosing, repairing, or revalidating evidence."}
+        if self._repair_resumable():
+            return {"action_id": "REPAIR_AND_GO", "label": "Repair and Go", "enabled": True, "reason": "Resume the interrupted bounded repair episode."}
         if self.snapshot.state in {LocalLLMDayState.PAUSED, LocalLLMDayState.STOPPED}:
             return {"action_id": "RESUME", "label": "Resume", "enabled": True, "reason": "Continue persisted incomplete work."}
-        if self.snapshot.state == LocalLLMDayState.FAILED and self.snapshot.issue_classification == DayIssueClassification.IMPLEMENTATION_DEFECT:
-            return {"action_id": "REPAIR_AND_GO", "label": "Repair and Go", "enabled": True, "reason": "A controlled implementation defect may receive a proposal-only LocalLLM review."}
         if self.snapshot.state == LocalLLMDayState.COMPLETE:
             return {"action_id": "SELECT_NEXT_DAY", "label": "Select next Day", "enabled": True, "reason": "The selected Day has sufficient evidence."}
-        return {"action_id": "GO", "label": "Go", "enabled": self.snapshot.state != LocalLLMDayState.RUNNING, "reason": "Load a Day Contract and plan only remaining evidence gaps."}
+        if self.snapshot.state in {LocalLLMDayState.HUMAN_ACTION_REQUIRED, LocalLLMDayState.EXTERNAL_ACTION_REQUIRED}:
+            return {"action_id": "SHOW_REQUIRED_ACTION", "label": "Action required", "enabled": False, "reason": "A genuine authority or external prerequisite blocks continuation."}
+        if self.snapshot.state == LocalLLMDayState.FAILED_UNRECOVERABLE:
+            return {"action_id": "SHOW_FAILURE", "label": "Safety failure", "enabled": False, "reason": "The controller cannot safely continue this Day."}
+        return {"action_id": "GO", "label": "Go", "enabled": self.snapshot.state == LocalLLMDayState.IDLE, "reason": "Load a Day Contract and plan only remaining evidence gaps."}
 
     def _save(self) -> None:
         self.snapshot.updated_at = datetime.now(timezone.utc)

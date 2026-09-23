@@ -251,6 +251,211 @@ The provider still needs runtime wiring and fixture coverage; Day 4 remains a se
 RULE_PROMOTION:
 NONE
 
+## CHG-019 — Post-completion governance correction: validation must not create work
+
+CHANGE_ID:
+CHG-019
+
+TIMESTAMP:
+2026-09-22T23:40:00+09:00
+
+### PLAN_REF
+Development governance / plan adherence / engineering-history discipline
+
+### REQUEST / INTENT
+Record the development-process lessons discovered while completing the AI-Control-Center autonomous control-loop repair so the same behavior is not repeated in future Codex work.
+
+### USER_CORRECTION
+The user identified that the development process was again beginning to expand work unnecessarily even after the required implementation already existed.
+
+Specific corrections:
+
+- A remaining validation step must not automatically be turned into another implementation task.
+- Once implementation and disposable deterministic proof exist, run the required real read-only validation before creating more code.
+- Development history must be written immediately when the lesson is discovered, not remembered later as post-processing.
+- A checkpoint must not end with `stop and wait` when the original approved plan still has executable work remaining.
+- After a diagnostic checkpoint, execution must return automatically to the original plan and continue to DoD.
+- Work-history maintenance must not become self-generating engineering work.
+- Minor history ordering/formatting problems must not produce chains of new changes.
+- Plan adherence must be maintained continuously, not checked only at the start or end of a long assignment.
+
+### OBSERVED INCIDENT
+Retained Day2 and Day4 evidence recognition was intentionally narrow:
+
+- inspect ALREADY-EXISTING DRAP/DAGB artifacts;
+- validate them deterministically;
+- reuse valid retained evidence;
+- do not execute research;
+- do not modify LocalLLM-Lab.
+
+Approximately 30 minutes were nevertheless spent around this narrow task.
+
+After the resolvers and disposable fail-closed tests already existed, the next proposed action was to create another integration test against known real artifact paths.
+
+The correct next action was simply to run the existing resolver read-only against the real retained artifacts.
+
+This exposed a recurring failure mode:
+
+VALIDATION_NEEDED
+was incorrectly transformed into
+MORE_IMPLEMENTATION_NEEDED.
+
+A separate process issue also occurred when history-entry ordering corrections generated several additional history edits.
+
+### PREVIOUS_MISTAKEN_ASSUMPTION
+The development process implicitly assumed that additional code/test structure was useful whenever more confidence was desired.
+
+It also treated history maintenance as work that could justify independent follow-up changes.
+
+Both assumptions were wrong.
+
+### ROOT_CAUSE
+The development loop did not sufficiently distinguish:
+
+- IMPLEMENTATION
+- VALIDATION
+- DIAGNOSIS
+- RESEARCH EXECUTION
+- DEVELOPMENT BOOKKEEPING
+
+The process also failed to require an explicit question before every new edit: “What evidence shows that another implementation change is actually required?”
+
+Without that gate, work could expand even while the implementation was already sufficient.
+
+### CORRECTION
+Before every future engineering change, classify the required next action as exactly one of:
+
+- IMPLEMENTATION
+- VALIDATION
+- DIAGNOSIS
+- EXTERNAL/HUMAN AUTHORITY
+
+If implementation already exists and focused/disposable deterministic tests prove it, and only real-world read-only confirmation remains, the next action is VALIDATION.
+
+Do not create another helper, resolver, abstraction, fixture, integration test, wrapper, or history cleanup unless validation exposes a concrete implementation defect.
+
+### VALIDATION-FIRST RULE
+Use this decision rule:
+
+implementation exists
++
+deterministic focused proof passes
++
+remaining question concerns actual existing state/artifacts
+=
+RUN VALIDATION
+
+not WRITE MORE CODE.
+
+“More confidence would be useful” is not sufficient evidence that implementation work is required.
+
+### CHECKPOINT CONTINUATION RULE
+A productivity/diagnostic checkpoint does not replace the approved plan.
+
+After the checkpoint:
+
+1. consume the result;
+2. update PLAN_STATUS;
+3. identify the next approved blocking item;
+4. continue automatically.
+
+Use `stop and wait` only when genuine human authority, permission, credentials, destructive action, or product-direction input is required.
+
+### HISTORY IMMEDIACY RULE
+When a user correction changes the development process, the same instruction that implements the correction must also record it in ENGINEERING_WORK_HISTORY.
+
+History is part of implementing the correction. It is not deferred post-processing.
+
+### HISTORY EFFICIENCY RULE
+Engineering history exists to prevent repeated mistakes and preserve plan adherence. It must not become a source of recursive work.
+
+Minor ordering, formatting, wording, or cosmetic defects in usable history do not justify separate cleanup cycles, renumbering old entries, or interrupting the implementation plan. Preserve the information and continue.
+
+### PLAN ADHERENCE RULE
+Before every actual change:
+
+- reread the current plan / DoD;
+- reread relevant engineering history;
+- identify PLAN_REF;
+- define EXPECTED_EVIDENCE;
+- define OUT_OF_SCOPE.
+
+After every actual change:
+
+- verify;
+- record the change;
+- reassess PLAN_STATUS;
+- return to the next approved plan item.
+
+An explicit DoD item may not be silently converted to backlog. A passing local test is not plan completion unless it satisfies the declared EXPECTED_EVIDENCE.
+
+### POSITIVE OUTCOME FROM THIS INCIDENT
+The final implementation subsequently completed successfully:
+
+- retained Day2 evidence validated against real existing artifacts;
+- retained Day4 evidence validated against real existing artifacts;
+- no LocalLLM-Lab mutation occurred;
+- no research inference occurred;
+- Windows temporary-Git fixture root cause was resolved;
+- 213 deterministic tests passed;
+- architecture conformance passed;
+- development-process conformance passed;
+- Repair Supervisor behavior passed;
+- Solution Catalog teacher loop passed;
+- final implementation was committed and pushed.
+
+Final implementation commit before this history-only follow-up:
+
+`d70f5fb8fc5e7c8ef5b25d91e6f9cd246659a4be`
+
+### REGRESSION_PREVENTION
+Future work must specifically guard against these previously observed patterns:
+
+1. Fixing the visible symptom instead of reviewing the governing design.
+2. Declared configuration mistaken for executed behavior.
+3. Codex handoff mistaken for Codex Expert Solver execution.
+4. Repair knowledge mistaken for a persistent Solution Catalog.
+5. Repeated observation mistaken for replanning.
+6. Evidence hardening removing previously valid retained-evidence reuse.
+7. Validation deficiency being converted into implementation work.
+8. Diagnostic checkpoints terminating the approved plan.
+9. History bookkeeping creating recursive work.
+10. Explicit DoD items being moved to backlog without authority.
+11. User corrections being remembered conversationally rather than persisted.
+12. Rules/history being read once rather than before each relevant change.
+
+FILES:
+docs/ENGINEERING_WORK_HISTORY.md
+
+EXPECTED_EVIDENCE:
+CHG-019 appears after CHG-018 and leaves every earlier entry unchanged.
+
+VERIFICATION:
+Confirmed by the required history-only diff and ordering checks below.
+
+REGRESSION_CHECK:
+No runtime code, tests, architecture, configuration, UI, LocalLLM-Lab path, or existing history entry changed.
+
+### PLAN_STATUS
+SATISFIED
+
+This entry records a development-governance lesson only. It does not reopen any completed implementation plan item.
+
+### DEVIATION
+NONE for the completed implementation.
+
+The excessive Day2/Day4 investigation and history-maintenance expansion are recorded here as lessons from the development process.
+
+### REMAINING_CONCERN
+Future assignments must demonstrate this discipline in practice.
+
+The presence of this history entry alone is not proof that the development process will obey it.
+
+### RULE_PROMOTION
+The permanent portions of this lesson are already represented by the completed governance/plan-adherence work, including WR-15.
+
+Do not modify WORKING_RULES.md in this history-only follow-up.
+
 ## CHG-003 — Wire retained Day 2 evidence into criterion evaluation
 
 CHANGE_ID:
@@ -1115,3 +1320,318 @@ independent production/browser E2Es.
 RULE_PROMOTION:
 Codex self-report is not evidence. Independently verify design, production path,
 and actual UI before accepting PASS.
+
+## CHG-021 — Implement canonical Day Runner diagnosis and terminal-state boundary
+
+CHANGE_ID:
+CHG-021
+
+PLAN_REF:
+`docs/DAY_RUNNER_EXECUTION_SPEC.md`, sections 3, 4, 7, and 10.
+
+CHANGE:
+Added persisted formal Day states and `GapDiagnosis`; replaced the fixed
+two-replan insufficient-evidence terminal with diagnosis plus fingerprinted
+no-safe-action handling; made controller active-state/restart/stop behaviour
+state-aware; limited Repair & Go to interrupted repair episodes; and made the
+browser treat every formal active state as working.
+
+VERIFICATION:
+`python -m pytest tests/test_local_llm_day_program.py tests/test_api.py -q`
+with a writable explicit pytest base directory: PASS.
+
+REGRESSION_CHECK:
+No untracked action catalog, repair catalog, generated artifact, or LocalLLM-Lab
+research output was used, changed, staged, or committed.
+
+REMAINING_CONCERN:
+Registered corrective-action adapters and production/browser E2E remain required
+before claiming full architecture conformance.
+
+## CHG-022 — Install frozen Day Runner implementation boundary
+
+CHANGE_ID:
+CHG-022
+
+PLAN_REF:
+Externally reviewed Canonical Day Runner Execution Specification v1.0.
+
+CHANGE:
+The previous architecture was incomplete: it omitted normal selected-Day work
+from the state machine and treated missing evidence as repair/failure. The
+controller now persists diagnosis per `criterion_id × evidence_type`, separates
+validator and acquisition registries, keys acquisition by `(day, evidence)`,
+and distinguishes Research Run from Engineering Worktree execution modes. Day
+1 `commit_ref` is obtained only through a non-destructive temporary-index
+baseline checkpoint. Codex reports implementation evidence only; final
+acceptance belongs to the external checker.
+
+VERIFICATION:
+Registry coverage is checked against the configured 46 evidence types and all
+configured Day/evidence pairs at startup. Disposable Day 1 testing verifies a
+checkpoint ref without altering the current branch, index, or worktree.
+
+PLAN_STATUS:
+IMPLEMENTATION_IN_PROGRESS; no architecture conformance claim.
+
+## CHG-023 — PLAN-1: re-diagnose incomplete action output
+
+PLAN_REF: User CONTINUE IMPLEMENTATION, PLAN-1; frozen specification sections 5, 6, 17.
+
+CHANGE: Removed DAY_NO_SAFE_ACTION exhaustion as a terminal failure. After
+re-inventory and validation, diagnoses retain the observed action failure for
+each missing evidence requirement. Incomplete engineering output enters the
+existing bounded repair supervisor without repeating the original action.
+Read-only/results-only source-repair scope and research-condition expansion
+remain explicit authority boundaries, not permission to mutate protected data.
+
+VERIFICATION: `python -B -m pytest -q tests/test_local_llm_day_program.py -k
+'missing_evidence_is_diagnosed or frozen_registry or complete_typed or generic_contract'
+--tb=short`: 5 passed, 20 deselected. Both repaired and still-unresolved output
+were checked; the identical normal action ran once and neither ended in
+FAILED_UNRECOVERABLE solely for missing evidence.
+
+REMAINING: Research bindings, authority resolution, contract identity, obsolete
+tests and production/browser E2Es remain under PLAN-2 through PLAN-8. No frozen
+specification edit, research invocation, LocalLLM-Lab modification or push.
+
+## CHG-024 — PLAN-2: admit fixed research bindings through project configuration
+
+PLAN_REF: User CONTINUE IMPLEMENTATION, PLAN-2; frozen specification section 14.
+
+CHANGE: The production executor now loads administrator-owned project research
+bindings keyed by existing action-template IDs. Model/condition identity and
+no-retry policy are checked against configuration; script/config/input hashes
+are frozen before execution. Drift fails closed. An unsafe retained terminal
+cannot be reused as successful research. No browser/LLM work order supplies
+the binding. No real-project experiment identity was guessed or installed.
+
+VERIFICATION: `python -B -m pytest -q tests/test_local_llm_day_program.py -k
+production_research --tb=short`: 2 passed, 25 deselected. Real controller,
+engine, executor, ResearchRun, adapter and Evidence Store exercised with only
+the subprocess/model boundary replaced. Both observed and model-quality
+outcomes completed from validated fixture evidence; no repair, source mutation
+or repeated model call occurred on artifact reuse.
+
+REMAINING: Actual LocalLLM-Lab action/config/script/input correspondence needs
+an authoritative binding; requested clarification rather than inventing model
+conditions. Production wiring exists, but unconfigured actions remain gated.
+
+## CHG-025 — PLAN-2 correction: runtime research planning, not static mapping
+
+PLAN_REF: User correction RESEARCH CONDITION MAPPING IS NOT REQUIRED TO BE STATIC.
+
+CHANGE: Supersedes the static-binding interpretation in CHG-024. Removed the
+new project binding requirement. The existing Architect role can now return a
+structured ResearchExecutionPlan from bounded repository/runbook context.
+Python checks file existence/scope, configuration semantics, model authority,
+immutable input fingerprints, frozen holdout inputs, output scope, arguments
+and the registered evidence set before ResearchRun. The mock/offline Architect
+discovers existing compatible configurations; the real Architect uses the same
+guard. Materially different condition candidates require human choice, not
+an inferred default. Plans and artifacts are persisted separately from source.
+
+VERIFICATION: `python -B -m pytest -q tests/test_local_llm_day_program.py -k
+'production_research or unapproved_research or production_api_resumes'
+--tb=short`: 5 passed, 25 deselected. Research fixtures contain discoverable
+script/config/input and no predeclared Day-to-path binding. Successful and poor
+model outcomes both pass through real orchestration and evidence ingestion.
+
+LIMITATION: No real LocalLLM-Lab research was run; ambiguity in real condition
+semantics remains a human decision, not proof of an implementation failure.
+
+## CHG-026 — PLAN-3: typed authority resolution and same-Day Resume
+
+PLAN_REF: User CONTINUE IMPLEMENTATION, PLAN-3; frozen specification section 21.
+
+CHANGE: Persist a server-selected resolution strategy with each typed blocker.
+Resume preserves the blocker through PREFLIGHT, rechecks it and stays in the
+same authority state if unresolved. Resolved authoritative sources, retained
+human evidence, runtime authorization, research condition or source dependency
+checks continue the same Day. Scope expansion cannot be granted by an arbitrary
+boolean marker. Changed authority participates in the semantic input identity.
+
+VERIFICATION: Human Day14 marker and external Day1 missing-source cases use the
+real controller/engine/API, first attempting unresolved Resume, then resolving
+the fixture prerequisite and resuming once to completion. Focused command in
+CHG-025 passed both cases; no second Go or discarded Day state.
+
+## CHG-027 — PLAN-4: canonical contract identity on restart and Resume
+
+PLAN_REF: User CONTINUE IMPLEMENTATION, PLAN-4.
+
+CHANGE: Persist a canonical fingerprint of Day/title/objective/version,
+criterion IDs/statements/required evidence, constraints and authoritative
+sources. Compare both saved and current contracts before resumed execution.
+Same-version content drift reports CONTRACT_VERSION_CONTENT_MISMATCH. Restart
+preserves the old contract and Evidence Store for audit but invalidates reuse;
+it never silently resets them onto a changed contract.
+
+VERIFICATION: `python -B -m pytest -q tests/test_local_llm_day_program.py -k
+'same_version_contract or same_day_valid or old_false_complete' --tb=short`:
+10 passed, 28 deselected. Initial test setup used the wrong YAML constraints
+key (2 failed/8 passed); corrected the fixture key to shared_constraints before
+the recorded rerun. Valid Store records survive restart; changed statements,
+objectives, constraints and authority sources fail closed on restart/Resume.
+
+## CHG-028 — Mechanically install external frozen specification v1.1
+
+PLAN_REF: User RESUME — INSTALL FROZEN SPEC v1.1, THEN FIX REPAIR E2E ONLY.
+
+CHANGE: Installed DAY_RUNNER_EXECUTION_SPEC_EXTERNAL_v1.1.md verbatim as the
+canonical specification. v1.0 did not explicitly distinguish fixed research
+authority/semantics from runtime selection of concrete script/config/input.
+v1.1 explicitly permits runtime ResearchExecutionPlan construction inside fixed
+Python-owned research boundaries. Static Day-to-script/config/input mapping
+is not required. No design reinterpretation or builder-authored amendment.
+
+SOURCE NOTE: The externally supplied v1.1 file still labels its header Version
+v1.0; that text is preserved exactly rather than silently corrected.
+
+SCOPE: Continue only the failing Repair E2E and inspect research_kind without
+changing research behavior. No commit, push, or real LocalLLM-Lab research.
+
+## CHG-029 — Repair E2E: preserve adapter evidence across bounded telemetry
+
+PLAN_REF: User RESUME — INSTALL FROZEN SPEC v1.1, THEN FIX REPAIR E2E ONLY.
+
+ROOT CAUSE: DayActionExecutor.adapt_engine_result emitted all five valid Day6
+evidence types after Expert verification. LocalLLMDayProgram._accept_repair
+then called _bounded(result), retaining only the first 20 engine telemetry
+keys. The evidence key was 36th and disappeared before _ingest_action_result
+could pass it to _ingest_legacy_evidence and Evidence Store. This was a
+production transfer defect, not missing fixture prerequisites or real human
+authority. Before the fix, a second unnecessary repair ran and lost evidence
+the same way.
+
+AUTHORITY TRACE: Initial normal work selected D6_ARCHITECTURE_CHECK for
+d6-architecture_consistency x architecture_check. After the dropped repair
+evidence, d6-state_representations x schema_contract remained ENGINEERING_REPAIR
+(RETRY_LIMIT_EXCEEDED), using D6_SCHEMA_CONTRACT / D6_TEMPORAL_STATE_DESIGN.
+_route_observed_gap found an existing repair-D6_SCHEMA_CONTRACT item and routed
+REPAIR_SCOPE_AUTHORITY_REQUIRED through _terminal_blocker to
+HUMAN_PRODUCT_DECISION_REQUIRED. That guard was not removed or bypassed.
+
+CHANGE: Preserve the adapter evidence explicitly, independently of bounded
+display telemetry; ordinary registered validators still control ingestion and
+criterion satisfaction. Persist ENGINEERING_REPAIR diagnosis when normal
+engineering work fails before entering the supervisor. Strengthened the same
+E2E assertions for key-position regression, actual stored/validated evidence,
+three rejected proposals, one Expert and no authority detour. The second
+episode reloads the verified Catalog from JSON and receives its guidance.
+
+VERIFICATION: `python -B -m pytest -q
+tests/test_local_llm_day_program.py::test_local_rejection_runs_expert_and_teaches_next_episode
+--tb=short`: 1 collected, 1 passed, 0 failed, 30.62 seconds. Prior reproduction
+failed with adapter_evidence containing five names and persisted_evidence empty.
+The fixture writes repair-e2e.json with both snapshots, provider roles,
+adapter/persisted evidence names, repair diagnoses and second-episode guidance.
+
+RESEARCH_KIND INSPECTION: validate_research_plan maps action IDs to semantic
+kinds (fixed_regression/fresh_holdout/plan_selection/novelty_scout/performance),
+not exact script/config/input paths. No static Day-to-path mapping is required.
+No research code was changed in this repair-only turn. Broader conformance is
+not claimed. No commit, push or actual LocalLLM-Lab research; stop here.
+
+## CHG-030 — Authority Resume and contract identity invalidation
+
+PLAN_REF: User CONTINUE IMPLEMENTATION — TWO RELATED ITEMS ONLY.
+
+CHANGE: Authority Resume keeps the persisted selected Day, typed blocker,
+contract fingerprint, and compatible Evidence Store records while re-entering
+PREFLIGHT. An unresolved server-owned prerequisite returns to its original
+authority state; a valid source or retained human marker continues the same Day
+without a second Go. Contract identity canonicalizes unordered criteria,
+required-evidence lists, constraints, and authoritative sources. It includes
+the Day, title, objective, version, criterion IDs/statements, required
+evidence, constraints, and authoritative sources. A mismatch detected during
+in-process Resume now invalidates every persisted evidence record for reuse,
+matching restart behavior. The original contract and evidence remain retained
+only for audit. Version changes report CONTRACT_VERSION_CHANGED; same-version
+semantic drift reports CONTRACT_VERSION_CONTENT_MISMATCH.
+
+VERIFICATION: `python -B -m pytest -q tests/test_local_llm_day_program.py -k
+'production_api_resumes_same_day_after_authority_resolution or
+identical_contract_identity_survives_restart_and_resume or
+same_version_contract_content_change_fails_closed or
+changed_contract_version_does_not_reuse_saved_evidence' --tb=short`:
+16 passed, 28 deselected. The real controller/API external Day1 and human Day14
+fixtures each prove unresolved Resume stays in the same authority state, then
+one resolved Resume reaches COMPLETE with the selected Day and compatible
+evidence retained. Contract tests cover order-safe identity, identical restart
+and Resume, changed statements, changed required evidence, and changed version.
+
+SCOPE: The frozen specification was read but not edited. No ResearchRun work,
+browser test, full suite, commit, push, or real LocalLLM-Lab research occurred.
+
+## CHG-031 — ResearchRun v1.1 guard identity and mutation boundary
+
+PLAN_REF: User CONTINUE IMPLEMENTATION — RESEARCH_RUN_V1_1 ONLY.
+
+CHANGE: Added the server-owned Day to the runtime ResearchExecutionPlan and
+reject plans whose Day differs from the selected contract. The Research Guard
+now also proves that the configuration's declared entrypoint is the proposed
+script, while retaining the runtime-discovered script/config/input model rather
+than introducing a static Day-to-path table. ResearchRun now snapshots approved
+source files in the original repository and its private run directory. It
+rejects a command that changes source/config/schema/test material or writes
+outside the single approved result/artifact/log output path.
+
+VERIFICATION: `python -B -m pytest -q tests/test_local_llm_day_program.py -k
+'production_research or unapproved_research' --tb=short`: 3 passed, 41
+deselected. This preserves the pre-existing guarded production fixture path;
+the expanded v1.1 unsafe/ambiguity/mutation coverage follows as the next
+focused change.
+
+SCOPE: The frozen specification was read but not edited. No real
+LocalLLM-Lab research, browser E2E, full suite, commit, or push occurred.
+
+## CHG-032 — ResearchRun v1.1 focused production-path proof
+
+PLAN_REF: User CONTINUE IMPLEMENTATION — RESEARCH_RUN_V1_1 ONLY.
+
+CHANGE: Added disposable-repository E2Es for a nonstandard runtime-discovered
+script/config/input combination, unsafe path and wrong-Day proposals,
+materially different candidate conditions, and research command attempts to
+modify the original source tree or write beside its approved output directory.
+The tests exercise the production Day action bridge and ResearchRun rather than
+only helper construction. The existing poor-result production case remains the
+proof that valid MODEL_QUALITY_FINDING evidence is retained without invoking
+Repair Supervisor.
+
+VERIFICATION: `python -B -m pytest -q tests/test_local_llm_day_program.py -k
+'production_research or unapproved_research or
+runtime_research_plan_is_discovered or unsafe_runtime_research_plan or
+ambiguous_runtime_research_condition or
+research_run_rejects_source_or_output_escape' --tb=short`: 9 passed, 41
+deselected. Valid Day10 runtime planning reached a registered
+PRODUCE_DAY_EVIDENCE action, Python guard, private ResearchRun, result adapter,
+Evidence Store, evidence validator, and COMPLETE. Unsafe candidates did not
+invoke execution; ambiguous candidates routed
+HUMAN_PRODUCT_DECISION_REQUIRED; source/output escape attempts raised
+RESEARCH_SOURCE_MUTATION.
+
+RESEARCH_KIND: The action-to-kind table constrains fixed server-owned research
+semantics only. It contains no script/config/input paths and therefore is not a
+hidden static mapping.
+
+SCOPE: The frozen specification was read but not edited. No real
+LocalLLM-Lab research, browser E2E, full suite, commit, or push occurred.
+
+## CHG-033 — Mechanical external canonical specification v1.1.1 format correction
+
+PLAN_REF: User CANONICAL SPEC FORMAT CORRECTION + BROWSER E2E.
+
+CHANGE: Mechanically installed
+`DAY_RUNNER_EXECUTION_SPEC_EXTERNAL_v1.1.1.md` as
+`docs/DAY_RUNNER_EXECUTION_SPEC.md`. v1.1 semantics are unchanged; v1.1.1
+removes trailing whitespace only. This corrects the externally supplied
+canonical file so `git diff --check` can pass without a builder-authored design
+change.
+
+VERIFICATION: SHA-256 is
+`69acc407c9b4f2cdfa5a672ca51b54f16fd92eebbeeac3e8e8f3e08e96f1981b` and the
+installed file has no diff against the external v1.1.1 source. `git diff
+--check` exits successfully.
+
+SCOPE: No production, test, LocalLLM-Lab, research, commit, or push change.
