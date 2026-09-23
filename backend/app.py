@@ -118,6 +118,11 @@ def resume_local_llm_day() -> dict:
     return engine.resume_local_llm_day()
 
 
+@app.post("/api/local-llm/day/register-retained-evidence")
+def register_local_llm_retained_evidence() -> dict:
+    return engine.register_local_llm_retained_evidence()
+
+
 @app.post("/api/local-llm/day/repair-and-go")
 def repair_and_go_local_llm_day() -> dict:
     return engine.repair_and_go_local_llm_day()

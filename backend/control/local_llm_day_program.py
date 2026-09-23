@@ -402,6 +402,34 @@ class LocalLLMDayProgram:
             self._thread.start()
             return self.view()
 
+    def register_retained_evidence(self) -> dict[str, object]:
+        """Persist only resolver-validated evidence for the selected Day.
+
+        This is intentionally not a caller-supplied EvidenceRecord API: the
+        resolver owns artifact discovery and provenance validation, while this
+        method owns durable EvidenceRecord creation.
+        """
+        with self._lock:
+            contract = self.snapshot.contract
+            if self.snapshot.selected_day is None or contract is None:
+                return {"error_code": "DAY_NOT_SELECTED", **self.view()}
+            inventory = self._inventory(contract)
+            retained = inventory.get("retained_evidence")
+            if not isinstance(retained, dict) or not retained:
+                return {"error_code": "NO_VALIDATED_RETAINED_EVIDENCE", **self.view()}
+            before = set(self.snapshot.evidence_store)
+            self._ingest_legacy_evidence(
+                contract, retained, provider_id="retained-resolver",
+                source_fingerprint=self._inventory_fingerprint(inventory),
+            )
+            self._evaluate_contract(contract, inventory)
+            registered = sorted(set(self.snapshot.evidence_store) - before)
+            self._audit("RETAINED_EVIDENCE_REGISTERED", {
+                "day": contract.day, "evidence_types": sorted(retained), "record_ids": registered,
+            })
+            self._save()
+            return {"registered_record_ids": registered, "registered_evidence_types": sorted(retained), **self.view()}
+
     def stop(self) -> dict[str, object]:
         with self._lock:
             if self.snapshot.state in self.ACTIVE_STATES:

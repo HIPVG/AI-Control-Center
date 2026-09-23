@@ -755,6 +755,9 @@ class ControlCenterEngine:
     def resume_local_llm_day(self) -> dict[str, object]:
         return self.local_llm_day_program.resume()
 
+    def register_local_llm_retained_evidence(self) -> dict[str, object]:
+        return self.local_llm_day_program.register_retained_evidence()
+
     def repair_and_go_local_llm_day(self) -> dict[str, object]:
         return self.local_llm_day_program.repair_and_go()
 

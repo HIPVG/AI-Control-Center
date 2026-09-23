@@ -26,6 +26,7 @@ def test_required_endpoints_are_available(client):
         assert client.get(path).status_code == 200
     assert client.post("/api/run/mock").status_code == 200
     assert client.post("/api/run/codex-smoke").json()["error_code"] == "REAL_MODE_REQUIRED"
+    assert client.post("/api/local-llm/day/register-retained-evidence").status_code == 200
     assert client.get("/").status_code == 200
 
 

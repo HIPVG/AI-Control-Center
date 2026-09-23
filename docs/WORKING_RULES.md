@@ -142,6 +142,10 @@ existing authorization. Only a `DECISION_REQUEST` requires this sequence:
 6. Only then begin the next action. A `DECISION_REQUEST` stays at its safe
    checkpoint if the ChatGPT composer is unavailable.
 
+The request itself is sent automatically. Do not ask the user for a separate
+permission to send a `DECISION_REQUEST`; the blocking condition is the
+reviewer response after delivery, not user approval of delivery.
+
 ### COMPLETION_REPORT Is Blocking
 
 `DAY_COMPLETE` and `TASK_COMPLETE` are never ordinary non-blocking
@@ -150,6 +154,10 @@ existing authorization. Only a `DECISION_REQUEST` requires this sequence:
 response, and only then start another Day or major task. This mandatory review
 checks completion evidence, validation, history consistency, and the
 next-Day-start condition even when no new authority is otherwise required.
+
+A `COMPLETION_REPORT` is sent automatically. Do not ask the user for a
+separate permission to send it; wait for the reviewer response only after
+delivery.
 
 If an unsent user draft occupies the ChatGPT composer, preserve the draft,
 save the complete `COMPLETION_REPORT` locally with
@@ -178,12 +186,14 @@ continue without another reviewer wait.
 ### Composer Draft Protection
 
 Never overwrite or delete an unsent user draft in the ChatGPT composer. If the
-composer is occupied, save a normal `PROGRESS_UPDATE` to local progress/history
-with `REVIEWER_POST_PENDING: yes`, continue within existing authorization, and
-send one consolidated current report when the composer is available. Do not
-replay obsolete progress reports. Pending `DECISION_REQUEST` and
-`COMPLETION_REPORT` records are different: stop at the safe checkpoint until
-they can be posted and answered.
+composer is occupied, do not use that condition as an execution-control signal.
+Always display the complete report in the current user-facing Codex output.
+For a normal `PROGRESS_UPDATE`, record `REVIEWER_POST_PENDING: yes`, continue
+within existing authorization, and consolidate a current report for best-effort
+posting when the composer becomes available. Do not replay obsolete progress
+reports. For a `DECISION_REQUEST` or `COMPLETION_REPORT`, preserve the draft,
+display the complete report, and stop because the report type is blocking—not
+because the composer is occupied.
 
 ### Reviewer Report Delivery Fallback
 
@@ -198,7 +208,11 @@ Delivery priority for a blocking report is:
 Never leave a blocking report only in a local file, stop with only a pending
 flag, or omit its contents. The user-facing output must always contain the full
 report so the user can relay it without reconstructing it. Ordinary
-`PROGRESS_UPDATE` remains non-blocking and may be locally consolidated.
+`PROGRESS_UPDATE` remains non-blocking and may be locally consolidated. Direct
+reviewer delivery is best-effort rather than an execution prerequisite: once
+the complete report is shown in the current user-facing Codex output, delivery
+is considered satisfied for protocol purposes. Do not ask the user for a
+separate confirmation to send a `DECISION_REQUEST` or `COMPLETION_REPORT`.
 
 ### No Duplicate Approval Requests
 
@@ -207,6 +221,22 @@ history. Do not request the same approval again when its conditions and scope
 are unchanged, including approved source scope, bounded recovery authority,
 read-only inclusion, normal commit/push, or runtime resume. Seek new approval
 only when the planned action materially exceeds the existing authorization.
+
+### Artifact Quality Gate Before Completion
+
+Before declaring a Day or major task `COMPLETE`, perform a lightweight
+`ARTIFACT_QUALITY_CHECK`. It is a completion gate, not a request for cosmetic
+perfection. Confirm that expected artifacts exist; version, ref, commit, hash,
+and provenance are traceable; comparison inputs, Fact Layer, and fixed
+conditions agree; report values are artifact-derived; a downstream Day can use
+the artifacts without additional interpretation; and the stated business
+conclusion is traceable to the evidence.
+
+Record `ARTIFACT_QUALITY_CHECK: PASS|FAIL` in every `COMPLETION_REPORT`. A
+`FAIL` prevents completion until the downstream-relevant inconsistency is
+resolved or escalated. Naming, comments, nice-to-have tests, minor formatting,
+unrelated refactoring, and defects that cannot affect downstream use are not
+quality-gate failures.
 
 ## Progress-First Execution
 
@@ -253,6 +283,7 @@ Every `COMPLETION_REPORT` must include:
 - `FINAL_STATE`, `CRITERIA_SATISFIED`, `VALIDATION`, `EVIDENCE`, and `REMAINING_GAPS`
 - `LOCAL_LLM_INVOCATIONS`, `RESEARCH_RUNS`, `COMMITS`, `REMOTE_MATCH`, and `MAIN_UNCHANGED`
 - `RESET_OR_RESELECT`, `HISTORY_UPDATED`, `REVIEWER_POST_PENDING`, `NEXT_DAY`, and `NEXT_ACTION_AFTER_REVIEW`
+- `ARTIFACT_QUALITY_CHECK: PASS|FAIL`
 
 At the end of every run, append execution history that records whether the
 reviewer response was read, the reviewer instruction applied, any change from

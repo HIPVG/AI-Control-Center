@@ -252,6 +252,40 @@ def _write_retained_day_four_fixture(root):
     return run
 
 
+def _write_retained_day_three_pair(root):
+    """Create a minimal real-file pair; the collector must derive, not trust, it."""
+    runs = {}
+    for label, version in (("v032", "0.3.2"), ("v04", "0.4")):
+        run = root / "results" / "day3-fixed-pair" / label / f"DRAP-{label}"
+        case = run / "cases" / "DR-005"
+        case.mkdir(parents=True)
+        manifest = {
+            "run_id": run.name, "status": "COMPLETED", "dry_run": False, "config_version": version,
+            "planned_llm_calls": 2, "actual_llm_calls": 2,
+            "models": {"semantic_abstractor": "fixture-model", "cross_functional_reasoner": "fixture-model"},
+            "execution": {"temperature": 0, "seed": 42, "context_length": 4096, "retry": False,
+                          "abstraction_max_output_tokens": 16, "reasoner_max_output_tokens": 16, "parallel": False},
+            "automatic_retry": False,
+        }
+        if version == "0.4":
+            manifest["action_gate"] = {"enforced": True}
+        (run / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+        (case / "raw-case.json").write_text(json.dumps({"case": "fixed"}), encoding="utf-8")
+        (case / "canonical-business-state.json").write_text(json.dumps({"facts": ["stable"]}), encoding="utf-8")
+        validation = {"run_id": run.name, "case_id": "DR-005", "fact_status": "PASS", "fact_count": 1,
+                      "valid_plan_count": 2 if version == "0.4" else 1, "invalid_plan_count": 0,
+                      "actions_total": 2, "blocking_issue_coverage": 1.0, "mandatory_issue_coverage": 1.0,
+                      "failure_stage": "NONE"}
+        (run / "validation.jsonl").write_text(json.dumps(validation) + "\n", encoding="utf-8")
+        metrics = [
+            {"run_id": run.name, "stage": "abstraction", "elapsed_seconds": 1, "prompt_tokens": 2, "output_tokens": 3},
+            {"run_id": run.name, "stage": "reasoner", "elapsed_seconds": 4, "prompt_tokens": 5, "output_tokens": 6},
+        ]
+        (run / "metrics.jsonl").write_text("".join(json.dumps(row) + "\n" for row in metrics), encoding="utf-8")
+        runs[label] = run
+    return runs
+
+
 def test_retained_day_two_evidence_is_typed_complete_and_fails_closed(tmp_path):
     run = _write_retained_day_two_fixture(tmp_path)
     resolver = RetainedEvidenceResolver(tmp_path)
@@ -281,6 +315,37 @@ def test_retained_day_four_evidence_is_typed_complete_and_fails_closed(tmp_path)
     assert not contract.remaining_gaps
     (run / "freeze" / "freeze-verification.json").write_text(json.dumps({"unchanged": False, "changed_files": ["scripts/eval.py"]}), encoding="utf-8")
     assert RetainedEvidenceResolver(tmp_path).resolve(4) == {}
+
+
+def test_retained_day_three_pair_registers_typed_evidence_without_mutation(tmp_path):
+    runs = _write_retained_day_three_pair(tmp_path)
+    before = {str(path): hashlib.sha256(path.read_bytes()).hexdigest()
+              for run in runs.values() for path in run.rglob("*") if path.is_file()}
+    resolver = RetainedEvidenceResolver(tmp_path)
+    evidence = resolver.resolve(3)
+    assert set(evidence) == {"v032_artifact", "v04_artifact", "condition_record", "comparison_metrics", "failure_policy"}
+    assert all(REGISTRY.validate(name, record) for name, record in evidence.items())
+    condition = evidence["condition_record"]["value"]
+    assert set(condition["raw_case_hashes"]) == set(condition["fact_layer_hashes"]) == {"DR-005"}
+    assert before == {str(path): hashlib.sha256(path.read_bytes()).hexdigest()
+                      for run in runs.values() for path in run.rglob("*") if path.is_file()}
+
+    runner = LocalLLMDayProgram(FIXTURE_ROOT, retained_evidence_resolver=resolver)
+    runner.smoke(3)
+    history_before = list(runner.snapshot.state_history)
+    result = runner.register_retained_evidence()
+    assert "error_code" not in result
+    assert result["registered_evidence_types"] == sorted(evidence)
+    assert not runner.snapshot.contract.remaining_gaps
+    assert runner.snapshot.state_history == history_before
+    assert len(runner.snapshot.evidence_store) == 5
+
+
+def test_retained_day_three_pair_rejects_mismatched_provenance(tmp_path):
+    runs = _write_retained_day_three_pair(tmp_path)
+    raw = runs["v04"] / "cases" / "DR-005" / "raw-case.json"
+    raw.write_text(json.dumps({"case": "different"}), encoding="utf-8")
+    assert RetainedEvidenceResolver(tmp_path).resolve(3) == {}
 
 
 def test_day_one_test_evidence_cache_reuses_only_a_successful_unchanged_key(tmp_path, monkeypatch):

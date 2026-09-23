@@ -17,6 +17,8 @@ class RetainedEvidenceResolver:
     def resolve(self, day: int) -> dict[str, object]:
         if day == 2:
             return self._resolve_day_two()
+        if day == 3:
+            return self._resolve_day_three()
         if day == 4:
             return self._resolve_day_four()
         if day == 14:
@@ -30,6 +32,127 @@ class RetainedEvidenceResolver:
                 record["source_hashes"] = {str(path): self._sha256_file(path)}
                 return {"human_review_marker": record}
         return {}
+
+    def _resolve_day_three(self) -> dict[str, object]:
+        """Register only a complete, directly comparable fixed-condition pair."""
+        pair_root = self.root / "results" / "day3-fixed-pair"
+        v032 = self._day_three_run(pair_root / "v032", "0.3.2")
+        v04 = self._day_three_run(pair_root / "v04", "0.4")
+        if v032 is None or v04 is None or not self._day_three_pair_valid(v032, v04):
+            return {}
+
+        pair_fingerprint = self._text_fingerprint(json.dumps({
+            "v032": v032["manifest_fingerprint"], "v04": v04["manifest_fingerprint"],
+            "raw_case_hashes": v032["raw_case_hashes"],
+            "fact_layer_hashes": v032["fact_layer_hashes"],
+            "runtime": v032["runtime"],
+        }, sort_keys=True))
+        source = f"retained:DRAP-fixed-pair:{self._relative(v032['manifest_path'])}|{self._relative(v04['manifest_path'])}"
+        common = {
+            "pair_observation_fingerprint": pair_fingerprint,
+            "raw_case_hashes": v032["raw_case_hashes"],
+            "fact_layer_hashes": v032["fact_layer_hashes"],
+            "fact_count": v032["fact_count"],
+            "fixed_runtime_conditions": v032["runtime"],
+            "pair_artifact_references": [self._relative(v032["run_path"]), self._relative(v04["run_path"])],
+        }
+        records = {
+            "v032_artifact": self._record("v032_artifact", {
+                "artifact_path": self._relative(v032["run_path"]), "manifest_fingerprint": v032["manifest_fingerprint"],
+                "status": "RETAINED", "run_id": v032["run_id"], "version": v032["version"],
+                "completion_status": "COMPLETED", "provenance_source": source, **common,
+            }, source),
+            "v04_artifact": self._record("v04_artifact", {
+                "artifact_path": self._relative(v04["run_path"]), "manifest_fingerprint": v04["manifest_fingerprint"],
+                "status": "RETAINED", "run_id": v04["run_id"], "version": v04["version"],
+                "completion_status": "COMPLETED", "provenance_source": source, **common,
+            }, source),
+            "condition_record": self._record("condition_record", {
+                "condition_fingerprint": pair_fingerprint, "model": v032["runtime"]["model"],
+                "configuration_version": "0.3.2|0.4", "only_intended_difference": "version/action-gate",
+                **common,
+            }, source),
+            "comparison_metrics": self._record("comparison_metrics", {
+                "valid_plan_count": {"v032": v032["metrics"]["valid_plan_count"], "v04": v04["metrics"]["valid_plan_count"]},
+                "invalid_plan_count": {"v032": v032["metrics"]["invalid_plan_count"], "v04": v04["metrics"]["invalid_plan_count"]},
+                "prompt_tokens": {"v032": v032["metrics"]["prompt_tokens"], "v04": v04["metrics"]["prompt_tokens"]},
+                "output_tokens": {"v032": v032["metrics"]["output_tokens"], "v04": v04["metrics"]["output_tokens"]},
+                "action_set_size": {"v032": v032["metrics"]["action_set_size"], "v04": v04["metrics"]["action_set_size"]},
+                "elapsed_seconds": {"v032": v032["metrics"]["elapsed_seconds"], "v04": v04["metrics"]["elapsed_seconds"]},
+                "blocking_coverage": {"v032": v032["metrics"]["blocking_coverage"], "v04": v04["metrics"]["blocking_coverage"]},
+                "mandatory_coverage": {"v032": v032["metrics"]["mandatory_coverage"], "v04": v04["metrics"]["mandatory_coverage"]},
+                **common,
+            }, source),
+            "failure_policy": self._record("failure_policy", {
+                "policy": "RETAINED_NO_RERUN", "retained_failure_count": v032["failure_count"] + v04["failure_count"],
+                "failure_counts": {"v032": v032["failure_count"], "v04": v04["failure_count"]}, **common,
+            }, source),
+        }
+        for record in records.values():
+            paths = [v032["manifest_path"], v032["metrics_path"], v032["validation_path"],
+                     v04["manifest_path"], v04["metrics_path"], v04["validation_path"]]
+            record["source_paths"] = [str(path) for path in paths]
+            record["source_hashes"] = {str(path): self._sha256_file(path) for path in paths}
+            record["retained_artifact_reference"] = " | ".join(common["pair_artifact_references"])
+        return records
+
+    def _day_three_run(self, version_root: Path, version: str) -> dict[str, object] | None:
+        candidates = [path for path in version_root.glob("DRAP-*") if path.is_dir()]
+        if len(candidates) != 1:
+            return None
+        run_path = candidates[0]
+        manifest_path, metrics_path, validation_path = run_path / "manifest.json", run_path / "metrics.jsonl", run_path / "validation.jsonl"
+        manifest, metrics_rows, validation_rows = self._json_object(manifest_path), self._json_lines(metrics_path), self._json_lines(validation_path)
+        manifest_fingerprint = self._sha256_file(manifest_path)
+        execution, models = manifest.get("execution"), manifest.get("models")
+        case_paths = sorted((run_path / "cases").glob("*/raw-case.json"))
+        state_paths = sorted((run_path / "cases").glob("*/canonical-business-state.json"))
+        raw_case_hashes = {path.parent.name: self._sha256_file(path) for path in case_paths}
+        fact_layer_hashes = {path.parent.name: self._sha256_file(path) for path in state_paths}
+        fact_counts = {row.get("fact_count") for row in validation_rows}
+        if not (manifest_fingerprint and isinstance(execution, dict) and isinstance(models, dict)
+                and run_path.name == manifest.get("run_id") and manifest.get("status") == "COMPLETED"
+                and manifest.get("dry_run") is False and manifest.get("config_version") == version
+                and manifest.get("planned_llm_calls") == manifest.get("actual_llm_calls") and isinstance(manifest.get("actual_llm_calls"), int)
+                and manifest["actual_llm_calls"] > 0 and models.get("semantic_abstractor") == models.get("cross_functional_reasoner")
+                and isinstance(models.get("semantic_abstractor"), str) and models["semantic_abstractor"]
+                and execution.get("retry") is False and manifest.get("automatic_retry") is False
+                and (version != "0.4" or isinstance(manifest.get("action_gate"), dict) and manifest["action_gate"].get("enforced") is True)
+                and set(raw_case_hashes) == set(fact_layer_hashes) == {row.get("case_id") for row in validation_rows}
+                and len(raw_case_hashes) >= 1 and None not in raw_case_hashes.values() and None not in fact_layer_hashes.values()
+                and len(fact_counts) == 1 and isinstance(next(iter(fact_counts)), int) and next(iter(fact_counts)) > 0
+                and all(row.get("run_id") == manifest["run_id"] and row.get("fact_status") == "PASS" for row in validation_rows)
+                and len(metrics_rows) >= manifest["actual_llm_calls"]
+                and sum(row.get("status") != "SKIPPED_NOT_NEEDED" for row in metrics_rows) == manifest["actual_llm_calls"]
+                and all(row.get("run_id") == manifest["run_id"] and (row.get("status") == "SKIPPED_NOT_NEEDED" or isinstance(row.get("elapsed_seconds"), (int, float))) for row in metrics_rows)):
+            return None
+        reasoner = [row for row in metrics_rows if row.get("stage") == "reasoner" and row.get("status") != "SKIPPED_NOT_NEEDED"]
+        dr005 = next((row for row in validation_rows if row.get("case_id") == "DR-005"), None)
+        if not reasoner or not isinstance(dr005, dict):
+            return None
+        return {
+            "run_path": run_path, "manifest_path": manifest_path, "metrics_path": metrics_path, "validation_path": validation_path,
+            "run_id": manifest["run_id"], "version": version, "manifest_fingerprint": manifest_fingerprint,
+            "raw_case_hashes": raw_case_hashes, "fact_layer_hashes": fact_layer_hashes, "fact_count": next(iter(fact_counts)),
+            "runtime": {"model": models["semantic_abstractor"], **{key: execution.get(key) for key in ("temperature", "seed", "context_length", "retry", "abstraction_max_output_tokens", "reasoner_max_output_tokens", "parallel")}, "call_budget": manifest["actual_llm_calls"]},
+            "metrics": {
+                "valid_plan_count": sum(row.get("valid_plan_count", 0) for row in validation_rows),
+                "invalid_plan_count": sum(row.get("invalid_plan_count", 0) for row in validation_rows),
+                "action_set_size": sum(row.get("actions_total", 0) for row in validation_rows),
+                "prompt_tokens": sum(row.get("prompt_tokens", 0) for row in reasoner),
+                "output_tokens": sum(row.get("output_tokens", 0) for row in reasoner),
+                "elapsed_seconds": sum(row.get("elapsed_seconds", 0) for row in validation_rows),
+                "blocking_coverage": dr005.get("blocking_issue_coverage"), "mandatory_coverage": dr005.get("mandatory_issue_coverage"),
+            },
+            "failure_count": sum(row.get("failure_stage") != "NONE" for row in validation_rows),
+        }
+
+    @staticmethod
+    def _day_three_pair_valid(v032: dict[str, object], v04: dict[str, object]) -> bool:
+        return (v032["raw_case_hashes"] == v04["raw_case_hashes"]
+                and v032["fact_layer_hashes"] == v04["fact_layer_hashes"]
+                and v032["fact_count"] == v04["fact_count"]
+                and v032["runtime"] == v04["runtime"])
 
     def _resolve_day_four(self) -> dict[str, object]:
         config_path = self.root / "config" / "decision-generalization-benchmark.json"
@@ -223,3 +346,7 @@ class RetainedEvidenceResolver:
             return hashlib.sha256(path.read_bytes()).hexdigest()
         except OSError:
             return None
+
+    @staticmethod
+    def _text_fingerprint(value: str) -> str:
+        return hashlib.sha256(value.encode("utf-8")).hexdigest()
