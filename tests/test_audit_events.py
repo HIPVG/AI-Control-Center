@@ -8,6 +8,7 @@ from backend.orchestrator.day_runner import DayRunner
 def test_model_router_and_deterministic_day_events_are_first_class_enum_members():
     assert AuditEventType("DAY_MODEL_ROUTING") is AuditEventType.DAY_MODEL_ROUTING
     assert AuditEventType("DAY_DETERMINISTIC_NO_AI") is AuditEventType.DAY_DETERMINISTIC_NO_AI
+    assert AuditEventType("AUTHORITY_BLOCKER_REPLACED_BY_REGISTERED_RETRY") is AuditEventType.AUTHORITY_BLOCKER_REPLACED_BY_REGISTERED_RETRY
 
 
 def test_every_static_day_runner_audit_event_is_registered():
