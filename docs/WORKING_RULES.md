@@ -332,6 +332,32 @@ compact `REVIEW_POLICY_CONTEXT` block with:
 When `POLICY_CHANGED_SINCE_LAST_REVIEW: yes`, the ChatGPT reviewer should re-read
 the canonical policy before issuing a new decision.
 
+## Minimum sufficient action principle
+
+For every task and every reviewer-facing report, choose the smallest safe action
+that is sufficient to achieve the immediate objective. Do not broaden the action
+merely because a broader operation is available.
+
+Examples:
+
+- if only operating rules changed, sync/read only the operating-rule file(s);
+- if one file needs inspection, inspect that file rather than the whole repository;
+- if a local defect is isolated, repair only that defect;
+- do not pull/update the whole branch, rerun unrelated tests, refactor, or expand
+  scope unless the immediate objective actually requires it.
+
+Before executing a reported `NEXT_ACTION`, Codex must ask internally: "What is the
+smallest sufficient action?" If a narrower action safely achieves the same goal,
+use the narrower action.
+
+Every reviewer-facing report must include:
+
+- `MINIMUM_SUFFICIENT_ACTION: <the smallest next action>`
+- `WHY_NOT_BROADER: <why broader actions are unnecessary now>`
+
+These fields are operational instructions, not commentary: the subsequent action
+must follow them unless the reviewer explicitly authorizes a broader action.
+
 ## Required report metadata
 
 Every reviewer-facing report must include at least:
@@ -346,6 +372,8 @@ Every reviewer-facing report must include at least:
 - `NEXT_ACTION` / `NEXT_ACTION_AFTER_REVIEW`
 - `REVIEWER_DELIVERY_CHANNEL: direct_chatgpt|review_bridge|none`
 - `REVIEWER_DELIVERY_STATUS: delivered|pending|failed`
+- `MINIMUM_SUFFICIENT_ACTION: <the smallest next action>`
+- `WHY_NOT_BROADER: <why broader actions are unnecessary now>`
 - the full `REVIEW_POLICY_CONTEXT` block
 
 `COMPLETION_REPORT` additionally requires:
