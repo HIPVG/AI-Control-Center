@@ -100,6 +100,29 @@ reports. Its purpose is reviewer visibility, not approval. After a
 `PROGRESS_UPDATE`, continue within the latest existing authorization without
 waiting for a reply when the next action remains within approved scope.
 
+### Start-of-Day Progress Update
+
+When the reviewer has explicitly authorized the start of Day N and instructs
+the operator to report an initial `PROGRESS_UPDATE`, that report is
+non-blocking. The required order is:
+
+1. Apply the existing Day N start authorization.
+2. Load the Day N contract and report its initial status as a
+   `PROGRESS_UPDATE`.
+3. Immediately begin authorized Day N execution.
+
+Do not wait for another reviewer response after that initial progress report.
+Waiting is required only for a `DECISION_REQUEST`, a `COMPLETION_REPORT`, or
+an explicit reviewer instruction to stop after a report. A `PROGRESS_UPDATE`
+alone must never create an execution lock.
+
+### Authorization Persistence
+
+An explicit reviewer authorization to start Day N remains valid until Day N
+execution starts. An intervening ordinary `PROGRESS_UPDATE` does not revoke or
+consume that authorization. Do not request the same Day-start approval again
+unless the scope or authority materially changes.
+
 ### DECISION_REQUEST Is Blocking
 
 Use `DECISION_REQUEST` only when a new human or reviewer decision is needed:
@@ -130,10 +153,11 @@ next-Day-start condition even when no new authority is otherwise required.
 
 If an unsent user draft occupies the ChatGPT composer, preserve the draft,
 save the complete `COMPLETION_REPORT` locally with
-`REVIEWER_POST_PENDING: yes`, explicitly record that it remains unsent, and
-stop before the next Day or major task. Send the completion report with
-priority when the composer becomes available; it may not be consolidated away
-like an obsolete ordinary progress report.
+`REVIEWER_POST_PENDING: yes`, display the full report in the current
+user-facing Codex output, explicitly record that it remains unsent, and stop
+before the next Day or major task. Send the completion report with priority
+when the composer becomes available; it may not be consolidated away like an
+obsolete ordinary progress report.
 
 ### Latest Reviewer Response Priority
 
@@ -160,6 +184,21 @@ send one consolidated current report when the composer is available. Do not
 replay obsolete progress reports. Pending `DECISION_REQUEST` and
 `COMPLETION_REPORT` records are different: stop at the safe checkpoint until
 they can be posted and answered.
+
+### Reviewer Report Delivery Fallback
+
+Delivery priority for a blocking report is:
+
+1. Post it directly to the ChatGPT reviewer when that is safe.
+2. When an unsent user composer draft prevents direct posting, do not touch the
+   draft. Show the complete `DECISION_REQUEST` or `COMPLETION_REPORT` in the
+   current user-facing Codex output, mark `REVIEWER_POST_PENDING: yes`, and
+   stop for the required reviewer response.
+
+Never leave a blocking report only in a local file, stop with only a pending
+flag, or omit its contents. The user-facing output must always contain the full
+report so the user can relay it without reconstructing it. Ordinary
+`PROGRESS_UPDATE` remains non-blocking and may be locally consolidated.
 
 ### No Duplicate Approval Requests
 
