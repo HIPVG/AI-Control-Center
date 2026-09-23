@@ -36,6 +36,7 @@ Follow `docs/WORKING_RULES.md` exactly. In particular:
   (initial attempt plus 2 retries) before declaring `DELIVERY_FAILED`.
 - Composer-draft protection never excuses reviewer delivery.
 - Completion requires `ARTIFACT_QUALITY_CHECK: PASS` and reviewer clearance before the next Day.
+- After any successfully delivered report that requires reviewer guidance, actively acquire reviewer responses using the polling loop in `docs/WORKING_RULES.md`; do not enter a passive indefinite wait.
 
 ## Project constraints
 
