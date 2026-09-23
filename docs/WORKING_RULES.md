@@ -148,43 +148,50 @@ Canonical delivery channels:
    delivery is unavailable or unsafe. Review-Bridge is a dead-drop transport only;
    ChatGPT does not automatically wake up or self-detect a new packet.
 
-For `PROGRESS_UPDATE`, direct ChatGPT delivery is the only channel that creates an
-immediate reviewer checkpoint. If direct delivery succeeds, pause and actively acquire
-the reviewer response. If direct delivery fails, optionally mirror the report to
-Review-Bridge for audit/relay, but do not wait for ChatGPT to discover it; continue
-within existing authority and retry direct delivery at the next scheduled progress
-checkpoint.
+For `PROGRESS_UPDATE`, try direct ChatGPT delivery once at the checkpoint.
+If direct delivery succeeds, pause and actively acquire the reviewer response.
+If direct delivery is unavailable or fails, display the report and continue within
+existing authority. Do not switch to Review-Bridge merely because a progress report
+could not be sent directly; try direct delivery again at the next scheduled checkpoint.
 
-For `DECISION_REQUEST` and `COMPLETION_REPORT`, direct ChatGPT delivery is preferred.
-Review-Bridge publication alone does not imply that ChatGPT has received or is
-reviewing the report. After bounded direct-delivery retries are exhausted, publish the
-full report to Review-Bridge, show the full report to the human, and stop at the safe
-checkpoint for human relay/attention.
+For `DECISION_REQUEST` and `COMPLETION_REPORT`, direct ChatGPT delivery is the
+normal path. Review-Bridge is a last-resort dead-drop after the bounded direct-delivery
+window is exhausted; publication there does not mean ChatGPT has received the report.
 
-### Blocking-report retry rule
+### Blocking-report direct-delivery window
 
-For a blocking report, retry **direct ChatGPT delivery** up to 3 total attempts:
+For a blocking report, perform at most 3 direct-delivery opportunities:
 
-1. attempt direct delivery;
-2. on failure, wait 2 minutes;
-3. attempt direct delivery again;
-4. on failure, wait another 2 minutes;
-5. make the third and final direct-delivery attempt.
+1. inspect the **actual editable composer buffer**;
+2. if it is empty, attempt direct ChatGPT delivery;
+3. if it contains a verified non-empty user draft, do not overwrite it; treat direct
+   delivery as temporarily unavailable for this opportunity;
+4. if direct delivery did not succeed, wait 2 minutes;
+5. repeat the same buffer check/direct attempt;
+6. if still unsuccessful, wait another 2 minutes and make the third and final
+   opportunity.
 
-Do not stop after only one failed attempt. Review-Bridge is not part of this retry
-count because publishing there does not wake ChatGPT.
+A verified draft therefore causes a **re-check after 2 minutes**, not an immediate
+switch to Review-Bridge. Placeholder/UI text never counts as a draft.
 
-If all 3 direct attempts fail, publish the full report once to Review-Bridge as an
-audit/relay fallback, display the full report to the human, and record:
+If direct delivery succeeds at any opportunity, do not use Review-Bridge; start the
+normal reviewer-response acquisition loop.
 
-- `DELIVERY_FAILED: yes`
-- `DELIVERY_ATTEMPTS: 3`
-- `DIRECT_DELIVERY_RESULTS: <all attempts>`
-- `REVIEW_BRIDGE_PACKET: <packet id or failure>`
-- `LAST_ERROR: <exact bounded error>`
+Only after all 3 direct-delivery opportunities fail or remain unavailable:
 
-Then stop at the safe checkpoint for human relay/attention. Do not claim that reviewer
-response acquisition has started merely because a Review-Bridge packet exists.
+- publish the full blocking report to Review-Bridge **once** as an audit/relay fallback;
+- display the full report to the human;
+- record:
+  - `DIRECT_DELIVERY_OPPORTUNITIES: 3`
+  - `DIRECT_DELIVERY_RESULTS: <all opportunities>`
+  - `REVIEW_BRIDGE_PACKET: <packet id or failure>`
+  - `LAST_ERROR: <exact bounded error>`
+- stop at the safe checkpoint for human relay/attention.
+
+Do **not** wait 2 minutes and retry Review-Bridge publication as though it were a
+ChatGPT delivery channel. A Review-Bridge Git push rejection or other bridge transport
+failure is not a reviewer-response retry condition. Record it, show the report to the
+human, and stop for relay/attention.
 
 ## Composer draft handling
 
@@ -229,9 +236,13 @@ If Codex cannot distinguish real editable content from placeholder/UI state, rec
 `COMPOSER_DRAFT_DETECTED: unknown`, never `yes`. `unknown` is not permission to
 skip reviewer delivery.
 
-A verified non-empty draft may cause direct delivery to be skipped only to avoid
-overwriting that buffer; Review-Bridge delivery must still be attempted immediately.
-A placeholder, UI label, or unverified state never justifies skipping direct delivery.
+A verified non-empty draft protects that buffer, but it does not trigger immediate
+Review-Bridge fallback. For a blocking report, re-check the actual buffer after the
+2-minute direct-delivery interval, for at most 3 direct-delivery opportunities total.
+Use Review-Bridge only after those opportunities are exhausted. For a
+`PROGRESS_UPDATE`, simply continue and retry direct delivery at the next progress
+checkpoint. A placeholder, UI label, or unverified state never justifies skipping a
+direct-delivery opportunity.
 
 Any false-positive claim that a placeholder/UI label was a draft is a
 `REPORTING_PROTOCOL_FAILURE` and must be recorded in engineering history.
