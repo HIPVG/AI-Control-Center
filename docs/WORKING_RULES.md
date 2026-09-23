@@ -119,6 +119,22 @@ existing authorization. Only a `DECISION_REQUEST` requires this sequence:
 6. Only then begin the next action. A `DECISION_REQUEST` stays at its safe
    checkpoint if the ChatGPT composer is unavailable.
 
+### COMPLETION_REPORT Is Blocking
+
+`DAY_COMPLETE` and `TASK_COMPLETE` are never ordinary non-blocking
+`PROGRESS_UPDATE` events. When a Day or major task reaches completion, create a
+`COMPLETION_REPORT`, send it to the ChatGPT reviewer, read the reviewer
+response, and only then start another Day or major task. This mandatory review
+checks completion evidence, validation, history consistency, and the
+next-Day-start condition even when no new authority is otherwise required.
+
+If an unsent user draft occupies the ChatGPT composer, preserve the draft,
+save the complete `COMPLETION_REPORT` locally with
+`REVIEWER_POST_PENDING: yes`, explicitly record that it remains unsent, and
+stop before the next Day or major task. Send the completion report with
+priority when the composer becomes available; it may not be consolidated away
+like an obsolete ordinary progress report.
+
 ### Latest Reviewer Response Priority
 
 Subject to the precedence rules above, the latest ChatGPT reviewer response
@@ -141,8 +157,9 @@ Never overwrite or delete an unsent user draft in the ChatGPT composer. If the
 composer is occupied, save a normal `PROGRESS_UPDATE` to local progress/history
 with `REVIEWER_POST_PENDING: yes`, continue within existing authorization, and
 send one consolidated current report when the composer is available. Do not
-replay obsolete progress reports. A pending `DECISION_REQUEST` is different:
-stop at the safe checkpoint until it can be posted and answered.
+replay obsolete progress reports. Pending `DECISION_REQUEST` and
+`COMPLETION_REPORT` records are different: stop at the safe checkpoint until
+they can be posted and answered.
 
 ### No Duplicate Approval Requests
 
@@ -182,13 +199,21 @@ Do not begin work without reading the latest reviewer response.
 
 Every `PROGRESS_UPDATE` must include:
 
-- `REPORT_TYPE: PROGRESS_UPDATE|DECISION_REQUEST`
+- `REPORT_TYPE: PROGRESS_UPDATE|DECISION_REQUEST|COMPLETION_REPORT`
 - `REVIEWER_POST_PENDING: yes|no`
 - `DECISION_REQUIRED: yes|no`
 - `LATEST_REVIEWER_RESPONSE_READ: yes|no`
 - `REVIEWER_INSTRUCTION_APPLIED: <latest instruction applied in this run>`
 - `NEXT_ACTION_WITHIN_EXISTING_AUTHORITY: yes|no`
 - `NEXT_ACTION_AFTER_REVIEW: <next action authorized by the latest reviewer response, when required>`
+
+Every `COMPLETION_REPORT` must include:
+
+- `REPORT_TYPE: COMPLETION_REPORT`
+- `COMPLETED_DAY` or `COMPLETED_TASK`
+- `FINAL_STATE`, `CRITERIA_SATISFIED`, `VALIDATION`, `EVIDENCE`, and `REMAINING_GAPS`
+- `LOCAL_LLM_INVOCATIONS`, `RESEARCH_RUNS`, `COMMITS`, `REMOTE_MATCH`, and `MAIN_UNCHANGED`
+- `RESET_OR_RESELECT`, `HISTORY_UPDATED`, `REVIEWER_POST_PENDING`, `NEXT_DAY`, and `NEXT_ACTION_AFTER_REVIEW`
 
 At the end of every run, append execution history that records whether the
 reviewer response was read, the reviewer instruction applied, any change from
