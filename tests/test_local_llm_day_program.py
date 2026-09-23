@@ -876,6 +876,53 @@ def test_old_false_complete_persistence_is_invalidated():
     assert len(restored.view()["contract"]["remaining_gaps"]) == 4
 
 
+def test_legacy_insufficient_evidence_failure_restores_to_paused_and_revalidates_on_resume():
+    runner = LocalLLMDayProgram(FIXTURE_ROOT)
+    runner.smoke(6)
+    contract = runner.snapshot.contract
+    required = sorted({name for criterion in contract.completion_criteria for name in criterion.required_evidence})
+    runner._ingest_legacy_evidence(contract, _valid_evidence(required),
+                                   provider_id="fixture-adapter", source_fingerprint="a" * 64)
+    runner._evaluate_contract(contract, runner._inventory(contract))
+    runner.snapshot.contract_fingerprint = runner._contract_fingerprint(contract)
+    runner.snapshot.state = LocalLLMDayState.FAILED
+    runner.snapshot.report = runner.snapshot.report.model_copy(update={"result": "DAY_INSUFFICIENT_EVIDENCE"}) if runner.snapshot.report else None
+    if runner.snapshot.report is None:
+        from backend.models.local_llm_day import LocalLLMDayReport
+        runner.snapshot.report = LocalLLMDayReport(day=6, objective=contract.objective,
+                                                    result="DAY_INSUFFICIENT_EVIDENCE", summary="legacy", evidence={})
+    saved = runner.view()
+
+    restored = LocalLLMDayProgram(FIXTURE_ROOT, saved=saved)
+    before = restored.view()
+    assert before["state"] == "PAUSED"
+    assert before["selected_day"] == 6
+    assert before["stop_reason"] == "LEGACY_INSUFFICIENT_EVIDENCE_REQUIRES_RESUME"
+    assert before["report"]["result"] == "DAY_INSUFFICIENT_EVIDENCE"
+    assert before["enabled_controls"]["resume"] is True
+    assert before["evidence_store"] == saved["evidence_store"]
+
+    restored.resume()
+    restored.join(5)
+    after = restored.view()
+    assert "PREFLIGHT" in after["state_history"]
+    assert after["state"] == "COMPLETE"
+    assert after["report"]["result"] == "DAY_COMPLETE"
+
+
+def test_failed_unrecoverable_snapshot_remains_non_resumable():
+    runner = LocalLLMDayProgram(FIXTURE_ROOT)
+    runner.smoke(6)
+    runner.snapshot.contract_fingerprint = runner._contract_fingerprint(runner.snapshot.contract)
+    runner.snapshot.state = LocalLLMDayState.FAILED_UNRECOVERABLE
+    saved = runner.view()
+
+    restored = LocalLLMDayProgram(FIXTURE_ROOT, saved=saved)
+    assert restored.view()["state"] == "FAILED_UNRECOVERABLE"
+    assert restored.view()["enabled_controls"]["resume"] is False
+    assert restored.resume()["error_code"] == "DAY_NOT_RESUMABLE"
+
+
 def test_same_day_valid_incomplete_evidence_survives_restart():
     runner = LocalLLMDayProgram(FIXTURE_ROOT)
     runner.smoke(6)

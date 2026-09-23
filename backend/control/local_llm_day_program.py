@@ -1437,6 +1437,17 @@ class LocalLLMDayProgram:
         self.snapshot.contract = self._restore_contract(current, self.snapshot.contract)
         self.snapshot.work_items = self._valid_work_items(self.snapshot.work_items, current)
         self._evaluate_contract(self.snapshot.contract, self._inventory(current))
+        if (self.snapshot.state == LocalLLMDayState.FAILED and self.snapshot.report
+                and self.snapshot.report.result == "DAY_INSUFFICIENT_EVIDENCE"):
+            # Compatibility only: the legacy controller persisted a generic
+            # insufficient-evidence FAILED state without a legal exit. Keep
+            # its report/history, but require the current controller's normal
+            # Resume -> PREFLIGHT validation before it may proceed.
+            self.snapshot.state = LocalLLMDayState.PAUSED
+            self.snapshot.stop_reason = "LEGACY_INSUFFICIENT_EVIDENCE_REQUIRES_RESUME"
+            self.snapshot.activity = "Legacy insufficient-evidence state restored; Resume revalidates the same Day."
+            self._save()
+            return
         if self.snapshot.state == LocalLLMDayState.COMPLETE and self.snapshot.contract.remaining_gaps:
             self.snapshot.state = LocalLLMDayState.PAUSED
             self.snapshot.activity = "Saved completion was invalidated because required evidence does not validate."
