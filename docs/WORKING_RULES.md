@@ -233,6 +233,40 @@ Any false-positive claim that a placeholder/UI label was a draft is a
 `REVIEWER_POST_PENDING: yes` is informational only. It never satisfies delivery of
 a blocking report.
 
+## Reviewer response acquisition
+
+Successful report delivery is not enough. When a report requires reviewer guidance
+(a successfully delivered `PROGRESS_UPDATE`, any `DECISION_REQUEST`, or any
+`COMPLETION_REPORT`), Codex must actively acquire the reviewer response rather than
+entering a passive indefinite wait.
+
+For direct ChatGPT delivery:
+
+1. Record the delivered report timestamp and/or another stable marker of the sent report.
+2. Stay at the safe checkpoint and poll the target ChatGPT conversation for a new
+   assistant/reviewer message that is newer than the delivered report.
+3. Poll about every 15 seconds while the response is generating; generation/status
+   UI is not composer-draft evidence.
+4. When generation completes, read the **entire** new reviewer message, not only the
+   first line or visible preview.
+5. Verify the message is newer than the sent report, then apply it as the latest
+   reviewer response before the next action.
+
+If no new completed reviewer response is observed within 5 minutes after successful
+direct delivery, record `REVIEWER_RESPONSE_TIMEOUT`, keep the safe checkpoint, and
+retry response acquisition once more for up to 5 minutes. Do not resend the same
+report merely because response acquisition is slow unless the reviewer channel shows
+the original delivery did not actually succeed.
+
+For Review-Bridge delivery, response acquisition uses the matching packet's
+`outbox/<packet-id>/review.md` when present. Poll about every 30 seconds for up to
+5 minutes, then repeat one additional 5-minute acquisition window before escalating
+`REVIEWER_RESPONSE_TIMEOUT` to the human. Do not invent a reviewer response.
+
+A statement such as `waiting for reviewer response` is incomplete unless Codex is
+actually performing the corresponding acquisition loop or has exhausted the bounded
+acquisition windows above.
+
 ## Latest reviewer response and no duplicate approvals
 
 Subject to the precedence rules, the latest reviewer response supersedes earlier
