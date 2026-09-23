@@ -19,7 +19,7 @@ from backend.control.external_review import (
     ResponsesExternalReviewTransport,
     load_external_review_config,
 )
-from backend.models.local_llm_day import ActionAttempt, DayIssueClassification, DynamicDayWorkOrder, GapDiagnosis, LocalLLMDayState, LocalLLMDayWorkItem, LocalLLMWorkItemState, RepairEpisode
+from backend.models.local_llm_day import ActionAttempt, AuthorityBlocker, DayIssueClassification, DynamicDayWorkOrder, GapDiagnosis, LocalLLMDayState, LocalLLMDayWorkItem, LocalLLMWorkItemState, RepairEpisode
 
 
 FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "day-contract"
@@ -50,6 +50,61 @@ def test_day_one_checkpoint_v2_bypasses_old_attempt_once_then_is_suppressed():
         outcome="HUMAN_ACTION_REQUIRED", action_template_id="D1_BASELINE_CHECKPOINT_V2",
         failure_reason="UNAPPROVED_SOURCE_PATHS"))
     assert runner._select_registered_action([next(item for item in runner._diagnose_gaps(contract, inventory) if item.evidence_type == "commit_ref")]) is None
+
+
+def _legacy_day_one_blocker_runner():
+    runner = LocalLLMDayProgram(FIXTURE_ROOT)
+    runner.smoke(1)
+    contract = runner.snapshot.contract
+    required = sorted({name for criterion in contract.completion_criteria
+                       for name in criterion.required_evidence if name != "commit_ref"})
+    runner._ingest_legacy_evidence(contract, _valid_evidence(required), provider_id="fixture", source_fingerprint="a" * 64)
+    inventory = runner._inventory(contract)
+    runner._evaluate_contract(contract, inventory)
+    diagnosis = next(item for item in runner._diagnose_gaps(contract, inventory) if item.evidence_type == "commit_ref")
+    runner.snapshot.action_attempts.append(ActionAttempt(
+        action_fingerprint="old-attempt", strategy_id="D1_COMMIT_REF", criterion_id=diagnosis.criterion_id,
+        evidence_type="commit_ref", input_fingerprint=diagnosis.input_fingerprint,
+        outcome="HUMAN_ACTION_REQUIRED", action_template_id="D1_BASELINE_CHECKPOINT",
+        failure_reason="UNAPPROVED_SOURCE_PATHS"))
+    runner.snapshot.authority_blocker = AuthorityBlocker(
+        classification=DayIssueClassification.HUMAN_PRODUCT_DECISION_REQUIRED,
+        reason_code="UNAPPROVED_SOURCE_PATHS", message="legacy", criterion_id=diagnosis.criterion_id,
+        evidence_type="commit_ref", resolution_strategy="RETAINED_EVIDENCE",
+        action_template_id="D1_BASELINE_CHECKPOINT")
+    runner.snapshot.state = LocalLLMDayState.HUMAN_ACTION_REQUIRED
+    runner.snapshot.stop_reason = "LEGACY_INSUFFICIENT_EVIDENCE_REQUIRES_RESUME"
+    return runner
+
+
+def test_legacy_v1_authority_blocker_routes_to_eligible_v2_once_without_mutating_v1():
+    runner = _legacy_day_one_blocker_runner()
+    saved = runner.view()
+    restored = LocalLLMDayProgram(FIXTURE_ROOT, saved=saved)
+    restored._create_day_one_baseline_checkpoint = lambda _contract: {
+        "final_result": "COMPLETE", "evidence": {"commit_ref": _record("commit_ref", _value("commit_ref"))}}
+
+    restored.resume()
+    restored.join(3)
+
+    attempts = restored.snapshot.action_attempts
+    assert attempts[0].action_template_id == "D1_BASELINE_CHECKPOINT"
+    assert len([item for item in attempts if item.action_template_id == "D1_BASELINE_CHECKPOINT_V2"]) == 1
+    assert LocalLLMDayState.EXECUTING_DAY_WORK.value in restored.snapshot.state_history
+
+
+@pytest.mark.parametrize("blocker_template, mutate", [
+    ("D1_BASELINE_CHECKPOINT_V2", lambda _runner: None),
+    ("D1_BASELINE_CHECKPOINT", lambda runner: runner.snapshot.action_attempts.append(ActionAttempt(
+        action_fingerprint="v2-attempt", strategy_id="D1_COMMIT_REF", criterion_id="d1-regression_baseline",
+        evidence_type="commit_ref", input_fingerprint=next(item for item in runner._diagnose_gaps(runner.snapshot.contract, runner._inventory(runner.snapshot.contract)) if item.evidence_type == "commit_ref").input_fingerprint,
+        outcome="HUMAN_ACTION_REQUIRED", action_template_id="D1_BASELINE_CHECKPOINT_V2"))),
+])
+def test_legacy_blocker_bypass_requires_an_unattempted_replacement_identity(blocker_template, mutate):
+    runner = _legacy_day_one_blocker_runner()
+    runner.snapshot.authority_blocker.action_template_id = blocker_template
+    mutate(runner)
+    assert not runner._replacement_retry_is_eligible(runner.snapshot.authority_blocker, runner.snapshot.contract, runner._inventory(runner.snapshot.contract))
 
 
 def _record(name, value=None, *, passed=True, verified=True):

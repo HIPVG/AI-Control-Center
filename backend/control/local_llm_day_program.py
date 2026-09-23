@@ -160,6 +160,36 @@ class LocalLLMDayProgram:
             return self.authority_resolver(blocker) is True
         return False
 
+    def _replacement_retry_is_eligible(self, blocker: AuthorityBlocker, contract: LocalLLMDayContract,
+                                       inventory: dict[str, object]) -> bool:
+        """Allow only an explicitly superseded failed action to reach its replacement.
+
+        A retained-evidence blocker normally remains a hard authority boundary.  This
+        exception is deliberately narrower: the persisted failed attempt must match
+        the current Day/gap/input, and the registry must now expose a different,
+        currently selectable template for that exact gap.
+        """
+        if (blocker.resolution_strategy != "RETAINED_EVIDENCE" or not blocker.criterion_id
+                or not blocker.evidence_type or not blocker.action_template_id):
+            return False
+        strategy = STRATEGIES.get((contract.day, blocker.evidence_type))
+        if not strategy or not strategy.template or strategy.template.template_id == blocker.action_template_id:
+            return False
+        diagnoses = self._diagnose_gaps(contract, inventory)
+        diagnosis = next((item for item in diagnoses if item.criterion_id == blocker.criterion_id
+                          and item.evidence_type == blocker.evidence_type), None)
+        if not diagnosis or diagnosis.classification != DayIssueClassification.PRODUCE_DAY_EVIDENCE:
+            return False
+        old_attempt = next((attempt for attempt in self.snapshot.action_attempts
+                            if attempt.action_template_id == blocker.action_template_id
+                            and attempt.strategy_id == strategy.strategy_id
+                            and attempt.criterion_id == diagnosis.criterion_id
+                            and attempt.evidence_type == diagnosis.evidence_type
+                            and attempt.input_fingerprint == diagnosis.input_fingerprint), None)
+        if old_attempt is None:
+            return False
+        return self._select_registered_action([diagnosis]) is not None
+
     def _repair_resumable(self) -> bool:
         if self.snapshot.state != LocalLLMDayState.PAUSED or not self.snapshot.contract:
             return False
@@ -615,12 +645,21 @@ class LocalLLMDayProgram:
             blocker = self.snapshot.authority_blocker
             if blocker:
                 if not self._blocker_resolved():
-                    self._fail(contract, blocker.reason_code, blocker.message, blocker.classification, inventory)
-                    return
-                self.snapshot.authority_resolution_fingerprint = self._text_fingerprint(
-                    blocker.model_dump_json() + self._inventory_fingerprint(inventory))
-                self.snapshot.authority_blocker = None
-                self._save()
+                    if not self._replacement_retry_is_eligible(blocker, contract, inventory):
+                        self._fail(contract, blocker.reason_code, blocker.message, blocker.classification, inventory)
+                        return
+                    self._audit("AUTHORITY_BLOCKER_REPLACED_BY_REGISTERED_RETRY", {
+                        "day": contract.day, "criterion_id": blocker.criterion_id,
+                        "evidence_type": blocker.evidence_type,
+                        "previous_template_id": blocker.action_template_id,
+                    })
+                    self.snapshot.authority_blocker = None
+                    self._save()
+                else:
+                    self.snapshot.authority_resolution_fingerprint = self._text_fingerprint(
+                        blocker.model_dump_json() + self._inventory_fingerprint(inventory))
+                    self.snapshot.authority_blocker = None
+                    self._save()
             if inventory["missing_sources"]:
                 self._terminal_blocker(contract, DayIssueClassification.EXTERNAL_AUTHORITY_REQUIRED,
                                        "AUTHORITATIVE_SOURCE_MISSING", "Required authoritative sources are unavailable.", inventory)
