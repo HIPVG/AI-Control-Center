@@ -136,6 +136,21 @@ Do not ask the human for separate permission merely to send any report.
 
 ## Reviewer report destination and delivery
 
+### First action: direct ChatGPT delivery
+
+For **every** reviewer-facing report, the first delivery action is to try the target
+ChatGPT reviewer conversation directly. Review-Bridge is never the first choice.
+
+Do not create, stage, commit, or push a Review-Bridge packet before the direct
+ChatGPT path for that report has actually been attempted, except when a verified
+non-empty user draft occupies the actual editable composer buffer. In that one
+case, protect the draft and treat the direct attempt as temporarily unavailable;
+for blocking reports, re-check after the required 2-minute interval before any
+Bridge fallback is allowed.
+
+A past direct-delivery failure never changes this ordering for a later report.
+Each new report starts again with direct ChatGPT delivery as the first action.
+
 All reviewer-facing reports are intended for the ChatGPT reviewer. They must also be
 shown in full in the current user-facing Codex output so the human can inspect or
 relay them, but user-facing display alone is **not** successful delivery for a
