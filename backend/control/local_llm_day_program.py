@@ -155,6 +155,13 @@ class LocalLLMDayProgram:
         if not blocker or not contract:
             return False
         inventory = self._inventory(contract)
+        if (contract.day == 1 and blocker.reason_code == "REPAIR_SCOPE_AUTHORITY_REQUIRED"
+                and blocker.action_template_id == "READ_ONLY_COLLECT"
+                and blocker.evidence_type):
+            current_observation = self._inventory_fingerprint(inventory)
+            return any(record.day == 1 and record.evidence_type == blocker.evidence_type
+                       and record.validator_result and record.observation_fingerprint != current_observation
+                       for record in self.snapshot.evidence_store.values())
         if blocker.resolution_strategy == "AUTHORITATIVE_SOURCES":
             return not inventory["missing_sources"]
         if blocker.resolution_strategy == "RETAINED_EVIDENCE" and blocker.evidence_type:

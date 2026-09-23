@@ -86,6 +86,23 @@ def test_read_only_evidence_versions_identical_values_by_observation_fingerprint
     assert {record.observation_fingerprint for record in records} == {"a" * 64, "b" * 64}
 
 
+def test_day_one_stale_read_only_evidence_unblocks_only_the_exact_versioning_repair():
+    runner = LocalLLMDayProgram(FIXTURE_ROOT)
+    runner.smoke(1)
+    contract = runner.snapshot.contract
+    inventory = runner._inventory(contract)
+    runner._ingest_legacy_evidence(contract, {"git_head": _record("git_head", _value("git_head"))},
+                                    provider_id="fixture", source_fingerprint="a" * 64)
+    runner.snapshot.authority_blocker = AuthorityBlocker(
+        classification=DayIssueClassification.HUMAN_PRODUCT_DECISION_REQUIRED,
+        reason_code="REPAIR_SCOPE_AUTHORITY_REQUIRED", message="stale observation",
+        criterion_id="d1-repository_relationship", evidence_type="git_head",
+        resolution_strategy="AUTHORIZED_SCOPE", action_template_id="READ_ONLY_COLLECT")
+    assert runner._blocker_resolved()
+    runner.snapshot.authority_blocker.action_template_id = "D1_BASELINE_CHECKPOINT_V2"
+    assert not runner._blocker_resolved()
+
+
 def _legacy_day_one_blocker_runner():
     runner = LocalLLMDayProgram(FIXTURE_ROOT)
     runner.smoke(1)
