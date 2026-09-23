@@ -52,6 +52,26 @@ def test_day_one_checkpoint_v2_bypasses_old_attempt_once_then_is_suppressed():
     assert runner._select_registered_action([next(item for item in runner._diagnose_gaps(contract, inventory) if item.evidence_type == "commit_ref")]) is None
 
 
+def test_approved_scope_retry_is_not_eligible_after_v2_checkpoint_succeeds():
+    runner = LocalLLMDayProgram(FIXTURE_ROOT, approved_day_one_snapshot_paths=frozenset({"conftest.py"}))
+    runner.smoke(1)
+    contract = runner.snapshot.contract
+    inventory = runner._inventory(contract)
+    diagnosis = next(item for item in runner._diagnose_gaps(contract, inventory) if item.evidence_type == "commit_ref")
+    strategy = STRATEGIES[(1, "commit_ref")]
+    runner.snapshot.action_attempts.append(ActionAttempt(
+        action_fingerprint="scope-blocked", strategy_id="D1_COMMIT_REF", criterion_id=diagnosis.criterion_id,
+        evidence_type="commit_ref", input_fingerprint=diagnosis.input_fingerprint,
+        outcome="HUMAN_ACTION_REQUIRED", action_template_id="D1_BASELINE_CHECKPOINT_V2",
+        failure_reason="UNAPPROVED_SOURCE_PATHS"))
+    assert runner._authorized_day_one_scope_retry(diagnosis, strategy)
+    runner.snapshot.action_attempts.append(ActionAttempt(
+        action_fingerprint="scope-complete", strategy_id="D1_COMMIT_REF", criterion_id=diagnosis.criterion_id,
+        evidence_type="commit_ref", input_fingerprint=diagnosis.input_fingerprint,
+        outcome="COMPLETE", action_template_id="D1_BASELINE_CHECKPOINT_V2"))
+    assert not runner._authorized_day_one_scope_retry(diagnosis, strategy)
+
+
 def _legacy_day_one_blocker_runner():
     runner = LocalLLMDayProgram(FIXTURE_ROOT)
     runner.smoke(1)

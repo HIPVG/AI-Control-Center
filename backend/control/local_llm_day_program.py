@@ -861,10 +861,12 @@ class LocalLLMDayProgram:
                 or diagnosis.evidence_type != "commit_ref" or not self.approved_day_one_snapshot_paths
                 or unsafe_paths(self.root, self.approved_day_one_snapshot_paths)):
             return False
-        return any(attempt.action_template_id == "D1_BASELINE_CHECKPOINT_V2"
-                   and attempt.outcome == "HUMAN_ACTION_REQUIRED"
-                   and attempt.failure_reason == "UNAPPROVED_SOURCE_PATHS"
-                   for attempt in self.snapshot.action_attempts)
+        attempts = [attempt for attempt in self.snapshot.action_attempts
+                    if attempt.action_template_id == "D1_BASELINE_CHECKPOINT_V2"]
+        return (any(attempt.outcome == "HUMAN_ACTION_REQUIRED"
+                    and attempt.failure_reason == "UNAPPROVED_SOURCE_PATHS"
+                    for attempt in attempts)
+                and not any(attempt.outcome == "COMPLETE" for attempt in attempts))
 
     def _route_observed_gap(self, contract, inventory, diagnosis):
         """Repair an observed adapter/work defect, never retry an unchanged action.
@@ -1238,7 +1240,10 @@ class LocalLLMDayProgram:
         source_presence = {source: (self.root / source).is_file() for source in sources}
         retained_evidence = self.retained_evidence_resolver.resolve(contract.day) if contract else {}
         try:
-            source_fingerprint = git_fingerprint(self.root)
+            source_fingerprint = git_fingerprint(
+                self.root,
+                self.approved_day_one_snapshot_paths if contract and contract.day == 1 else frozenset(),
+            )
         except (GitSafetyError, OSError):
             source_fingerprint = self._text_fingerprint(json.dumps({path: self._file_fingerprint(self.root / path) for path in sources}, sort_keys=True))
         if contract and contract.day == 1 and self.snapshot.baseline_checkpoint:
@@ -1392,7 +1397,7 @@ class LocalLLMDayProgram:
         staging["generated_artifacts_not_staged"] = not staging["staged_generated_paths"]
         documentation = self._day_one_documentation_check(contract)
         test_paths = [self.root / path for path in ("tests/test_process_consistency_smoke.py", "tests/test_process_consistency_review_set.py")]
-        cache_material = "|".join([head, git_fingerprint(self.root), contract.version, self._file_fingerprint(self.PROGRAM_PATH), *[
+        cache_material = "|".join([head, git_fingerprint(self.root, self.approved_day_one_snapshot_paths), contract.version, self._file_fingerprint(self.PROGRAM_PATH), *[
             f"{path.relative_to(self.root).as_posix()}:{self._file_fingerprint(path)}" for path in test_paths
         ]])
         tests = self._day_one_test_result(execute=execute_tests, cache_key=self._text_fingerprint(cache_material))
@@ -1423,7 +1428,8 @@ class LocalLLMDayProgram:
         if not value:
             return {}
         code, tree, _ = self._git("rev-parse", f"{value['checkpoint_ref']}^{{tree}}")
-        if code or tree != value["tree"] or git_fingerprint(self.root) != value["source_fingerprint"]:
+        if (code or tree != value["tree"]
+                or git_fingerprint(self.root, self.approved_day_one_snapshot_paths) != value["source_fingerprint"]):
             return {}
         return {"commit_ref": self._record("commit_ref", value, str(value["checkpoint_ref"]), True)}
 
