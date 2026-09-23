@@ -159,13 +159,15 @@ A `COMPLETION_REPORT` is sent automatically. Do not ask the user for a
 separate permission to send it; wait for the reviewer response only after
 delivery.
 
-If an unsent user draft occupies the ChatGPT composer, preserve the draft,
-save the complete `COMPLETION_REPORT` locally with
-`REVIEWER_POST_PENDING: yes`, display the full report in the current
-user-facing Codex output, explicitly record that it remains unsent, and stop
-before the next Day or major task. Send the completion report with priority
-when the composer becomes available; it may not be consolidated away like an
-obsolete ordinary progress report.
+Every `COMPLETION_REPORT` must be displayed in full in the current user-facing
+Codex output, regardless of the ChatGPT composer state. If an unsent user draft
+occupies the composer, preserve it without overwrite, deletion, or editing;
+direct ChatGPT posting is optional. Mark `REVIEWER_POST_PENDING: yes` when it
+cannot be posted, but never use that flag in place of the full report. Once the
+complete report is shown in Codex output, completion-report delivery is
+satisfied; then stop before the next Day or major task and wait for reviewer
+response. A completion report may not be consolidated away like an obsolete
+ordinary progress report.
 
 ### Latest Reviewer Response Priority
 
