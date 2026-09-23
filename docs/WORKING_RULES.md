@@ -89,33 +89,60 @@ explicitly authorize a structural change; otherwise preserve the architecture.
 ## Reviewer Interaction Protocol
 
 ChatGPT reviewer interaction is a formal execution-control loop, not merely a
-progress notification. At every safe checkpoint where a `PROGRESS_UPDATE` is
-sent, execution must follow this order:
+progress notification. It separates non-blocking visibility reports from
+blocking requests for a new decision.
+
+### PROGRESS_UPDATE Is Non-Blocking
+
+Use `PROGRESS_UPDATE` for ordinary state transitions, validation, commit/push,
+evidence, LocalLLM invocation, remaining-gap, and blocker-free checkpoint
+reports. Its purpose is reviewer visibility, not approval. After a
+`PROGRESS_UPDATE`, continue within the latest existing authorization without
+waiting for a reply when the next action remains within approved scope.
+
+### DECISION_REQUEST Is Blocking
+
+Use `DECISION_REQUEST` only when a new human or reviewer decision is needed:
+new source scope or write authority, destructive state operation,
+reset/restart/reselect, main modification, a new business/product decision,
+unknown fatal recovery, security/compliance decision, or repair scope beyond
+existing authorization. Only a `DECISION_REQUEST` requires this sequence:
 
 1. Run the current work to a safe durable checkpoint.
-2. Send the `PROGRESS_UPDATE` to the ChatGPT reviewer.
+2. Send the `DECISION_REQUEST` to the ChatGPT reviewer.
 3. Receive and read the complete latest reviewer response.
 4. Reconcile that response with this policy, applicable current human
    instructions, the implementation history, persisted state, and the Day
    contract.
 5. Apply the reviewer's new authorization, restriction, or next-action
    direction.
-6. Only then begin the next action.
+6. Only then begin the next action. A `DECISION_REQUEST` stays at its safe
+   checkpoint if the ChatGPT composer is unavailable.
 
 ### Latest Reviewer Response Priority
 
 Subject to the precedence rules above, the latest ChatGPT reviewer response
 supersedes earlier reviewer instructions and the agent's own previously
 reported `NEXT_ACTION`. A `NEXT_ACTION` written in a `PROGRESS_UPDATE` is a
-proposal and status statement, not an execution authorization. It must never
-be run after a reviewer response has changed, constrained, or replaced it.
+proposal and status statement, not an execution authorization. A reviewer
+response is mandatory before continuing only after `DECISION_REQUEST`; a
+`PROGRESS_UPDATE` alone must not acquire an execution lock.
 
 ### Mandatory Read Before Continue
 
-After a `PROGRESS_UPDATE`, do not begin another action until the latest
+After a `DECISION_REQUEST`, do not begin another action until the latest
 reviewer response has been read and applied. A reviewer may explicitly authorize
 continuous execution across several named actions; only that stated scope may
 continue without another reviewer wait.
+
+### Composer Draft Protection
+
+Never overwrite or delete an unsent user draft in the ChatGPT composer. If the
+composer is occupied, save a normal `PROGRESS_UPDATE` to local progress/history
+with `REVIEWER_POST_PENDING: yes`, continue within existing authorization, and
+send one consolidated current report when the composer is available. Do not
+replay obsolete progress reports. A pending `DECISION_REQUEST` is different:
+stop at the safe checkpoint until it can be posted and answered.
 
 ### No Duplicate Approval Requests
 
@@ -155,9 +182,13 @@ Do not begin work without reading the latest reviewer response.
 
 Every `PROGRESS_UPDATE` must include:
 
+- `REPORT_TYPE: PROGRESS_UPDATE|DECISION_REQUEST`
+- `REVIEWER_POST_PENDING: yes|no`
+- `DECISION_REQUIRED: yes|no`
 - `LATEST_REVIEWER_RESPONSE_READ: yes|no`
 - `REVIEWER_INSTRUCTION_APPLIED: <latest instruction applied in this run>`
-- `NEXT_ACTION_AFTER_REVIEW: <next action authorized by the latest reviewer response>`
+- `NEXT_ACTION_WITHIN_EXISTING_AUTHORITY: yes|no`
+- `NEXT_ACTION_AFTER_REVIEW: <next action authorized by the latest reviewer response, when required>`
 
 At the end of every run, append execution history that records whether the
 reviewer response was read, the reviewer instruction applied, any change from
