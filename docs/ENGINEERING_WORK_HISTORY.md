@@ -1635,3 +1635,436 @@ installed file has no diff against the external v1.1.1 source. `git diff
 --check` exits successfully.
 
 SCOPE: No production, test, LocalLLM-Lab, research, commit, or push change.
+
+## CHG-034 — Bounded external-review repair bridge PoC
+
+PLAN_REF: User AUTONOMOUS EXTERNAL-REVIEW REPAIR POC.
+
+CHANGE: Added a fail-closed FailurePackage and review-artifact boundary for
+the existing repair supervisor. After LocalLLM proposals and the independent
+Codex Expert Solver fail, one configured external-review submission may provide
+strictly normalized advisory guidance. The existing DynamicDayWorkOrder remains
+the sole edit/test authority; out-of-scope files, acceptance-test expansion,
+and protected semantic changes route to human authority without invoking the
+Builder. A verified external-guided Builder result follows the existing
+Evidence Store and revalidation path.
+
+VERIFICATION: Disposable-fixture external-review repair tests cover automatic
+package persistence, redaction, configured-thread submission through a fixture
+browser transport, captured-response normalization, scoped Builder handoff,
+configured deterministic pytest verification, evidence ingestion, and
+out-of-scope rejection before Builder invocation. Existing repair regression
+and API-focused tests remain green.
+
+SCOPE: No canonical specification modification, LocalLLM-Lab change, real
+research, real browser submission, commit, or push. Live browser transport is
+disabled until an administrator configures a target conversation.
+
+## CHG-035 — Zero-touch Responses API external-review transport
+
+PLAN_REF: User REPLACE BLOCKED BROWSER TRANSPORT WITH ZERO-TOUCH RESPONSES
+API TRANSPORT.
+
+CHANGE: Replaced the production external-review transport selection with an
+administrator-owned OPENAI_RESPONSES route while retaining disabled
+BROWSER_MANUAL and deterministic FIXTURE routes. The reviewer receives a
+versioned, fingerprinted compact Context Pack and a redacted FailurePackage;
+the durable audit state retains only conversation/response identifiers and
+bounded review artifacts. Structured review output is normalized against the
+existing DynamicDayWorkOrder before the existing bounded Builder, deterministic
+verification, Evidence Store, and same-Day revalidation path can run. API
+credential, quota, timeout, and model-access failures retain no source change
+and route as EXTERNAL_AUTHORITY_REQUIRED, rather than as engineering repair.
+
+VERIFICATION: Fake Responses tests prove the request uses strict structured
+output, persists a Context Pack fingerprint, carries previous_response_id on
+the next review, rejects unauthorised scope before Builder invocation, and
+routes an authentication failure to EXTERNAL_ACTION_REQUIRED without source
+modification. Existing external-review Builder and repair-regression tests
+remain in the focused validation set. No live API call was made.
+
+SCOPE: No canonical specification or LocalLLM-Lab change, real research,
+browser interaction, commit, or push. OPENAI_API_KEY is read only at runtime
+and is never stored in configuration or review artifacts.
+
+## CHG-036 — Configured reviewer-model fallback boundary
+
+PLAN_REF: User REPLACE BLOCKED BROWSER TRANSPORT WITH ZERO-TOUCH RESPONSES
+API TRANSPORT.
+
+CHANGE: The configured fallback reviewer model is attempted once only when the
+primary model is unavailable by model-access policy. Authentication, quota,
+timeout, malformed-response, and other provider failures do not retry under a
+different model and remain typed external prerequisites. The logical repair
+escalation still creates at most one bounded review artifact per compatible
+failure fingerprint.
+
+VERIFICATION: Deterministic fake-provider coverage proves primary model access
+failure selects the configured fallback, while normal conversation reuse and
+authentication-failure authority routing continue to pass.
+
+SCOPE: No live API request, source edit from review text, canonical-spec or
+LocalLLM-Lab change, commit, or push.
+
+## CHG-037 — Day 1 progress-first recovery continuation
+
+RECORDED: 2026-09-23 JST. CURRENT_DAY: 1. START_STATE:
+`HUMAN_ACTION_REQUIRED` with the persisted legacy Day 1 authority blocker;
+the Day was neither reset, restarted, nor reselected.
+
+RETROSPECTIVE: The Day 1 recovery-routing repair accumulated fine-grained
+boundary checks, additional regression-test requests, and review cycles. That
+made the safety boundary stronger, but spent disproportionate time on detailed
+verification and delayed the Day 1 runtime action.
+
+OPERATING DECISION: Unless there is a credible risk of data destruction, main
+branch contamination, persisted-state/evidence loss, irreproducibility, a
+clear material regression, or a genuine human decision, prefer forward Day
+progress over complete edge-case coverage. Known warnings, minor coverage
+gaps, naming/comments, refactoring, and speculative future cases do not stop a
+Day. In a 30-minute window, run minimum regression validation, then prioritize
+the actual Day action, LocalLLM invocation when the contract reaches it, and
+evidence generation.
+
+CONTINUATION PLAN: Preserve the existing uncommitted bounded recovery-routing
+change, validate it without redesign, checkpoint only the intentional source
+and test files, reload the server, and resume this same persisted Day 1 state
+to run `D1_BASELINE_CHECKPOINT_V2`. Existing generated state, logs, and
+unrelated documentation edits remain preserved and unstaged.
+
+INITIAL EVIDENCE: focused recovery-routing validation: 4 passed; full
+deterministic suite: 265 passed; `git diff --check`: passed; LocalLLM
+invocations: 0. The prior baseline was
+`82d99a179ab8dc1f097f0432f15c9ad89ac3b0bf`; commit/push and runtime evidence
+are recorded in the closing continuation entry. Time allocation is 0–5 minutes
+history/policy/state reading, 5–15 minimum validation/checkpoint, 15–27 runtime
+resume/action, and 27–30 evidence/history checkpoint. Excessive detailed
+verification is explicitly not repeated in this continuation.
+
+### CHG-037 continuation result — 2026-09-23 JST
+
+CURRENT_DAY: 1. START_STATE: `HUMAN_ACTION_REQUIRED`.
+
+ACTIONS: Read history/rules/contract/persisted state/NEXT_ACTION; retained the
+existing recovery-routing change; reran the focused recovery suite (4 passed);
+committed and pushed `80418e722ac71a8c8fc8761f70110c47a7f6e9bb`; reloaded the
+server and resumed the same state once. The runtime reached the registered V1
+to V2 retry transition but failed before producing a V2 ActionAttempt because
+the new audit event was not registered in `AuditEventType`. The bounded repair
+registered that event, added its serialization assertion, passed focused
+validation (5 passed), and was committed/pushed as
+`1c1b94a7abc38c8e7ac12456c9415771cc757849`. Local HEAD equals the approved
+origin branch at that SHA; `main` remains
+`b90dd63dc6d85ead478555dfa8c74e5b141f93e3`.
+
+EVIDENCE / VALIDATION: focused recovery-routing tests: 4 passed; focused
+runtime-repair tests: 5 passed; prior full deterministic baseline: 265 passed;
+both diff checks passed. No LocalLLM invocation or ResearchRun occurred. The
+persisted V1 attempt/evidence was not mutated. Runtime evidence is the
+preserved `FAILED_UNRECOVERABLE` state with the exact missing-enum error.
+
+BLOCKER / DECISION: The fresh server at `1c1b94a` correctly retains that
+failure state, but its supported resume controls are all disabled for
+`FAILED_UNRECOVERABLE`. Reset, restart, reselect, and persisted-state manual
+repair are prohibited. No safe contract-authorized next action exists without
+an explicit recovery policy for an infrastructure error after a retry gate has
+cleared the blocker. NEXT_ACTION: obtain a bounded approved recovery path for
+this specific persisted failure, then resume without losing V1 history.
+
+TIME USE: reading and policy/history update; minimum validation/checkpoint;
+one real reload/resume; direct runtime repair/checkpoint; final state/history
+preservation. No excessive fine-grained test expansion was repeated.
+
+### CHG-037 authorized infrastructure recovery result — 2026-09-23 JST
+
+STATE TRANSITION: The persisted Day 1 `FAILED_UNRECOVERABLE` was classified as
+the exact known `AuditEventType` registration omission, already fixed by
+`1c1b94a`. The human-authorized, controller-owned recovery route was added in
+`fb2946727c6964eeee052b375dfde1f4823197fd`; it retains the original failure
+through an audit entry, preserves all V1 history/evidence, and permits only
+this signature to transition to `PREFLIGHT`. It does not make ordinary failed
+states resumable.
+
+VALIDATION: focused recovery tests: 7 passed, 66 deselected; `git diff --check`
+passed. Local HEAD equals the approved origin branch at `fb29467`; `main`
+remains `b90dd63dc6d85ead478555dfa8c74e5b141f93e3`.
+
+RUNTIME RESULT: The authorized recovery executed through the existing resume
+API. Normal Day 1 diagnosis selected and executed
+`D1_BASELINE_CHECKPOINT_V2` exactly once. No V2 evidence or baseline checkpoint
+was produced because the real checkpoint returned `UNAPPROVED_SOURCE_PATHS`.
+The persisted state is now `HUMAN_ACTION_REQUIRED`, with V1 and V2 attempts
+retained. LocalLLM invocations: 0; ResearchRun: none.
+
+BLOCKER / NEXT ACTION: This is no longer an infrastructure recovery issue.
+The Day contract requires an approved source scope for the actual checkpoint;
+that is a human product/authority decision. Do not reset, reselect, edit
+persisted state, delete history/evidence, or invent scope. Time was spent on
+the minimum recovery implementation, focused validation, one real runtime
+execution, and evidence/history preservation—not on extra edge-case work.
+
+### CHG-037 source-scope decision checkpoint — 2026-09-23 JST
+
+HUMAN DECISION RECORDED: The authorized Day 1 `local_llm_lab` scope is limited
+to `scripts/run_process_consistency_smoke.py` and
+`scripts/process_consistency.py`; it is not repository-wide and does not
+authorize production edits or automatic scope expansion.
+
+READ-ONLY RESULT: The exact `day_git.checkpoint()` unsafe-path calculation
+still reports one additional non-generated path: `conftest.py`. It is an
+untracked path outside the approved list, so the temporary-index checkpoint
+correctly refuses to include it. No source, index, persisted state, V1/V2
+history, evidence, or baseline ref was changed by this calculation.
+
+NEXT ACTION / BLOCKER: A decision is required specifically for `conftest.py`:
+approve it as read-only snapshot input, or preserve it outside the checkpoint.
+Do not infer approval from the two existing paths. Runtime progress reached the
+actual V2 action and stopped at this newly measured authority boundary; no time
+was spent on unrelated design, coverage, or refactoring.
+
+### CHG-037 approved snapshot continuation — 2026-09-23 JST
+
+START STATE: Day 1 `STOPPED` at the durable V2 checkpoint boundary. The
+already-approved, read-only `conftest.py` inclusion was applied only to the
+temporary-index snapshot; neither `conftest.py` nor any `C:\LocalLLM-Lab`
+source was modified. The exact unsafe-path calculation was empty and the
+baseline checkpoint was created at
+`refs/heads/ai-control-center/day1-baseline-374457d3d5795395`
+(`374457d3d579539549df0936e3c96a47c9a1a319`, tree
+`8387ec4e7399cfd1a33c2eaebb2f352259e36727`).
+
+REPAIR / VALIDATION: A bounded controller fix corrected two defects found by
+the actual resume: scope-aware fingerprinting was applied consistently to Day
+1 inventory/recollection, and an approved-scope retry is no longer eligible
+after a V2 checkpoint succeeds. Focused validation: 9 passed, 69 deselected;
+`git diff --check` passed. It was committed and pushed as
+`56d24d7797d10741d19754f65255d32229e96593`; local HEAD equals origin and
+`main` remains `b90dd63dc6d85ead478555dfa8c74e5b141f93e3`. LocalLLM
+invocations: 0. ResearchRuns: none.
+
+CURRENT STATE / BLOCKER: The server was reloaded at that commit and the same
+persisted Day 1 was resumed once. The V2 checkpoint did not repeat. The next
+read-only collector reached `REPAIR_SCOPE_AUTHORITY_REQUIRED`: its historical
+records are validator-valid but have the prior observation fingerprint, while
+the newly approved snapshot scope yields the current fingerprint. The
+collector's record identity currently collapses equal values across observations
+instead of retaining a new compatible observation. No persisted state was
+manually edited and no V1/V2 record was deleted or altered. NEXT ACTION:
+obtain authority for (or reject) the narrowly scoped controller repair that
+versions read-only evidence by observation fingerprint; do not retry Day 1 or
+expand LocalLLM-Lab source scope first.
+
+TIME USE: minimum diagnosis, one focused regression addition, checkpoint/push,
+server reload, one genuine resume, and state/history preservation. Detailed
+testing was kept limited; runtime progress, rather than cosmetic work, was
+prioritized.
+
+### CHG-038 reviewer interaction protocol — 2026-09-23 JST
+
+PERMANENT POLICY: `docs/WORKING_RULES.md` now makes ChatGPT reviewer interaction
+a formal execution-control loop. After every `PROGRESS_UPDATE`, the latest
+reviewer response must be read and reconciled before a next action starts;
+agent-authored `NEXT_ACTION` is only a proposal. The rule preserves the
+document precedence order while giving the latest reviewer response priority
+over prior reviewer directions.
+
+AUTHORIZATION / RESTRICTION: Existing reviewer authorizations must be read from
+the latest response and history rather than requested again. Day progress takes
+priority over minor tests, warnings, naming, comments, unrelated refactoring,
+coverage, and speculative edge cases. New human/reviewer decisions remain
+required only for material scope, destructive-state, main, evidence-loss,
+unknown-failure, or security/compliance boundaries.
+
+NEXT ACTION: At the next runtime checkpoint, post the required metadata, read
+the response, and execute only the resulting reviewer-authorized action.
+
+### CHG-039 non-blocking progress protocol — 2026-09-23 JST
+
+POLICY CORRECTION: The permanent reviewer protocol now separates
+`PROGRESS_UPDATE` from `DECISION_REQUEST`. Ordinary progress reports are
+non-blocking and may be locally marked `REVIEWER_POST_PENDING: yes` when an
+unsent user composer draft must be preserved. Only a `DECISION_REQUEST` waits
+for a reviewer response. Latest reviewer responses remain authoritative when a
+decision is requested.
+
+CURRENT DAY 1: Three criteria are satisfied; only `d1-regression_baseline`
+requires `test_result`. The existing ChatGPT composer draft is preserved. This
+is a normal, already-authorized evidence collection, so execution continues
+without new scope or product authority.
+
+### CHG-040 Day 1 evidence completion — 2026-09-23 JST
+
+REVIEWER / REPORT: `REPORT_TYPE: PROGRESS_UPDATE`;
+`REVIEWER_POST_PENDING: yes`; `DECISION_REQUIRED: no`; latest reviewer response
+was read before this run and its existing authorization for the same persisted
+Day 1, approved snapshot scope, and bounded controller repair was applied. The
+ChatGPT composer contained an unsent user draft and was not overwritten. The
+local progress record is intentionally consolidated rather than queued as an
+obsolete report.
+
+ACTIONS: The non-blocking progress policy was committed/pushed as
+`cbd2e79562872785569a5829634dbbd216f7eee2`. A narrow current-observation test
+evidence refresh fix was validated, committed/pushed as
+`cd2a7fad0d39d4461e3d88b2ffee86b3546ed764`, then the server reloaded and the
+same persisted Day 1 resumed without reset, restart-from-scratch, reselect, or
+state-file editing.
+
+RESULT: `test_result` was collected for the current observation and Day 1 is
+`COMPLETE`: all four criteria are satisfied, remaining gaps are empty, and the
+blocker is null. LocalLLM invocations: 0. ResearchRuns: none. The next action
+is selection of a later Day only when separately authorized; automatic Day
+advance remains forbidden.
+
+### CHG-041 Day 1 completion report pending — 2026-09-23 JST
+
+REPORT_TYPE: `COMPLETION_REPORT`
+
+COMPLETED_DAY: 1
+FINAL_STATE: `COMPLETE`
+CRITERIA_SATISFIED: 4 / 4
+VALIDATION: d1-regression-baseline `61 passed / 0 failed`; current-observation
+test evidence exit code 0.
+LOCAL_LLM_INVOCATIONS: 0
+RESEARCH_RUNS: none
+EVIDENCE: all Day 1 criteria satisfied; remaining gaps empty; no reset,
+reselect, or state-file edit.
+COMMITS: policy `cbd2e79562872785569a5829634dbbd216f7eee2`; test-refresh fix
+`cd2a7fad0d39d4461e3d88b2ffee86b3546ed764`.
+REMOTE_MATCH: yes
+MAIN_UNCHANGED: yes
+RESET_OR_RESELECT: no
+HISTORY_UPDATED: yes
+REVIEWER_POST_PENDING: yes — an unsent user composer draft is preserved.
+NEXT_DAY: none; Day 2 must not start.
+NEXT_ACTION_AFTER_REVIEW: send this non-omissible completion report when the
+composer is available, read the reviewer response, then determine the next
+major action.
+
+### CHG-042 Day 1 independent quality-review comparison — 2026-09-23 JST
+
+REPORT_TYPE: `DECISION_REQUEST`
+
+DAY1_ARTIFACTS_REVIEWED: architecture, handoff, process-consistency review
+configuration, and frozen baseline/evidence packet; controller/debug artifacts
+excluded. Codex independently recorded 0 Critical, 2 Major, and 1 Minor
+grounded findings in `state/task-artifacts/day1-codex-business-quality-review.md`.
+
+LOCAL_LLM: one blind `phi4:14b` run received only the same packet, with 4096
+context and 512 output cap. GPU residency was observed, but the automation
+transport returned no model response, token counts, or duration fields. The
+result was not reconstructed or rerun. Therefore coverage, false positives,
+hallucinations, evidence quality, severity judgment, actionability, and
+information integration are `not evaluable`.
+
+DECISION: Local LLM is not suitable for primary review on this evidence because
+the required output and observability could not be assessed. Continue Codex
+review; treat the observability failure as evaluation evidence. The full
+comparison is saved under `state/task-artifacts/day1-quality-review-comparison.md`.
+Day 2 was not started. REVIEWER_POST_PENDING: yes because the user composer
+draft remains protected. NEXT ACTION: send this DECISION_REQUEST when the
+composer is available, read the response, then determine the next major action.
+
+### CHG-043 blocking-report delivery fallback — 2026-09-23 JST
+
+PERMANENT POLICY: When a `DECISION_REQUEST` or `COMPLETION_REPORT` cannot be
+posted because an unsent user composer draft must be preserved, the complete
+report is displayed in the Codex user-facing output with
+`REVIEWER_POST_PENDING: yes`. It is not left only in local history/artifacts;
+execution remains stopped until reviewer response. Ordinary progress reports
+remain non-blocking and may be consolidated.
+
+### CHG-044 Day 1 Local LLM blind review V2 — 2026-09-23 JST
+
+LATEST REVIEWER RESPONSE READ: yes. Applied instruction: run exactly one
+additional blind `phi4:14b` review with the unchanged Day 1 input packet,
+without Codex findings, and retain response/metrics before comparison.
+
+ACTIONS: The original V1 response persistence defect was first diagnosed as a
+successful Ollama HTTP 200 generation whose tool-output capture was lost; it
+was not an inference timeout, transport timeout, or model/runtime failure. V2
+used the same model, endpoint, packet, 4096 context, and 512-token cap. It
+completed successfully in 22.099 seconds with 957 prompt and 512 generated
+tokens, `done=true`, and `done_reason=length`. The returned final response and
+metadata are retained in
+`state/task-artifacts/day1-local-llm-quality-review-v2.md`; the blind
+comparison is retained in `state/task-artifacts/day1-quality-review-comparison-v2.md`.
+
+RESULT: Codex Major-finding coverage was 0 / 2 (0%). The Local LLM supplied no
+explicit invented facts but made two weak/overreaching findings, missed the
+dirty-worktree/frozen-baseline and v0.4/v0.5/Day 2 version-boundary risks, and
+ended at the configured output cap. It is not suitable as primary Day-output
+reviewer for this fixed condition; retain Codex/reviewer review. Day 2 was not
+started. NEXT ACTION: submit the complete `DECISION_REQUEST` with this V2
+comparison, read the reviewer response, and only then determine whether Day 2
+may begin.
+
+### CHG-045 Day 2 authorized v0.4 action-gate execution — 2026-09-23 JST
+
+LATEST REVIEWER RESPONSE READ: yes. Applied authorization: Day 2 may start;
+the initial Day 2 `PROGRESS_UPDATE` is non-blocking. The report was sent before
+execution and did not invalidate the start authorization.
+
+START CONTEXT: Day 1 frozen comparison source is
+`refs/heads/ai-control-center/day1-baseline-374457d3d5795395` at
+`374457d3d579539549df0936e3c96a47c9a1a319`, tree
+`8387ec4e7399cfd1a33c2eaebb2f352259e36727`. The dirty LocalLLM-Lab worktree
+was not treated as baseline. The prior Day Runner retained-evidence resolver
+immediately marked the contract complete but made no current action attempt;
+that did not satisfy the reviewer-required actual LocalLLM execution.
+
+ACTIONS: Ran one fixed-condition v0.4 LocalLLM experiment, without Codex
+findings, prompt tuning, condition change, or retry:
+`DRAP-20260923T142237-220f9467`. `phi4:14b` used the pinned v0.4
+configuration: temperature 0, seed 42, context 4096, 240-second timeout,
+1024-token caps, serial execution, retry false, and thinking false. Manifest:
+`COMPLETED`, 9 planned / 9 reported calls; stage metrics preserve tokens,
+duration, VRAM, CPU, RAM, GPU utilization and no 1024-token truncation. Codex
+then independently ran `python -m unittest tests.test_decision_reasoning_v4
+-v`: 5 passed.
+
+EVIDENCE: `state/task-artifacts/day2-drap-v04-execution-validation.md` and the
+LocalLLM results directory retain manifest, metrics, validation, summaries and
+per-case artifacts. The feasible/relevant gate was enforced and all permitted
+actions were feasible and relevant. The model results are preserved as evidence:
+DR-001 and DR-005 plan-validation `INSUFFICIENT_INFORMATION_WITH_PLANS`, and
+DR-004 `ABSTRACTION_FALSE_POSITIVE`. This is a model-quality result, not a
+harness or controller failure; no retry, repair, prompt tuning, reset, or
+source modification was performed.
+
+UNRESOLVED RISKS CARRIED FORWARD: do not confuse the dirty working tree with
+the frozen baseline; maintain a clear v0.4/v0.5/Day 2 version ledger; define a
+future operational threshold for “practically useful” when the relevant Day
+contract requires it. These did not stop Day 2.
+
+NEXT ACTION: submit the Day 2 `COMPLETION_REPORT` with this evidence, then
+wait for reviewer response before starting any later Day.
+
+POLICY CHECKPOINT: `docs/WORKING_RULES.md` now explicitly treats a
+reviewer-authorized Day-start `PROGRESS_UPDATE` as non-blocking and preserves
+that start authorization until execution begins. Intentional policy-only commit
+`396d8fe30e892304081901bca04be7fc342679b6` was pushed; local HEAD equals
+`origin/agent/autonomous-multitask-orchestration`; `main` remains
+`b90dd63dc6d85ead478555dfa8c74e5b141f93e3`.
+
+### CHG-046 Day 3 controlled fixed-condition reconstruction — 2026-09-23 JST
+
+LATEST REVIEWER RESPONSE READ: yes. Applied instruction: reject the
+non-comparable historical v0.3.2/v0.4 table and run exactly one controlled
+current-condition pair, without retry, tuning, source change, or historical
+artifact modification.
+
+The pair is `DRAP-20260923T143652-4d8123df` (v0.3.2) and
+`DRAP-20260923T143924-8e11506d` (v0.4). Both preserve the same raw-case and
+Fact Layer hashes, fact count 23, `phi4:14b`, temperature 0, seed 42, context
+4096, retry false, 1024-token caps, and nine-call budget. The v0.4 gate is the
+only intended difference. Deterministic v0.3.2/v0.4 validation passed 34
+tests. The pair record is
+`state/task-artifacts/day3-controlled-fixed-pair-comparison.md`; it retains all
+model-quality failures and records no plan-quality, cost, or coverage
+regression for this one fixed condition.
+
+PERMANENT POLICY: `WORKING_RULES.md` now requires an
+`ARTIFACT_QUALITY_CHECK: PASS|FAIL` before any Day or major-task completion.
+The check blocks only downstream-relevant artifact inconsistency, not cosmetic
+or nice-to-have improvements. Day 3 has not yet been marked complete; its
+completion report and reviewer review remain the next boundary.
