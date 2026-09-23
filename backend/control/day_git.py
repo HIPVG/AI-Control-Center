@@ -22,7 +22,14 @@ def git(root: Path, *args: str, env=None, input=None) -> bytes:
 
 
 def generated(path: str) -> bool:
-    parts = Path(path.replace("\\", "/")).parts
+    normalized = path.replace("\\", "/")
+    if normalized.startswith("state/"):
+        return normalized != "state/.gitkeep"
+    if normalized.split("/", 1)[0] in {".pytest-debug", ".pytest-debug2"}:
+        return True
+    if normalized == "day1-failfast-output.txt":
+        return True
+    parts = Path(normalized).parts
     blocked = {"results", "artifacts", "models", "datasets", "teacher", "telemetry", "logs", "cache", "__pycache__", ".pytest_cache", ".git"}
     return any(part.lower() in blocked for part in parts) or Path(path).suffix.lower() in {".pyc", ".zip", ".gguf", ".safetensors"}
 
