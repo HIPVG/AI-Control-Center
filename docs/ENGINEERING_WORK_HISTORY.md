@@ -1635,3 +1635,19 @@ installed file has no diff against the external v1.1.1 source. `git diff
 --check` exits successfully.
 
 SCOPE: No production, test, LocalLLM-Lab, research, commit, or push change.
+
+
+## 2026-09-24 — Canonical operating-policy consolidation
+
+- Reconciled the active operating rules into `docs/WORKING_RULES.md` as the single canonical policy.
+- Removed the ambiguity that allowed blocking reviewer reports to be treated as delivered merely by showing them in Codex output.
+- Blocking `DECISION_REQUEST` / `COMPLETION_REPORT` now require direct ChatGPT delivery or successful `AI-Control-Center-Review-Bridge` publication.
+- Added the blocking-report retry policy: initial attempt plus two retries, each separated by two minutes.
+- Added verified composer-draft handling; unverifiable draft state cannot excuse skipped delivery.
+- Canonicalized a 30-minute default run window and approximately five-minute non-blocking progress reports.
+- Preserved the artifact-quality completion gate and reviewer clearance before the next Day.
+- Required full-message reading, current-policy reload, policy-context metadata, and no duplicate approval requests.
+- Updated `AGENTS.md` so Codex must reload the canonical policy before work/reviewer action.
+- Clarified `ZERO_TOUCH_CONTROL_LOOP.md`: zero-touch is a long-term target and does not bypass current reviewer blocking boundaries.
+- Documented `HIPVG/AI-Control-Center-Review-Bridge` as the formal fallback transport for blocking reviewer reports.
+- No `main` branch change was authorized or performed in AI-Control-Center.
