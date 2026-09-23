@@ -85,3 +85,82 @@ explicitly authorize a structural change; otherwise preserve the architecture.
   accepting architecture/runtime/UI conformance, independently inspect the
   governing specification, production path, and rendered UI or equivalent
   browser E2E; preserve the exact evidence and remaining gaps.
+
+## Reviewer Interaction Protocol
+
+ChatGPT reviewer interaction is a formal execution-control loop, not merely a
+progress notification. At every safe checkpoint where a `PROGRESS_UPDATE` is
+sent, execution must follow this order:
+
+1. Run the current work to a safe durable checkpoint.
+2. Send the `PROGRESS_UPDATE` to the ChatGPT reviewer.
+3. Receive and read the complete latest reviewer response.
+4. Reconcile that response with this policy, applicable current human
+   instructions, the implementation history, persisted state, and the Day
+   contract.
+5. Apply the reviewer's new authorization, restriction, or next-action
+   direction.
+6. Only then begin the next action.
+
+### Latest Reviewer Response Priority
+
+Subject to the precedence rules above, the latest ChatGPT reviewer response
+supersedes earlier reviewer instructions and the agent's own previously
+reported `NEXT_ACTION`. A `NEXT_ACTION` written in a `PROGRESS_UPDATE` is a
+proposal and status statement, not an execution authorization. It must never
+be run after a reviewer response has changed, constrained, or replaced it.
+
+### Mandatory Read Before Continue
+
+After a `PROGRESS_UPDATE`, do not begin another action until the latest
+reviewer response has been read and applied. A reviewer may explicitly authorize
+continuous execution across several named actions; only that stated scope may
+continue without another reviewer wait.
+
+### No Duplicate Approval Requests
+
+Before requesting approval, inspect the latest reviewer response and relevant
+history. Do not request the same approval again when its conditions and scope
+are unchanged, including approved source scope, bounded recovery authority,
+read-only inclusion, normal commit/push, or runtime resume. Seek new approval
+only when the planned action materially exceeds the existing authorization.
+
+## Progress-First Execution
+
+Prioritize Day and task progress over nonessential completeness when no material
+risk exists. Nice-to-have regression tests, minor edge cases, known warnings,
+naming or comment improvements, unrelated refactoring, exhaustive coverage,
+and speculative future cases are not normally stop conditions.
+
+Escalate to the reviewer or human only for a new product or business decision,
+new source/write authority, destructive state change, reset/restart/reselect,
+main-branch modification, evidence or history loss risk, unknown fatal failure,
+security/compliance decision, or a recovery that requires direct persisted-state
+editing.
+
+## Mandatory Context Load
+
+At the start of every autonomous or Day run, read in this order:
+
+1. The latest ChatGPT reviewer response.
+2. This working-rules document.
+3. Relevant execution history.
+4. Persisted state.
+5. The Day contract.
+6. The immediately preceding `NEXT_ACTION`.
+
+Do not begin work without reading the latest reviewer response.
+
+## Progress Update Metadata and History
+
+Every `PROGRESS_UPDATE` must include:
+
+- `LATEST_REVIEWER_RESPONSE_READ: yes|no`
+- `REVIEWER_INSTRUCTION_APPLIED: <latest instruction applied in this run>`
+- `NEXT_ACTION_AFTER_REVIEW: <next action authorized by the latest reviewer response>`
+
+At the end of every run, append execution history that records whether the
+reviewer response was read, the reviewer instruction applied, any change from
+the prior `NEXT_ACTION`, new authorization or restriction, actions actually
+run, blocker, and next action. This record must make it possible to detect and
+prevent execution of an outdated `NEXT_ACTION` without reviewer review.
