@@ -29,11 +29,12 @@ line or on an old `NEXT_ACTION`; read and apply the complete latest reviewer res
 Follow `docs/WORKING_RULES.md` exactly. In particular:
 
 - Keep reviewer-facing reports concise and delta-only. Do not repeat unchanged context or duplicate a report. Use compact policy context when unchanged.
+- The 2-minute transport cadence is not the progress-report cadence: target progress reports at about 5 minutes (effective up to about 6 minutes under a 2-minute checker), while blocking reports are eligible immediately on the next transport check.
 - Every reviewer-facing report must include the mandatory anti-overreach `REVIEWER_GUIDANCE` from `docs/WORKING_RULES.md`, instructing the reviewer to issue only minimum-sufficient, result-oriented next actions and to avoid broader work merely because it is possible.
 
 - Every new reviewer-facing report starts with a direct ChatGPT delivery attempt. Review-Bridge is never the first choice and must not be prepared/pushed before the direct path is attempted for that report, except to protect a verified non-empty editable-buffer draft as defined by policy.
 
-- `PROGRESS_UPDATE` is emitted about every 2 minutes during active work. If it is successfully delivered, pause at the safe checkpoint and wait for reviewer guidance; if delivery fails, continue within existing authority and retry at the next 2-minute checkpoint.
+- `PROGRESS_UPDATE` is nominally due about every 5 minutes during active work. A separate deterministic report/instruction task may check about every 2 minutes, so periodic reports may effectively arrive at up to about 6-minute intervals. If a progress report is successfully delivered, pause at the safe checkpoint and wait for reviewer guidance; if delivery fails, continue within existing authority and retry at the next 2-minute transport check.
 - `DECISION_REQUEST` and `COMPLETION_REPORT` are blocking.
 - Blocking reports should be delivered directly to ChatGPT. Review-Bridge is only an
   audit/relay fallback and does not wake ChatGPT or imply reviewer receipt.
