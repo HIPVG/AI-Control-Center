@@ -164,6 +164,7 @@ class ControlCenterEngine:
                 state_root=project_root / "state" / "external-review",
                 config=load_external_review_config(project_root / "config" / "external-review.json"),
             ),
+            approved_day_one_snapshot_paths=frozenset({"conftest.py"}),
         )
         self.day_action_executor = DayActionExecutor(self)
 

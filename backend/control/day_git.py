@@ -34,10 +34,12 @@ def generated(path: str) -> bool:
     return any(part.lower() in blocked for part in parts) or Path(path).suffix.lower() in {".pyc", ".zip", ".gguf", ".safetensors"}
 
 
-def approved(path: str) -> bool:
+def approved(path: str, extra_read_only_paths: frozenset[str] = frozenset()) -> bool:
     normalized = path.replace("\\", "/")
     if generated(normalized) or any(s in normalized.lower() for s in (".env", "credential", "secret", "private_key")):
         return False
+    if normalized in extra_read_only_paths:
+        return True
     return (normalized.startswith(("src/", "backend/", "scripts/", "tests/", "config/", "docs/", "schemas/"))
             and Path(path).suffix.lower() in {".py", ".json", ".yaml", ".yml", ".md", ".toml", ".txt"}
             or normalized in {".gitignore", "README.md", "requirements.txt", "pyproject.toml", "pytest.ini"})
@@ -47,10 +49,10 @@ def files(root: Path) -> list[str]:
     return sorted(set(git(root, "ls-files", "-z", "--cached", "--others", "--exclude-standard").decode("utf-8").strip("\0").split("\0")) - {""})
 
 
-def fingerprint(root: Path) -> str:
+def fingerprint(root: Path, extra_read_only_paths: frozenset[str] = frozenset()) -> str:
     values = []
     for relative in files(root):
-        if not approved(relative):
+        if not approved(relative, extra_read_only_paths):
             continue
         path = root / relative
         if path.is_symlink() or not path.resolve().is_relative_to(root.resolve()):
@@ -60,7 +62,13 @@ def fingerprint(root: Path) -> str:
     return hashlib.sha256(json.dumps([head, values], sort_keys=True).encode()).hexdigest()
 
 
-def checkpoint(root: Path) -> dict:
+def unsafe_paths(root: Path, extra_read_only_paths: frozenset[str] = frozenset()) -> list[str]:
+    changes = set(git(root, "diff", "HEAD", "--name-only", "-z").decode().strip("\0").split("\0")) - {""}
+    changes.update(git(root, "ls-files", "--others", "--exclude-standard", "-z").decode().strip("\0").split("\0"))
+    return sorted(path for path in changes if path and not approved(path, extra_read_only_paths) and not generated(path))
+
+
+def checkpoint(root: Path, extra_read_only_paths: frozenset[str] = frozenset()) -> dict:
     head = git(root, "rev-parse", "HEAD").decode().strip()
     branch = git(root, "symbolic-ref", "HEAD").decode().strip()
     status = git(root, "status", "--porcelain=v1", "-z", "-uall")
@@ -69,12 +77,10 @@ def checkpoint(root: Path) -> dict:
         index = root / index
     original_index = index.read_bytes() if index.exists() else None
     all_paths = files(root)
-    changes = set(git(root, "diff", "HEAD", "--name-only", "-z").decode().strip("\0").split("\0")) - {""}
-    changes.update(git(root, "ls-files", "--others", "--exclude-standard", "-z").decode().strip("\0").split("\0"))
-    unsafe = sorted(path for path in changes if path and not approved(path) and not generated(path))
+    unsafe = unsafe_paths(root, extra_read_only_paths)
     if unsafe:
         return {"authority_required": "UNAPPROVED_SOURCE_PATHS", "paths": unsafe}
-    before = fingerprint(root)
+    before = fingerprint(root, extra_read_only_paths)
     temporary_index = index.parent / f"acc-day1-{uuid4().hex}.index"
     env = {**os.environ, "GIT_INDEX_FILE": str(temporary_index), "GIT_OPTIONAL_LOCKS": "0"}
     try:
@@ -84,7 +90,7 @@ def checkpoint(root: Path) -> dict:
         protected = [path for path in all_paths if generated(path)]
         for path in protected:
             git(root, "update-index", "--force-remove", "--", path, env=env)
-        selected = [path for path in all_paths if approved(path)]
+        selected = [path for path in all_paths if approved(path, extra_read_only_paths)]
         if selected:
             git(root, "add", "-A", "--", *selected, env=env)
         tree = git(root, "write-tree", env=env).decode().strip()
@@ -102,7 +108,7 @@ def checkpoint(root: Path) -> dict:
                     raise GitSafetyError("CHECKPOINT_SOURCE_MISMATCH")
             elif listing:
                 raise GitSafetyError("CHECKPOINT_DELETION_MISMATCH")
-        if fingerprint(root) != before:
+        if fingerprint(root, extra_read_only_paths) != before:
             raise GitSafetyError("SOURCE_CHANGED_DURING_CHECKPOINT")
         commit = git(root, "commit-tree", tree, "-p", head, "-m", "Day 1 baseline checkpoint", env=env).decode().strip()
         ref = f"refs/heads/ai-control-center/day1-baseline-{commit[:16]}"

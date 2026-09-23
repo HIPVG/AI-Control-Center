@@ -61,6 +61,16 @@ def test_checkpoint_rejects_an_unapproved_non_generated_root_path(tmp_path):
     }
 
 
+def test_checkpoint_allows_only_explicit_read_only_extra_path(tmp_path):
+    root = repository(tmp_path)
+    write(root, "conftest.py", "pytest_plugins = []\n")
+
+    assert day_git.unsafe_paths(root, frozenset({"conftest.py"})) == []
+    result = day_git.checkpoint(root, frozenset({"conftest.py"}))
+    assert result["is_commit"] is True
+    assert "conftest.py" in result["approved_paths"]
+
+
 def test_checkpoint_excludes_generated_artifacts_without_changing_user_git_state(tmp_path):
     root = repository(tmp_path)
     write(root, "backend/source.py", "staged = True\n")

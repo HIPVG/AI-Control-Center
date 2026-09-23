@@ -27,7 +27,7 @@ from backend.control.local_ollama_repair import LocalOllamaRepairBuilder
 from backend.control.evidence_registry import REGISTRY, EvidenceRegistry
 from backend.control.day_action_registry import ExecutionMode, STRATEGIES, assert_coverage
 from backend.control.day_state_machine import ACTIVE, AUTHORITY, validate_transition
-from backend.control.day_git import checkpoint, fingerprint as git_fingerprint, GitSafetyError
+from backend.control.day_git import checkpoint, fingerprint as git_fingerprint, unsafe_paths, GitSafetyError
 from backend.control.retained_evidence import RetainedEvidenceResolver
 from backend.control.solution_catalog import RepairEpisodeStore, SolutionCatalog, SolutionCatalogEntry
 from backend.control.external_review import ExternalReviewCoordinator
@@ -93,6 +93,7 @@ class LocalLLMDayProgram:
         repair_episode_store: RepairEpisodeStore | None = None,
         external_review: ExternalReviewCoordinator | None = None,
         retained_evidence_resolver: RetainedEvidenceResolver | None = None,
+        approved_day_one_snapshot_paths: frozenset[str] = frozenset(),
         clock: Callable[[], float] = time.time,
         project_id: str = "local_llm_lab",
     ) -> None:
@@ -108,6 +109,7 @@ class LocalLLMDayProgram:
         self.external_review = external_review or ExternalReviewCoordinator(self.root)
         self.retained_evidence_resolver = retained_evidence_resolver or RetainedEvidenceResolver(self.root)
         self.clock, self.project_id, self.evidence_registry = clock, project_id, REGISTRY
+        self.approved_day_one_snapshot_paths = approved_day_one_snapshot_paths
         # The contract is the denominator.  Both registries must cover it at
         # construction time, before a browser can start a Day.
         self._assert_registry_conformance()
@@ -156,6 +158,10 @@ class LocalLLMDayProgram:
         if blocker.resolution_strategy == "AUTHORITATIVE_SOURCES":
             return not inventory["missing_sources"]
         if blocker.resolution_strategy == "RETAINED_EVIDENCE" and blocker.evidence_type:
+            if (contract.day == 1 and blocker.reason_code == "UNAPPROVED_SOURCE_PATHS"
+                    and blocker.action_template_id == "D1_BASELINE_CHECKPOINT_V2"
+                    and self.approved_day_one_snapshot_paths):
+                return not unsafe_paths(self.root, self.approved_day_one_snapshot_paths)
             record = inventory.get("retained_evidence", {}).get(blocker.evidence_type)
             return self.evidence_registry.validate(blocker.evidence_type, record)
         if blocker.resolution_strategy == "EXTERNAL_REVIEW_PREREQUISITE":
@@ -836,17 +842,29 @@ class LocalLLMDayProgram:
         attempted = {item.action_fingerprint for item in self.snapshot.action_attempts}
         for diagnosis in diagnoses:
             strategy = STRATEGIES[(self.snapshot.contract.day, diagnosis.evidence_type)] if self.snapshot.contract and diagnosis.evidence_type else None
-            if strategy is None or strategy.template is None or diagnosis.action_fingerprint in attempted:
+            authorized_scope_retry = self._authorized_day_one_scope_retry(diagnosis, strategy)
+            if strategy is None or strategy.template is None or (diagnosis.action_fingerprint in attempted and not authorized_scope_retry):
                 continue
             # A prerequisite is never produced by automatically running its Day.
             if any(any(gap.evidence_type == name for gap in diagnoses) for name in strategy.template.input_evidence_types):
                 continue
-            if any(attempt.action_template_id == strategy.template.template_id
+            if not authorized_scope_retry and any(attempt.action_template_id == strategy.template.template_id
                    and attempt.input_fingerprint == diagnosis.input_fingerprint
                    for attempt in self.snapshot.action_attempts):
                 continue
             candidates.append((priority[strategy.template.execution_mode], strategy.strategy_id, diagnosis.criterion_id, diagnosis))
         return sorted(candidates, key=lambda item: item[:3])[0][3] if candidates else None
+
+    def _authorized_day_one_scope_retry(self, diagnosis: GapDiagnosis, strategy) -> bool:
+        if (not strategy or not strategy.template or self.snapshot.selected_day != 1
+                or strategy.template.template_id != "D1_BASELINE_CHECKPOINT_V2"
+                or diagnosis.evidence_type != "commit_ref" or not self.approved_day_one_snapshot_paths
+                or unsafe_paths(self.root, self.approved_day_one_snapshot_paths)):
+            return False
+        return any(attempt.action_template_id == "D1_BASELINE_CHECKPOINT_V2"
+                   and attempt.outcome == "HUMAN_ACTION_REQUIRED"
+                   and attempt.failure_reason == "UNAPPROVED_SOURCE_PATHS"
+                   for attempt in self.snapshot.action_attempts)
 
     def _route_observed_gap(self, contract, inventory, diagnosis):
         """Repair an observed adapter/work defect, never retry an unchanged action.
@@ -1391,7 +1409,7 @@ class LocalLLMDayProgram:
         return {"final_result": "COMPLETE", "evidence": evidence, "collection": "day1_deterministic"}
 
     def _create_day_one_baseline_checkpoint(self, contract: LocalLLMDayContract) -> dict[str, object]:
-        value = checkpoint(self.root)
+        value = checkpoint(self.root, self.approved_day_one_snapshot_paths)
         if value.get("authority_required"):
             return {"final_result": "HUMAN_ACTION_REQUIRED", "issue_classification": "HUMAN_PRODUCT_DECISION_REQUIRED",
                     "error_code": value["authority_required"], "reason": "Approved source scope cannot be identified safely."}
