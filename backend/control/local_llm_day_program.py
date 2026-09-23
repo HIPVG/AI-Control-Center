@@ -48,6 +48,7 @@ from backend.models.local_llm_day import (
     RepairProposalAttempt,
     LocalLLMWorkItemState,
 )
+from backend.models.audit import AuditEventType
 
 
 Planner = Callable[[LocalLLMDayContract, dict[str, object]], list[LocalLLMDayWorkItem]]
@@ -71,6 +72,11 @@ class LocalLLMDayProgram:
         "OPENAI_AUTHENTICATION_FAILED", "OPENAI_QUOTA_OR_RATE_LIMIT",
         "OPENAI_MODEL_ACCESS", "OPENAI_TIMEOUT", "OPENAI_RESPONSES_UNAVAILABLE",
     })
+    KNOWN_INFRASTRUCTURE_RECOVERY_EVENT = "AUTHORITY_BLOCKER_REPLACED_BY_REGISTERED_RETRY"
+    KNOWN_INFRASTRUCTURE_RECOVERY_FAILURE = (
+        "Controller cannot safely continue: ValueError: "
+        "'AUTHORITY_BLOCKER_REPLACED_BY_REGISTERED_RETRY' is not a valid AuditEventType"
+    )
 
     def __init__(
         self,
@@ -190,6 +196,26 @@ class LocalLLMDayProgram:
             return False
         return self._select_registered_action([diagnosis]) is not None
 
+    def _known_infrastructure_recovery_available(self) -> bool:
+        """Permit only the audited Day 1 failure caused by the fixed audit enum omission."""
+        blocker = self.snapshot.authority_blocker
+        if (self.snapshot.selected_day != 1 or self.snapshot.state != LocalLLMDayState.FAILED_UNRECOVERABLE
+                or self.snapshot.activity != self.KNOWN_INFRASTRUCTURE_RECOVERY_FAILURE
+                or self.snapshot.baseline_checkpoint is not None or self.snapshot.contract is None
+                or self.snapshot.contract.day != 1 or blocker is None
+                or blocker.action_template_id != "D1_BASELINE_CHECKPOINT"):
+            return False
+        if self.KNOWN_INFRASTRUCTURE_RECOVERY_EVENT not in AuditEventType._value2member_map_:
+            return False
+        if any(attempt.action_template_id == "D1_BASELINE_CHECKPOINT_V2"
+               for attempt in self.snapshot.action_attempts):
+            return False
+        if any(record.day == 1 and record.evidence_type == "commit_ref" and record.validator_result
+               for record in self.snapshot.evidence_store.values()):
+            return False
+        return any(attempt.action_template_id == "D1_BASELINE_CHECKPOINT"
+                   for attempt in self.snapshot.action_attempts)
+
     def _repair_resumable(self) -> bool:
         if self.snapshot.state != LocalLLMDayState.PAUSED or not self.snapshot.contract:
             return False
@@ -247,7 +273,8 @@ class LocalLLMDayProgram:
         repair = self._repair_resumable()
         return {"go": state == LocalLLMDayState.IDLE,
                 "smoke": state == LocalLLMDayState.IDLE,
-                "resume": (state in {LocalLLMDayState.PAUSED, LocalLLMDayState.STOPPED} and not repair)
+                "resume": self._known_infrastructure_recovery_available()
+                          or (state in {LocalLLMDayState.PAUSED, LocalLLMDayState.STOPPED} and not repair)
                           or (state in AUTHORITY and (self._blocker_resolved()
                               or self._external_review_operator_resume_episode() is not None)),
                 "repair_and_go": repair, "stop": state in ACTIVE,
@@ -328,11 +355,25 @@ class LocalLLMDayProgram:
 
     def resume(self) -> dict[str, object]:
         with self._lock:
+            infrastructure_recovery = self._known_infrastructure_recovery_available()
             if self.snapshot.selected_day is None or self.snapshot.state not in {
                 LocalLLMDayState.PAUSED, LocalLLMDayState.STOPPED,
                 LocalLLMDayState.HUMAN_ACTION_REQUIRED, LocalLLMDayState.EXTERNAL_ACTION_REQUIRED,
-            }:
+            } and not infrastructure_recovery:
                 return {"error_code": "DAY_NOT_RESUMABLE", **self.view()}
+            if infrastructure_recovery:
+                day = self.snapshot.selected_day
+                self._audit("LOCAL_LLM_DAY_STARTED", {
+                    "day": day, "resume_mode": "AUTHORIZED_INFRASTRUCTURE_RECOVERY",
+                    "prior_state": LocalLLMDayState.FAILED_UNRECOVERABLE.value,
+                    "prior_failure": self.snapshot.activity,
+                })
+                self._transition(LocalLLMDayState.PREFLIGHT)
+                self._stop.clear()
+                self._save()
+                self._thread = Thread(target=self._execute, name=f"local-llm-day-{day}-infrastructure-recovery", daemon=True)
+                self._thread.start()
+                return self.view()
             operator_episode = self._external_review_operator_resume_episode()
             if self.snapshot.state in AUTHORITY and operator_episode is not None:
                 self._begin_external_review_operator_resume(operator_episode)

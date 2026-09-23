@@ -1005,6 +1005,37 @@ def test_failed_unrecoverable_snapshot_remains_non_resumable():
     assert restored.resume()["error_code"] == "DAY_NOT_RESUMABLE"
 
 
+def test_exact_day_one_audit_enum_failure_recovers_without_mutating_v1_history_or_evidence():
+    runner = _legacy_day_one_blocker_runner()
+    runner.snapshot.state = LocalLLMDayState.FAILED_UNRECOVERABLE
+    runner.snapshot.phase = LocalLLMDayState.FAILED_UNRECOVERABLE.value
+    runner.snapshot.activity = runner.KNOWN_INFRASTRUCTURE_RECOVERY_FAILURE
+    before_attempts = [item.model_dump(mode="json") for item in runner.snapshot.action_attempts]
+    before_evidence = {key: value.model_dump(mode="json") for key, value in runner.snapshot.evidence_store.items()}
+    audit = []
+    runner.audit = lambda task_id, event, details: audit.append((task_id, event, details))
+    runner._execute = lambda: None
+
+    result = runner.resume()
+    runner.join(3)
+
+    assert result["state"] == LocalLLMDayState.PREFLIGHT.value
+    assert runner.snapshot.state == LocalLLMDayState.PREFLIGHT
+    assert [item.model_dump(mode="json") for item in runner.snapshot.action_attempts] == before_attempts
+    assert {key: value.model_dump(mode="json") for key, value in runner.snapshot.evidence_store.items()} == before_evidence
+    assert audit[-1][1] == "LOCAL_LLM_DAY_STARTED"
+    assert audit[-1][2]["resume_mode"] == "AUTHORIZED_INFRASTRUCTURE_RECOVERY"
+
+
+def test_unknown_failed_unrecoverable_remains_non_resumable():
+    runner = _legacy_day_one_blocker_runner()
+    runner.snapshot.state = LocalLLMDayState.FAILED_UNRECOVERABLE
+    runner.snapshot.activity = "Controller cannot safely continue: ValueError: unknown"
+
+    assert runner._known_infrastructure_recovery_available() is False
+    assert runner.resume()["error_code"] == "DAY_NOT_RESUMABLE"
+
+
 def test_same_day_valid_incomplete_evidence_survives_restart():
     runner = LocalLLMDayProgram(FIXTURE_ROOT)
     runner.smoke(6)
