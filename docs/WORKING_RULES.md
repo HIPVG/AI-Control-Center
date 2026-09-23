@@ -240,6 +240,47 @@ resolved or escalated. Naming, comments, nice-to-have tests, minor formatting,
 unrelated refactoring, and defects that cannot affect downstream use are not
 quality-gate failures.
 
+
+### Reviewer Policy Context
+
+Every reviewer-facing report (`PROGRESS_UPDATE`, `DECISION_REQUEST`, and
+`COMPLETION_REPORT`) must include a compact `REVIEW_POLICY_CONTEXT` block so
+Codex and the ChatGPT reviewer are operating from the same canonical policy.
+
+Required fields:
+
+- `CANONICAL_POLICY_REPO: HIPVG/AI-Control-Center`
+- `CANONICAL_POLICY_BRANCH: agent/autonomous-multitask-orchestration`
+- `CANONICAL_POLICY_PATH: docs/WORKING_RULES.md`
+- `POLICY_COMMIT: <current branch commit containing the policy read>`
+- `POLICY_READ_BY_CODEX: yes|no`
+- `APPLICABLE_RULES: <compact digest of rules relevant to this report>`
+- `LATEST_REVIEWER_RESPONSE_READ: yes|no`
+- `REVIEWER_INSTRUCTION_APPLIED: <latest reviewer instruction applied>`
+- `POLICY_DEVIATION: none|<explicit deviation and authority>`
+
+The digest must be short and action-oriented rather than reproducing this
+document. At minimum, when applicable, it should state that explicit current
+human instruction has highest precedence; this file is the permanent operating
+policy; `PROGRESS_UPDATE` is non-blocking; `DECISION_REQUEST` and
+`COMPLETION_REPORT` are blocking; the artifact-quality gate is mandatory before
+completion; composer state is not an execution-control signal; duplicate
+approval requests are prohibited; progress-first rules apply; and
+reset/reselect/main modification require explicit authority.
+
+If the policy commit differs from the one used for the previous reviewer-facing
+report, the report must also include:
+
+- `POLICY_CHANGED_SINCE_LAST_REVIEW: yes`
+- `POLICY_CHANGE_SUMMARY: <concise material changes>`
+
+Otherwise include `POLICY_CHANGED_SINCE_LAST_REVIEW: no`.
+
+The ChatGPT reviewer may rely on this context when the policy commit is
+unchanged. When it changed, the reviewer should re-read the canonical policy
+before issuing a decision. Codex must not omit the block merely because the
+report is otherwise non-blocking.
+
 ## Progress-First Execution
 
 Prioritize Day and task progress over nonessential completeness when no material
