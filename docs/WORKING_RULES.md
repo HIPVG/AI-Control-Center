@@ -144,41 +144,47 @@ blocking report.
 Canonical delivery channels:
 
 1. direct ChatGPT reviewer delivery when available and safe;
-2. fallback transport repository `HIPVG/AI-Control-Center-Review-Bridge` when direct
-   delivery is unavailable or unsafe.
+2. fallback archive/relay repository `HIPVG/AI-Control-Center-Review-Bridge` when direct
+   delivery is unavailable or unsafe. Review-Bridge is a dead-drop transport only;
+   ChatGPT does not automatically wake up or self-detect a new packet.
 
-For `PROGRESS_UPDATE`, delivery is best-effort. If either channel succeeds, the
-report becomes a reviewer checkpoint: pause and wait for the reviewer response before
-continuing. If both channels fail, display the full report, record the failure/pending
-status, continue within existing authority, and try delivery again at the next
-scheduled progress checkpoint.
+For `PROGRESS_UPDATE`, direct ChatGPT delivery is the only channel that creates an
+immediate reviewer checkpoint. If direct delivery succeeds, pause and actively acquire
+the reviewer response. If direct delivery fails, optionally mirror the report to
+Review-Bridge for audit/relay, but do not wait for ChatGPT to discover it; continue
+within existing authority and retry direct delivery at the next scheduled progress
+checkpoint.
 
-For `DECISION_REQUEST` and `COMPLETION_REPORT`, successful direct delivery or
-successful Review-Bridge publication is required before the report is considered
-delivered.
+For `DECISION_REQUEST` and `COMPLETION_REPORT`, direct ChatGPT delivery is preferred.
+Review-Bridge publication alone does not imply that ChatGPT has received or is
+reviewing the report. After bounded direct-delivery retries are exhausted, publish the
+full report to Review-Bridge, show the full report to the human, and stop at the safe
+checkpoint for human relay/attention.
 
 ### Blocking-report retry rule
 
-If both direct ChatGPT delivery and Review-Bridge delivery fail:
+For a blocking report, retry **direct ChatGPT delivery** up to 3 total attempts:
 
-1. record both failure results;
-2. wait 2 minutes;
-3. retry direct delivery, then Review-Bridge;
-4. if both still fail, wait another 2 minutes;
-5. retry direct delivery, then Review-Bridge a third and final time.
+1. attempt direct delivery;
+2. on failure, wait 2 minutes;
+3. attempt direct delivery again;
+4. on failure, wait another 2 minutes;
+5. make the third and final direct-delivery attempt.
 
-This is 3 total delivery attempts (initial + 2 retries). Do not stop after only one
-failed attempt.
+Do not stop after only one failed attempt. Review-Bridge is not part of this retry
+count because publishing there does not wake ChatGPT.
 
-After all 3 attempts fail, output the full report and:
+If all 3 direct attempts fail, publish the full report once to Review-Bridge as an
+audit/relay fallback, display the full report to the human, and record:
 
 - `DELIVERY_FAILED: yes`
 - `DELIVERY_ATTEMPTS: 3`
 - `DIRECT_DELIVERY_RESULTS: <all attempts>`
-- `REVIEW_BRIDGE_RESULTS: <all attempts>`
+- `REVIEW_BRIDGE_PACKET: <packet id or failure>`
 - `LAST_ERROR: <exact bounded error>`
 
-Then stop at the safe checkpoint because the blocking report could not be delivered.
+Then stop at the safe checkpoint for human relay/attention. Do not claim that reviewer
+response acquisition has started merely because a Review-Bridge packet exists.
 
 ## Composer draft handling
 
@@ -258,10 +264,10 @@ retry response acquisition once more for up to 5 minutes. Do not resend the same
 report merely because response acquisition is slow unless the reviewer channel shows
 the original delivery did not actually succeed.
 
-For Review-Bridge delivery, response acquisition uses the matching packet's
-`outbox/<packet-id>/review.md` when present. Poll about every 30 seconds for up to
-5 minutes, then repeat one additional 5-minute acquisition window before escalating
-`REVIEWER_RESPONSE_TIMEOUT` to the human. Do not invent a reviewer response.
+Review-Bridge has no autonomous response-acquisition semantics. Codex may read a
+matching `outbox/<packet-id>/review.md` only after the human/reviewer has explicitly
+caused or confirmed that a response was written there. Do not poll an empty outbox
+expecting ChatGPT to wake up by itself.
 
 A statement such as `waiting for reviewer response` is incomplete unless Codex is
 actually performing the corresponding acquisition loop or has exhausted the bounded
@@ -413,6 +419,7 @@ particular:
 - zero-touch goals do not make ChatGPT review optional at the blocking boundaries
   defined here;
 - user-facing Codex display alone does not satisfy blocking-report delivery;
+- Review-Bridge publication alone does not mean ChatGPT has received the report;
 - composer-draft protection does not excuse delivery;
 - successfully delivered progress reports pause execution until reviewer response; undelivered progress reports do not block ordinary work;
 - completion always requires artifact-quality checking and reviewer clearance before
