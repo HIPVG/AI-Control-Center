@@ -929,7 +929,13 @@ class LocalLLMDayProgram:
         self.snapshot.action_attempts.append(attempt)
         self._save()
         if strategy.template.execution_mode == ExecutionMode.READ_ONLY:
-            result = self._collect_day_one_evidence(contract, execute_tests=not any(self._evidence_record_valid("test_result", record) for record in self.snapshot.evidence_store.values())) if contract.day == 1 else self.work_order_executor({"kind": "DAY_ACTION_TEMPLATE", "strategy_id": strategy.strategy_id, "day": contract.day})
+            has_current_test_result = any(
+                record.day == 1 and record.evidence_type == "test_result"
+                and record.observation_fingerprint == self._inventory_fingerprint(inventory)
+                and self._evidence_record_valid("test_result", record)
+                for record in self.snapshot.evidence_store.values()
+            )
+            result = self._collect_day_one_evidence(contract, execute_tests=not has_current_test_result) if contract.day == 1 else self.work_order_executor({"kind": "DAY_ACTION_TEMPLATE", "strategy_id": strategy.strategy_id, "day": contract.day})
         elif strategy.template.execution_mode == ExecutionMode.BASELINE_CHECKPOINT:
             result = self._create_day_one_baseline_checkpoint(contract)
         else:
