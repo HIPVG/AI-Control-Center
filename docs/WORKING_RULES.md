@@ -175,16 +175,49 @@ An unsent ChatGPT composer draft must never be overwritten, deleted, or edited.
 However, composer state is not itself an execution-control signal and must never be
 used as an excuse to omit reviewer delivery.
 
-Codex may claim `COMPOSER_DRAFT_DETECTED: yes` only when it has a concrete verified
-observation. When used to skip a direct-post attempt, the report/log must include:
+### Draft detection must inspect the actual editable buffer
+
+Codex may claim `COMPOSER_DRAFT_DETECTED: yes` only when the actual user-editable
+composer buffer contains non-whitespace user text.
+
+Acceptable evidence is a direct read of the editable value itself, for example the
+actual `.value` of an input/textarea or the actual text/content model of a
+`contenteditable` editor. The observation must distinguish real editable content
+from presentation metadata.
+
+The following are **not evidence of a draft** and must never be used to infer one:
+
+- placeholder text, including text rendered inside or over the composer;
+- `placeholder`, `data-placeholder`, `aria-label`, accessible name, title, or
+  similar attributes;
+- ghost text, suggestions, example prompts, follow-up labels, or quick-reply UI;
+- nearby status text or buttons such as generation/progress indicators;
+- the mere presence of a composer element;
+- the fact that ChatGPT is currently generating a response.
+
+A visible string such as `フォローアップ` is not a draft unless it is verified to
+exist in the actual editable buffer.
+
+When reporting a verified draft, include:
 
 - `COMPOSER_DRAFT_DETECTED: yes`
-- `DETECTION_METHOD: <how it was verified>`
+- `DETECTION_METHOD: <exact editable-buffer observation>`
+- `DETECTED_DRAFT_LENGTH: <character count after trimming>`
 - `DETECTION_TIMESTAMP: <timestamp>`
 
-If the state cannot be verified, record `COMPOSER_DRAFT_DETECTED: unknown`; `unknown`
-is not permission to skip delivery. A verified draft may cause direct delivery to be
-skipped to protect the draft, but Review-Bridge delivery must still be attempted.
+Do not include or expose the draft text itself unless the human explicitly requests
+it.
+
+If Codex cannot distinguish real editable content from placeholder/UI state, record
+`COMPOSER_DRAFT_DETECTED: unknown`, never `yes`. `unknown` is not permission to
+skip reviewer delivery.
+
+A verified non-empty draft may cause direct delivery to be skipped only to avoid
+overwriting that buffer; Review-Bridge delivery must still be attempted immediately.
+A placeholder, UI label, or unverified state never justifies skipping direct delivery.
+
+Any false-positive claim that a placeholder/UI label was a draft is a
+`REPORTING_PROTOCOL_FAILURE` and must be recorded in engineering history.
 
 `REVIEWER_POST_PENDING: yes` is informational only. It never satisfies delivery of
 a blocking report.
