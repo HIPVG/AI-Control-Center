@@ -88,14 +88,38 @@ action, or LocalLLM invocation.
 
 Unless the human specifies otherwise, an autonomous work window is 30 minutes.
 
-- Emit a reviewer-facing `PROGRESS_UPDATE` about every 2 minutes during active work,
-  even if no major event occurred.
+- Target a reviewer-facing `PROGRESS_UPDATE` about every 5 minutes during active work,
+  even if no major event occurred. A separate report/instruction transport task checks
+  about every 2 minutes; therefore a 5-minute periodic report becomes due on the first
+  2-minute check after the threshold, giving an effective periodic interval of up to
+  about 6 minutes. This is intentional.
 - `PROGRESS_UPDATE` is a reviewer checkpoint: if delivery succeeds, pause at the safe checkpoint and wait for the reviewer response before continuing; if delivery cannot be completed, continue within existing authority and try again at the next scheduled report.
 - At about 25 minutes, avoid starting a new large investigation or redesign; prefer
   evidence preservation, commit/push when appropriate, history update, and a safe
   checkpoint.
 - Internal DoD reassessment may happen more often; periodic reporting is not a
   substitute for real execution.
+
+### Two-minute report/instruction transport cadence
+
+A deterministic local transport/fetch task may run about every 2 minutes. Its job is
+to:
+- detect whether a periodic progress report is due;
+- deliver any pending reviewer-facing report;
+- fetch/apply any available reviewer instruction/response.
+
+The 2-minute transport cadence is **not** the PROGRESS_UPDATE cadence. Do not emit a
+full progress report every 2 minutes merely because the transport task runs every 2
+minutes.
+
+Periodic progress remains nominally 5 minutes. With a 2-minute checker, the first
+eligible check after 5 minutes may occur at approximately minute 6, so the effective
+periodic reporting gap is bounded to about 6 minutes.
+
+Do not wait for the periodic threshold when a blocking event occurs. A
+`DECISION_REQUEST`, `COMPLETION_REPORT`, or material authority/safety blocker becomes
+eligible for delivery immediately and should be handled on the next 2-minute transport
+check.
 
 ## Reviewer report types
 
