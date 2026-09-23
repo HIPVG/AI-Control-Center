@@ -33,7 +33,7 @@ Follow `docs/WORKING_RULES.md` exactly. In particular:
 
 - Every new reviewer-facing report starts with a direct ChatGPT delivery attempt. Review-Bridge is never the first choice and must not be prepared/pushed before the direct path is attempted for that report, except to protect a verified non-empty editable-buffer draft as defined by policy.
 
-- `PROGRESS_UPDATE` is emitted about every 5 minutes during active work. If it is successfully delivered, pause at the safe checkpoint and wait for reviewer guidance; if delivery fails, continue within existing authority and retry at the next checkpoint.
+- `PROGRESS_UPDATE` is emitted about every 2 minutes during active work. If it is successfully delivered, pause at the safe checkpoint and wait for reviewer guidance; if delivery fails, continue within existing authority and retry at the next 2-minute checkpoint.
 - `DECISION_REQUEST` and `COMPLETION_REPORT` are blocking.
 - Blocking reports should be delivered directly to ChatGPT. Review-Bridge is only an
   audit/relay fallback and does not wake ChatGPT or imply reviewer receipt.
