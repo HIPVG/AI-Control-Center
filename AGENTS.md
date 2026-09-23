@@ -32,7 +32,7 @@ Follow `docs/WORKING_RULES.md` exactly. In particular:
 - `DECISION_REQUEST` and `COMPLETION_REPORT` are blocking.
 - Blocking reports should be delivered directly to ChatGPT. Review-Bridge is only an
   audit/relay fallback and does not wake ChatGPT or imply reviewer receipt.
-- For blocking reports, retry direct ChatGPT delivery three times total with two-minute waits; if all fail, publish once to Review-Bridge, show the report to the human, and stop for relay/attention.
+- For blocking reports, allow up to three direct-delivery opportunities with two-minute waits. A verified composer draft means re-check later, not immediate Review-Bridge fallback. Use Review-Bridge once only after the three direct opportunities are exhausted; do not retry Review-Bridge as a ChatGPT channel.
 - Composer-draft protection never excuses reviewer delivery.
 - Completion requires `ARTIFACT_QUALITY_CHECK: PASS` and reviewer clearance before the next Day.
 - After any successfully delivered report that requires reviewer guidance, actively acquire reviewer responses using the polling loop in `docs/WORKING_RULES.md`; do not enter a passive indefinite wait.
