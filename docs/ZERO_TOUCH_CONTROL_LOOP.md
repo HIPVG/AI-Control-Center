@@ -21,7 +21,7 @@ AI Control Center
   └─ report
 ```
 
-ChatGPT remains useful as an optional strategic adviser, but must not be required as a routine bridge between Control Center and Codex.
+ChatGPT review is mandatory at the blocking reviewer boundaries defined by `docs/WORKING_RULES.md` for the current reviewer-supervised LocalLLM Day workflow. The long-term zero-touch target is to remove routine human copy/paste relay, not to bypass required `DECISION_REQUEST` or `COMPLETION_REPORT` review. Outside a reviewer-supervised workflow, ChatGPT may remain an optional strategic adviser.
 
 ## North-star outcome
 
