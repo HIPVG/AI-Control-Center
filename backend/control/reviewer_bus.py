@@ -56,6 +56,8 @@ class ReviewerBusWatcher:
         return self._resolve_executable(self.codex_executable) is not None and self._resolve_executable(self.gh_executable) is not None
 
     def start(self) -> bool:
+        if os.environ.get("PYTEST_CURRENT_TEST"):
+            return False
         if os.environ.get("AI_CONTROL_CENTER_DISABLE_REVIEWER_BUS") == "1":
             self._set_state(running=False, available=False, last_error="DISABLED_BY_ENV")
             return False
