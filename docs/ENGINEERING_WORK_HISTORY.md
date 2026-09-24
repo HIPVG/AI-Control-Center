@@ -1755,3 +1755,31 @@ The watcher depends on the local authenticated `gh` CLI and a resumable Codex ex
 
 ### RULE_PROMOTION
 docs/WORKING_RULES.md and AGENTS.md now assign response acquisition/resume to the deterministic Control Center watcher.
+
+
+## 2026-09-24 — Replace session resume with fresh reviewer continuation turn
+
+### REQUEST / INTENT
+Repair the remaining ChatGPT-to-Codex handoff after the local watcher successfully detected the matching reviewer response but `codex exec resume --last` failed.
+
+### OBSERVED INCIDENT
+The watcher reached the correct `IN_REPLY_TO: POLICY-ACK-20260924-001` response, but `codex exec ... resume --last` failed at the Codex client/session boundary. The desktop Codex state database `%USERPROFILE%\.codex\state_5.sqlite` was not a reliable unattended continuation boundary and could become read-only/blocked under the spawned execution context.
+
+### ROOT_CAUSE
+The watcher design incorrectly equated workflow continuity with resuming one existing Codex CLI/desktop session. AI Control Center already persists the authoritative workflow context in repository policy, CURRENT_WORK, engineering history, Day state, and runbooks, so session-thread continuity was unnecessary and brittle.
+
+### CHANGE
+- Replaced `codex exec resume --last` with a fresh bounded `codex exec` continuation turn.
+- The continuation prompt requires reconstruction from AGENTS, WORKING_RULES, CURRENT_WORK, relevant history, persisted state, and the active plan/runbook before applying the matching reviewer response.
+- The watcher now sets `CODEX_SQLITE_HOME` to the Control Center-managed `state/codex-sqlite` directory so reviewer continuation does not depend on the desktop Codex state database.
+- Updated focused watcher tests to assert fresh-exec semantics and isolated SQLite state.
+- Updated WORKING_RULES and AGENTS to make persisted workflow state, not Codex session state, the continuity authority.
+
+### EXPECTED_EVIDENCE
+After local sync/restart, the already-existing matching reviewer response should launch exactly one fresh Codex continuation turn, post the required policy ACK, and leave stale/mismatched responses unable to trigger continuation.
+
+### REGRESSION_PREVENTION
+Do not use desktop/CLI session-resume state as the reviewer-bus workflow authority. Reviewer continuation must remain reconstructable from deterministic persisted project state.
+
+### PLAN_STATUS
+IMPLEMENTED; local focused test + end-to-end watcher verification required after sync.
