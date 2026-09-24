@@ -1,8 +1,9 @@
-"""Deterministic GitHub reviewer-bus watcher for resuming local Codex.
+"""Deterministic GitHub reviewer-bus watcher for continuing local Codex.
 
-The GitHub Work event Task owns reviewer reasoning. This watcher only transports
-matching reviewer responses back into the most recent Codex exec session for the
-AI-Control-Center working directory.
+The GitHub Work event Task owns reviewer reasoning. This watcher transports a
+matching reviewer response into a fresh bounded Codex exec turn rooted at the
+AI-Control-Center repository. Continuity comes from persisted repo/state/history,
+not from resuming a desktop/CLI session database.
 """
 
 from __future__ import annotations
@@ -30,7 +31,7 @@ def _utc_now() -> str:
 
 
 class ReviewerBusWatcher:
-    """Poll PR #1 for one matching reviewer response and resume Codex."""
+    """Poll PR #1 for one matching reviewer response and start the continuation turn."""
 
     def __init__(
         self,
@@ -102,12 +103,12 @@ class ReviewerBusWatcher:
 
         response_id = int(response.get("id", 0) or 0)
         prompt = self._resume_prompt(report_id, str(response.get("body", "")))
-        completed = self._resume_codex(prompt)
+        completed = self._continue_codex(prompt)
         if completed.returncode != 0:
             self._set_state(
                 last_report_id=report_id,
                 last_response_comment_id=response_id,
-                last_error="CODEX_RESUME_FAILED",
+                last_error="CODEX_CONTINUATION_FAILED",
                 last_codex_exit_code=completed.returncode,
             )
             return self.status()
@@ -116,7 +117,7 @@ class ReviewerBusWatcher:
             last_report_id=report_id,
             last_applied_response_comment_id=response_id,
             last_response_comment_id=response_id,
-            last_resume_at=_utc_now(),
+            last_continuation_at=_utc_now(),
             last_codex_exit_code=completed.returncode,
             last_error=None,
         )
@@ -191,9 +192,9 @@ class ReviewerBusWatcher:
             return None
         return latest, min(matching, key=lambda item: int(item["id"]))
 
-    def _resume_codex(self, prompt: str) -> subprocess.CompletedProcess[str]:
+    def _continue_codex(self, prompt: str) -> subprocess.CompletedProcess[str]:
         codex = self._resolve_executable(self.codex_executable) or self.codex_executable
-        argv = [codex, "exec", "--sandbox", "workspace-write", "--json", "resume", "--last", prompt]
+        argv = [codex, "exec", "--sandbox", "workspace-write", "--json", prompt]
         try:
             return self.command_runner(
                 argv,
@@ -215,7 +216,8 @@ class ReviewerBusWatcher:
         return (
             "A matching ChatGPT reviewer response arrived on the operational GitHub reviewer bus.\n"
             f"REPORT_ID: {report_id}\n"
-            "Read AGENTS.md and docs/WORKING_RULES.md completely before acting. "
+            "This is a fresh continuation turn, not a resumed desktop/CLI thread. "
+            "Reconstruct authoritative context from the repository: read AGENTS.md, docs/WORKING_RULES.md, docs/CURRENT_WORK.md, relevant engineering history, persisted Day state, and the latest approved plan/runbook before acting. "
             "Apply the complete reviewer response below, then continue only the already-approved work. "
             "Use the minimum sufficient action and do not broaden scope. "
             "Use PR #1 in HIPVG/AI-Control-Center-Review-Bridge for all reviewer-facing reports. "
