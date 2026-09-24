@@ -30,6 +30,7 @@ def test_matching_response_starts_one_fresh_codex_continuation(tmp_path: Path, m
         assert "fresh continuation turn" in argv[-1]
         assert "IN_REPLY_TO: R1" in argv[-1]
         assert "END THIS CODEX TURN" in argv[-1]
+        assert kwargs["env"]["CODEX_SQLITE_HOME"] == str((tmp_path / "state" / "codex-sqlite").resolve())
         return subprocess.CompletedProcess(argv, 0, "", "")
 
     watcher = ReviewerBusWatcher(tmp_path, codex_executable="codex", command_runner=runner)
