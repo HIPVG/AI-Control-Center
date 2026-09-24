@@ -1660,3 +1660,64 @@ SCOPE: No production, test, LocalLLM-Lab, research, commit, or push change.
 - This incident is recorded as `REPORTING_PROTOCOL_FAILURE`.
 - Canonical policy now requires direct inspection of the actual editable buffer and explicitly rejects placeholder text, ARIA/placeholder attributes, quick-reply labels, status text, generation state, and mere composer presence as draft evidence.
 - Uncertain state must be reported as `COMPOSER_DRAFT_DETECTED: unknown`, which never excuses reviewer delivery.
+
+
+## 2026-09-24 — Promote validated GitHub event reviewer loop to operating policy
+
+### REQUEST / INTENT
+Promote the successful end-to-end reviewer-loop PoC into canonical operating rules and begin using it as the normal reviewer transport.
+
+### USER_CORRECTION / HISTORY CONTEXT
+Prior reviewer transport repeatedly failed through browser/composer ambiguity, passive Review-Bridge dead-drops, stale policy use, and human copy/paste relay. The user required an event-driven path that covers PROGRESS_UPDATE, DECISION_REQUEST, and COMPLETION_REPORT without making the human a messenger.
+
+### VALIDATED POC
+Review-Bridge PR #1 exercised all three report types with stable REPORT_ID / IN_REPLY_TO correlation.
+
+Observed reviewer-response creation latency:
+- PROGRESS_UPDATE P1: 36 seconds
+- DECISION_REQUEST P2: 35 seconds
+- COMPLETION_REPORT P3: 47 seconds
+
+PoC terminal record:
+- matching response applied for all three types;
+- P2 remained blocked until DECISION: B;
+- P3 remained blocked until ACCEPT_COMPLETE;
+- duplicate reports: 0 during continuation;
+- stale/mismatched responses: 0 during continuation;
+- manual relay after start: none;
+- production repository/state/LocalLLM-Lab/main branch changes: none.
+
+The full P1-to-P3 wall span was not a clean timing benchmark because execution resumed after a pre-existing P1 phase; therefore only the per-report response latencies are used as transport evidence.
+
+### CHANGE
+- Promoted Review-Bridge PR #1 to the operational reviewer bus.
+- Replaced the PoC-specific reviewer instruction content at the already-configured task path with the operational reviewer policy while retaining the path to avoid unnecessary Task reconfiguration.
+- Replaced direct ChatGPT composer/browser delivery as the normal path with GitHub PR event-triggered reviewer delivery.
+- Defined one outstanding REPORT_ID at a time and exact IN_REPLY_TO correlation.
+- Set normal progress cadence to 10 minutes of ACTIVE_WORK, safe-boundary deferment up to 3 active minutes, and a hard 15-active-minute no-report cap.
+- Kept the run budget at 30 minutes of ACTIVE_WORK and excluded reviewer/transport waiting from that budget.
+- Kept DECISION_REQUEST and COMPLETION_REPORT immediate and blocking.
+- Standardized ACTION_CLASS as IMPLEMENTATION, VALIDATION, DIAGNOSIS, or AUTHORITY.
+- Set deterministic response fetch to about every 2 minutes.
+- Human relay is no longer a normal transport path.
+
+### FILES
+- docs/WORKING_RULES.md
+- AGENTS.md
+- docs/ENGINEERING_WORK_HISTORY.md
+- HIPVG/AI-Control-Center-Review-Bridge PR #1 / poc/reviewer-task-prompt.md
+
+### EXPECTED_EVIDENCE
+Canonical policy and agent instructions describe the same event-driven bus, ACTIVE_WORK timing, report correlation, completion boundary, and anti-overreach behavior.
+
+### VERIFICATION
+The operating rules are grounded in the successful PR #1 PoC rather than an assumed transport design. No change to AI-Control-Center main was authorized or made.
+
+### REGRESSION_PREVENTION
+Do not reintroduce composer automation, passive dead-drop semantics, 5-minute wall-clock fragmentation, human copy/paste relay, validation-to-implementation expansion, or unmatched/stale reviewer responses into the normal control loop.
+
+### PLAN_STATUS
+SATISFIED
+
+### RULE_PROMOTION
+docs/WORKING_RULES.md and AGENTS.md now contain the promoted operating behavior.
