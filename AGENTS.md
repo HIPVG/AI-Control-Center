@@ -33,8 +33,9 @@ Follow `docs/WORKING_RULES.md` exactly. In particular:
   use the ChatGPT composer.
 - Keep exactly one reviewer report outstanding. Every report has a unique
   `REPORT_ID`; apply only a response whose `IN_REPLY_TO` exactly matches it.
-- A local deterministic Control Center watcher checks PR #1 about every 2 minutes for the matching reviewer response and resumes the most recent Codex exec session in the AI-Control-Center working directory. The 2-minute cadence is transport/fetch cadence, not report cadence.
-- After successfully publishing any reviewer-facing report, end the current Codex turn at the safe checkpoint. Do not poll PR #1 from inside Codex; the watcher owns response acquisition and resume.
+- A local deterministic Control Center watcher checks PR #1 about every 2 minutes for the matching reviewer response and starts a fresh bounded Codex continuation turn in the AI-Control-Center working directory. The watcher does not use `resume --last`; continuity is reconstructed from canonical files, persisted state, engineering history, and the active plan/runbook. The 2-minute cadence is transport/fetch cadence, not report cadence.
+- The watcher must isolate Codex runtime state with the Control Center-managed `CODEX_SQLITE_HOME`, not the desktop Codex state database.
+- After successfully publishing any reviewer-facing report, end the current Codex turn at the safe checkpoint. Do not poll PR #1 from inside Codex; the watcher owns response acquisition and continuation.
 - `PROGRESS_UPDATE` is normally due after **10 minutes of ACTIVE_WORK**. Report at the
   next safe boundary, allow at most +3 active minutes to finish a bounded subtask, and
   never exceed 15 active minutes without progress reporting.
