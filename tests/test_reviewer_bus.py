@@ -111,3 +111,29 @@ def test_failed_continuation_is_not_marked_applied_and_will_retry(tmp_path: Path
     assert failed.get("last_applied_response_comment_id") is None
     assert succeeded["last_applied_response_comment_id"] == 41
     assert codex_attempts == 2
+
+
+def test_loop_does_not_add_full_poll_delay_after_long_continuation(tmp_path: Path, monkeypatch):
+    watcher = ReviewerBusWatcher(tmp_path, poll_seconds=120)
+    timeline = iter([0.0, 150.0])
+    monkeypatch.setattr("backend.control.reviewer_bus.monotonic", lambda: next(timeline))
+
+    class StopOnce:
+        def __init__(self):
+            self.checks = 0
+            self.waits: list[float] = []
+
+        def is_set(self):
+            self.checks += 1
+            return self.checks > 1
+
+        def wait(self, timeout):
+            self.waits.append(timeout)
+
+    stop = StopOnce()
+    watcher._stop = stop
+    watcher.run_once = lambda: {}
+
+    watcher._loop()
+
+    assert stop.waits == [0.0]
