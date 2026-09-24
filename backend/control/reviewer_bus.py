@@ -195,6 +195,12 @@ class ReviewerBusWatcher:
     def _continue_codex(self, prompt: str) -> subprocess.CompletedProcess[str]:
         codex = self._resolve_executable(self.codex_executable) or self.codex_executable
         argv = [codex, "exec", "--sandbox", "workspace-write", "--json", prompt]
+        codex_sqlite_home = (self.project_root / "state" / "codex-sqlite").resolve()
+        codex_sqlite_home.mkdir(parents=True, exist_ok=True)
+        environment = os.environ.copy()
+        if not environment.get("HOME") and environment.get("USERPROFILE"):
+            environment["HOME"] = environment["USERPROFILE"]
+        environment["CODEX_SQLITE_HOME"] = str(codex_sqlite_home)
         try:
             return self.command_runner(
                 argv,
@@ -207,6 +213,7 @@ class ReviewerBusWatcher:
                 check=False,
                 shell=False,
                 stdin=subprocess.DEVNULL,
+                env=environment,
             )
         except (OSError, subprocess.TimeoutExpired):
             return subprocess.CompletedProcess(argv, 1, "", "resume failed")
