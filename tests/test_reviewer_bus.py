@@ -13,7 +13,7 @@ def _gh_output(comments: list[dict[str, object]]) -> str:
     return "\n".join(json.dumps(item) for item in comments)
 
 
-def test_matching_response_resumes_latest_codex_session_once(tmp_path: Path, monkeypatch):
+def test_matching_response_starts_one_fresh_codex_continuation(tmp_path: Path, monkeypatch):
     comments = [
         _comment(10, "REPORT_ID: R1\nREPORT_TYPE: PROGRESS_UPDATE"),
         _comment(11, "IN_REPLY_TO: R1\nRESULT: CONTINUE\nNEXT_ACTION: keep going"),
@@ -24,8 +24,10 @@ def test_matching_response_resumes_latest_codex_session_once(tmp_path: Path, mon
         calls.append(argv)
         if "api" in argv:
             return subprocess.CompletedProcess(argv, 0, _gh_output(comments), "")
-        assert argv[1:6] == ["exec", "--sandbox", "workspace-write", "--json", "resume"]
-        assert "--last" in argv
+        assert argv[1:5] == ["exec", "--sandbox", "workspace-write", "--json"]
+        assert "resume" not in argv[1:-1]
+        assert "--last" not in argv
+        assert "fresh continuation turn" in argv[-1]
         assert "IN_REPLY_TO: R1" in argv[-1]
         assert "END THIS CODEX TURN" in argv[-1]
         return subprocess.CompletedProcess(argv, 0, "", "")
@@ -40,6 +42,7 @@ def test_matching_response_resumes_latest_codex_session_once(tmp_path: Path, mon
     assert len(codex_calls) == 1
     assert first["last_report_id"] == "R1"
     assert first["last_applied_response_comment_id"] == 11
+    assert first["last_continuation_at"]
     assert second["last_applied_response_comment_id"] == 11
 
 
@@ -83,7 +86,7 @@ def test_only_latest_outstanding_report_can_resume(tmp_path: Path, monkeypatch):
     assert all(call[0] != "codex" for call in calls)
 
 
-def test_failed_resume_is_not_marked_applied_and_will_retry(tmp_path: Path, monkeypatch):
+def test_failed_continuation_is_not_marked_applied_and_will_retry(tmp_path: Path, monkeypatch):
     comments = [
         _comment(40, "REPORT_ID: R4\nREPORT_TYPE: PROGRESS_UPDATE"),
         _comment(41, "IN_REPLY_TO: R4\nRESULT: CONTINUE"),
@@ -103,7 +106,7 @@ def test_failed_resume_is_not_marked_applied_and_will_retry(tmp_path: Path, monk
     failed = watcher.run_once()
     succeeded = watcher.run_once()
 
-    assert failed["last_error"] == "CODEX_RESUME_FAILED"
+    assert failed["last_error"] == "CODEX_CONTINUATION_FAILED"
     assert failed.get("last_applied_response_comment_id") is None
     assert succeeded["last_applied_response_comment_id"] == 41
     assert codex_attempts == 2
