@@ -83,254 +83,186 @@ action, or LocalLLM invocation.
   superseded; append history after verified changes.
 - **WR-13 Stop after current DoD.** Do not start the next Day, phase, scenario, or
   optimization until the required completion-review boundary is cleared.
+- **WR-14 Classify the next action before doing it.** Every material next action
+  must be classified as exactly one of `IMPLEMENTATION`, `VALIDATION`,
+  `DIAGNOSIS`, or `AUTHORITY`. Do not turn validation into more implementation,
+  diagnosis into redesign, or a reviewer checkpoint into a new project without
+  evidence that the broader action is required.
 
-## Default run window and periodic reporting
+## Default run window and active-work clock
 
-Unless the human specifies otherwise, an autonomous work window is 30 minutes.
+Unless the human specifies otherwise, an autonomous work window is **30 minutes of
+ACTIVE_WORK**, not 30 minutes of wall-clock time.
 
-- Target a reviewer-facing `PROGRESS_UPDATE` about every 5 minutes during active work,
-  even if no major event occurred. A separate report/instruction transport task checks
-  about every 2 minutes; therefore a 5-minute periodic report becomes due on the first
-  2-minute check after the threshold, giving an effective periodic interval of up to
-  about 6 minutes. This is intentional.
-- `PROGRESS_UPDATE` is a reviewer checkpoint: if delivery succeeds, pause at the safe checkpoint and wait for the reviewer response before continuing; if delivery cannot be completed, continue within existing authority and try again at the next scheduled report.
-- At about 25 minutes, avoid starting a new large investigation or redesign; prefer
-  evidence preservation, commit/push when appropriate, history update, and a safe
-  checkpoint.
-- Internal DoD reassessment may happen more often; periodic reporting is not a
-  substitute for real execution.
+`ACTIVE_WORK` counts time spent implementing, validating, diagnosing, testing,
+analyzing, or producing the current bounded artifact/evidence. It does **not** count:
 
-### Two-minute report/instruction transport cadence
+- reviewer-report delivery wait;
+- reviewer processing wait;
+- reviewer-response fetch wait;
+- genuine human-authority wait.
 
-A deterministic local transport/fetch task may run about every 2 minutes. Its job is
-to:
-- detect whether a periodic progress report is due;
-- deliver any pending reviewer-facing report;
-- fetch/apply any available reviewer instruction/response.
+Normal `PROGRESS_UPDATE` cadence is **10 minutes of ACTIVE_WORK** after the latest
+matching reviewer response was applied.
 
-The 2-minute transport cadence is **not** the PROGRESS_UPDATE cadence. Do not emit a
-full progress report every 2 minutes merely because the transport task runs every 2
-minutes.
+- At 10 active minutes, report at the next safe work boundary.
+- If the current bounded subtask is expected to finish shortly, the report may be
+  deferred by up to 3 additional active minutes.
+- Do not exceed **15 minutes of ACTIVE_WORK** without a progress report.
+- Reset the 10-minute progress counter to zero when the matching reviewer response is
+  fully read and applied.
+- At about 25 active minutes in a 30-active-minute window, do not start a new large
+  investigation/redesign; finish the current bounded evidence-producing action and
+  move toward a safe checkpoint.
 
-Periodic progress remains nominally 5 minutes. With a 2-minute checker, the first
-eligible check after 5 minutes may occur at approximately minute 6, so the effective
-periodic reporting gap is bounded to about 6 minutes.
+A `DECISION_REQUEST` or `COMPLETION_REPORT` is event-driven and is delivered
+immediately when its condition occurs; it never waits for the 10-minute progress timer.
 
-Do not wait for the periodic threshold when a blocking event occurs. A
-`DECISION_REQUEST`, `COMPLETION_REPORT`, or material authority/safety blocker becomes
-eligible for delivery immediately and should be handled on the next 2-minute transport
-check.
+### Two-minute response/transport cadence
+
+A deterministic local transport/fetch loop may run about every **2 minutes**. Its job
+is to:
+
+- deliver a pending report to the operational reviewer bus when one exists;
+- fetch a matching reviewer response for the single outstanding `REPORT_ID`;
+- apply that response and resume the approved plan.
+
+The 2-minute cadence is **not** a progress-report cadence. Do not emit a report every
+2 minutes.
 
 ## Reviewer report types
 
-Exactly three control report types are used. `PROGRESS_UPDATE` is delivery-dependent: successful delivery pauses for reviewer guidance; failed delivery does not halt ordinary work.
+Exactly three control report types are used. Every report must also state
+`ACTION_CLASS: IMPLEMENTATION|VALIDATION|DIAGNOSIS|AUTHORITY`.
 
-### `PROGRESS_UPDATE` — reviewer checkpoint
+### `PROGRESS_UPDATE` — reviewer steering checkpoint
 
-Use for routine state transitions, validation, commit/push, LocalLLM activity,
-evidence creation, remaining gaps, and ordinary checkpoints. Its purpose is to give
-the reviewer a chance to stop over-investigation, redirect work, or tighten scope.
+Use for routine progress, validation, commits/pushes, evidence creation, model activity,
+remaining gaps, and scope-control checkpoints.
 
-If a `PROGRESS_UPDATE` is successfully delivered to the ChatGPT reviewer, pause at
-the current safe checkpoint and wait for the complete reviewer response before
-continuing. Apply that response before the next action.
+Its purpose is to detect over-investigation early and keep execution tied to the current
+DoD, not to restart planning.
 
-If delivery cannot be completed through either direct ChatGPT delivery or the
-Review-Bridge, do not stop ordinary work solely because reporting transport failed.
-Record the failed delivery, continue within existing authority, and try again at the
-next 2-minute progress checkpoint. Reporting does not consume or revoke an existing
-Day-start authorization.
+- Normally due after 10 minutes of ACTIVE_WORK, subject to the safe-boundary rules above.
+- After successful publication to the operational reviewer bus, pause at the safe
+  checkpoint and wait for the matching reviewer response.
+- If publication itself fails, do not stop ordinary already-authorized work solely
+  because transport failed; record the failure and retry on the next 2-minute
+  transport cycle.
+- After a matching response is applied, reset the progress counter and continue the
+  approved plan.
+- A progress checkpoint must not become a new project. Prefer `CONTINUE` or a
+  narrower next action unless evidence shows a different action class is required.
 
 ### `DECISION_REQUEST` — blocking
 
-Use only when a new decision/authority is genuinely needed, such as new source or
-write scope, destructive state operation, reset/restart/reselect, `main` change, new
-business/product direction, unknown fatal recovery, security/compliance decision,
-new installation/cloud use, or repair scope beyond authorization. Stop at a safe
-checkpoint after delivering the report and wait for the reviewer response.
+Use only when a genuine decision/authority boundary is reached, such as new source or
+write scope, destructive operation, reset/reselect, `main` authorization, new
+business/product direction, credentials, security/compliance judgment, unknown fatal
+recovery, or repair scope beyond existing authority.
+
+Publish immediately, stop at a safe checkpoint, and do not cross the decision boundary
+until a matching reviewer response is fully read and applied.
 
 ### `COMPLETION_REPORT` — blocking
 
-A Day or major task completion is never an ordinary progress update. After the
-artifact-quality gate passes and completion criteria are satisfied, deliver a
-`COMPLETION_REPORT`, stop, and wait for reviewer response before starting the next
-Day/major task.
+A Day or major task completion is never an ordinary progress update.
+
+After the declared DoD is satisfied and `ARTIFACT_QUALITY_CHECK: PASS`, publish the
+completion report immediately and stop the current Day/task. Do not start the next
+Day/task until the matching reviewer response accepts completion and authorizes the
+next boundary.
 
 Do not ask the human for separate permission merely to send any report.
 
-## Reviewer report destination and delivery
+## Operational reviewer bus
 
-### First action: direct ChatGPT delivery
+The normal machine-to-machine reviewer path is the validated GitHub event-driven bus:
 
-For **every** reviewer-facing report, the first delivery action is to try the target
-ChatGPT reviewer conversation directly. Review-Bridge is never the first choice.
+- repository: `HIPVG/AI-Control-Center-Review-Bridge`
+- operational PR: **#1**
+- event Task trigger: new top-level PR conversation comment containing `REPORT_TYPE:`
+- event Task instruction file: `poc/reviewer-task-prompt.md` on the PR head branch
+  (the legacy path is intentionally retained because the working Task is already
+  configured to read it).
 
-Do not create, stage, commit, or push a Review-Bridge packet before the direct
-ChatGPT path for that report has actually been attempted, except when a verified
-non-empty user draft occupies the actual editable composer buffer. In that one
-case, protect the draft and treat the direct attempt as temporarily unavailable;
-for blocking reports, re-check after the required 2-minute interval before any
-Bridge fallback is allowed.
+The PoC on 2026-09-24 validated all three report types, matching
+`REPORT_ID`/`IN_REPLY_TO`, blocking behavior, completion acceptance, and zero
+manual relay after start.
 
-A past direct-delivery failure never changes this ordering for a later report.
-Each new report starts again with direct ChatGPT delivery as the first action.
+### Report publication
 
-All reviewer-facing reports are intended for the ChatGPT reviewer. They must also be
-shown in full in the current user-facing Codex output so the human can inspect or
-relay them, but user-facing display alone is **not** successful delivery for a
-blocking report.
+For every reviewer-facing report:
 
-Canonical delivery channels:
+1. create a unique stable `REPORT_ID`;
+2. ensure no other reviewer report is outstanding;
+3. publish one top-level comment to operational PR #1 containing `REPORT_TYPE:`;
+4. record the comment/report identifier and publication time;
+5. after successful publication, follow the response-acquisition rules below.
 
-1. direct ChatGPT reviewer delivery when available and safe;
-2. fallback archive/relay repository `HIPVG/AI-Control-Center-Review-Bridge` when direct
-   delivery is unavailable or unsafe. Review-Bridge is a dead-drop transport only;
-   ChatGPT does not automatically wake up or self-detect a new packet.
+The operational path does **not** use the ChatGPT composer. Do not automate the
+composer, inspect drafts/placeholders, or attempt direct browser message injection as
+part of normal reviewer transport.
 
-For `PROGRESS_UPDATE`, try direct ChatGPT delivery once at the checkpoint.
-If direct delivery succeeds, pause and actively acquire the reviewer response.
-If direct delivery is unavailable or fails, display the report and continue within
-existing authority. Do not switch to Review-Bridge merely because a progress report
-could not be sent directly; try direct delivery again at the next scheduled checkpoint.
+A past composer/draft failure is historical evidence, not a fallback design.
 
-For `DECISION_REQUEST` and `COMPLETION_REPORT`, direct ChatGPT delivery is the
-normal path. Review-Bridge is a last-resort dead-drop after the bounded direct-delivery
-window is exhausted; publication there does not mean ChatGPT has received the report.
+### Correlation and deduplication
 
-### Blocking-report direct-delivery window
+Only one reviewer report may be outstanding at a time.
 
-For a blocking report, perform at most 3 direct-delivery opportunities:
+Every reviewer response must contain:
 
-1. inspect the **actual editable composer buffer**;
-2. if it is empty, attempt direct ChatGPT delivery;
-3. if it contains a verified non-empty user draft, do not overwrite it; treat direct
-   delivery as temporarily unavailable for this opportunity;
-4. if direct delivery did not succeed, wait 2 minutes;
-5. repeat the same buffer check/direct attempt;
-6. if still unsuccessful, wait another 2 minutes and make the third and final
-   opportunity.
+- `IN_REPLY_TO: <REPORT_ID>`
+- `RESULT: CONTINUE|DECISION|ACCEPT_COMPLETE|REJECT|HUMAN_REQUIRED`
+- `NEXT_ACTION: <minimum-sufficient action>`
 
-A verified draft therefore causes a **re-check after 2 minutes**, not an immediate
-switch to Review-Bridge. Placeholder/UI text never counts as a draft.
+Codex must:
 
-If direct delivery succeeds at any opportunity, do not use Review-Bridge; start the
-normal reviewer-response acquisition loop.
+- ignore stale/mismatched responses;
+- never apply a response whose `IN_REPLY_TO` differs from the outstanding
+  `REPORT_ID`;
+- read the complete matching response before acting;
+- treat a duplicate response/report as a protocol error and apply only the first valid
+  matching response.
 
-Only after all 3 direct-delivery opportunities fail or remain unavailable:
+### Reviewer response acquisition
 
-- publish the full blocking report to Review-Bridge **once** as an audit/relay fallback;
-- display the full report to the human;
-- record:
-  - `DIRECT_DELIVERY_OPPORTUNITIES: 3`
-  - `DIRECT_DELIVERY_RESULTS: <all opportunities>`
-  - `REVIEW_BRIDGE_PACKET: <packet id or failure>`
-  - `LAST_ERROR: <exact bounded error>`
-- stop at the safe checkpoint for human relay/attention.
+After a report is successfully published to operational PR #1:
 
-Do **not** wait 2 minutes and retry Review-Bridge publication as though it were a
-ChatGPT delivery channel. A Review-Bridge Git push rejection or other bridge transport
-failure is not a reviewer-response retry condition. Record it, show the report to the
-human, and stop for relay/attention.
+1. pause at the appropriate safe checkpoint;
+2. poll the PR conversation about every 2 minutes;
+3. find the first new response whose `IN_REPLY_TO` exactly matches the outstanding
+   `REPORT_ID`;
+4. read the complete response;
+5. apply `RESULT`, `DECISION` when present, and the full `NEXT_ACTION`;
+6. clear the outstanding report and resume according to report type.
 
-## Composer draft handling
+The 2026-09-24 PoC measured reviewer-response creation latencies of 36s, 35s, and 47s
+for progress, decision, and completion respectively. Production still uses the simpler
+2-minute fetch cadence unless later measurements justify changing it.
 
-An unsent ChatGPT composer draft must never be overwritten, deleted, or edited.
-However, composer state is not itself an execution-control signal and must never be
-used as an excuse to omit reviewer delivery.
+If no matching response is observed within 10 wall-clock minutes after successful
+publication, record `REVIEWER_RESPONSE_TIMEOUT` and keep the safe checkpoint. Do not
+silently switch to composer automation or fabricate a reviewer decision; surface the
+transport failure for human attention.
 
-### Draft detection must inspect the actual editable buffer
+### Human involvement
 
-Codex may claim `COMPOSER_DRAFT_DETECTED: yes` only when the actual user-editable
-composer buffer contains non-whitespace user text.
+Human interruption is exceptional.
 
-Acceptable evidence is a direct read of the editable value itself, for example the
-actual `.value` of an input/textarea or the actual text/content model of a
-`contenteditable` editor. The observation must distinguish real editable content
-from presentation metadata.
+The event-driven reviewer should resolve ordinary progress steering, evidence/validation
+decisions, and completion acceptance itself. Use `RESULT: HUMAN_REQUIRED` only for a
+genuine human authority/product-direction boundary defined above.
 
-The following are **not evidence of a draft** and must never be used to infer one:
-
-- placeholder text, including text rendered inside or over the composer;
-- `placeholder`, `data-placeholder`, `aria-label`, accessible name, title, or
-  similar attributes;
-- ghost text, suggestions, example prompts, follow-up labels, or quick-reply UI;
-- nearby status text or buttons such as generation/progress indicators;
-- the mere presence of a composer element;
-- the fact that ChatGPT is currently generating a response.
-
-A visible string such as `フォローアップ` is not a draft unless it is verified to
-exist in the actual editable buffer.
-
-When reporting a verified draft, include:
-
-- `COMPOSER_DRAFT_DETECTED: yes`
-- `DETECTION_METHOD: <exact editable-buffer observation>`
-- `DETECTED_DRAFT_LENGTH: <character count after trimming>`
-- `DETECTION_TIMESTAMP: <timestamp>`
-
-Do not include or expose the draft text itself unless the human explicitly requests
-it.
-
-If Codex cannot distinguish real editable content from placeholder/UI state, record
-`COMPOSER_DRAFT_DETECTED: unknown`, never `yes`. `unknown` is not permission to
-skip reviewer delivery.
-
-A verified non-empty draft protects that buffer, but it does not trigger immediate
-Review-Bridge fallback. For a blocking report, re-check the actual buffer after the
-2-minute direct-delivery interval, for at most 3 direct-delivery opportunities total.
-Use Review-Bridge only after those opportunities are exhausted. For a
-`PROGRESS_UPDATE`, simply continue and retry direct delivery at the next progress
-checkpoint. A placeholder, UI label, or unverified state never justifies skipping a
-direct-delivery opportunity.
-
-Any false-positive claim that a placeholder/UI label was a draft is a
-`REPORTING_PROTOCOL_FAILURE` and must be recorded in engineering history.
-
-`REVIEWER_POST_PENDING: yes` is informational only. It never satisfies delivery of
-a blocking report.
-
-## Reviewer response acquisition
-
-Successful report delivery is not enough. When a report requires reviewer guidance
-(a successfully delivered `PROGRESS_UPDATE`, any `DECISION_REQUEST`, or any
-`COMPLETION_REPORT`), Codex must actively acquire the reviewer response rather than
-entering a passive indefinite wait.
-
-For direct ChatGPT delivery:
-
-1. Record the delivered report timestamp and/or another stable marker of the sent report.
-2. Stay at the safe checkpoint and poll the target ChatGPT conversation for a new
-   assistant/reviewer message that is newer than the delivered report.
-3. Poll about every 15 seconds while the response is generating; generation/status
-   UI is not composer-draft evidence.
-4. When generation completes, read the **entire** new reviewer message, not only the
-   first line or visible preview.
-5. Verify the message is newer than the sent report, then apply it as the latest
-   reviewer response before the next action.
-
-If no new completed reviewer response is observed within 5 minutes after successful
-direct delivery, record `REVIEWER_RESPONSE_TIMEOUT`, keep the safe checkpoint, and
-retry response acquisition once more for up to 5 minutes. Do not resend the same
-report merely because response acquisition is slow unless the reviewer channel shows
-the original delivery did not actually succeed.
-
-Review-Bridge has no autonomous response-acquisition semantics. Codex may read a
-matching `outbox/<packet-id>/review.md` only after the human/reviewer has explicitly
-caused or confirmed that a response was written there. Do not poll an empty outbox
-expecting ChatGPT to wake up by itself.
-
-A statement such as `waiting for reviewer response` is incomplete unless Codex is
-actually performing the corresponding acquisition loop or has exhausted the bounded
-acquisition windows above.
+A human must not be used as a routine copy/paste relay between Codex and the reviewer.
 
 ## Latest reviewer response and no duplicate approvals
 
-Subject to the precedence rules, the latest reviewer response supersedes earlier
-reviewer instructions and the agent's own old `NEXT_ACTION`. After a blocking report,
-Codex must read the complete reviewer response before another action starts.
+Subject to precedence rules, the latest **matching** reviewer response supersedes earlier
+reviewer instructions and the agent's old `NEXT_ACTION`.
 
-Do not request the same approval again when scope/conditions are unchanged. Re-check
-the latest reviewer response and history before escalating.
+Do not request the same approval again when scope and conditions are unchanged. Re-check
+the matching reviewer response and history before escalating.
 
 ## Artifact quality gate before completion
 
@@ -476,7 +408,10 @@ current objective; the reviewer must state why the narrow action is insufficient
 
 Every reviewer-facing report must include at least:
 
+- `REPORT_ID`
 - `REPORT_TYPE`
+- `ACTION_CLASS: IMPLEMENTATION|VALIDATION|DIAGNOSIS|AUTHORITY`
+- `ACTIVE_WORK_MINUTES` (or equivalent active-work duration)
 - `CURRENT_DAY` or task identity
 - `STATE / PHASE`
 - `CURRENT_ACTION` or completion state
@@ -484,7 +419,7 @@ Every reviewer-facing report must include at least:
 - `LOCAL_LLM_INVOCATIONS`
 - `BLOCKER` or `REMAINING_GAPS`
 - `NEXT_ACTION` / `NEXT_ACTION_AFTER_REVIEW`
-- `REVIEWER_DELIVERY_CHANNEL: direct_chatgpt|review_bridge|none`
+- `REVIEWER_DELIVERY_CHANNEL: github_event_pr|none`
 - `REVIEWER_DELIVERY_STATUS: delivered|pending|failed`
 - `MINIMUM_SUFFICIENT_ACTION: <the smallest next action>`
 - `WHY_NOT_BROADER: <why broader actions are unnecessary now>`
@@ -528,12 +463,15 @@ particular:
 
 - zero-touch goals do not make ChatGPT review optional at the blocking boundaries
   defined here;
-- user-facing Codex display alone does not satisfy blocking-report delivery;
-- Review-Bridge publication alone does not mean ChatGPT has received the report;
-- composer-draft protection does not excuse delivery;
-- successfully delivered progress reports pause execution until reviewer response; undelivered progress reports do not block ordinary work;
-- completion always requires artifact-quality checking and reviewer clearance before
-  the next Day.
+- user-facing Codex display alone does not satisfy reviewer delivery;
+- publication to operational PR #1 is successful reviewer-bus delivery because the
+  validated GitHub event Task is the active reviewer trigger;
+- normal reviewer transport does not use the ChatGPT composer;
+- successfully published progress reports pause execution until a matching reviewer
+  response; publication failures do not revoke existing ordinary work authority;
+- waiting/reviewer latency is excluded from ACTIVE_WORK;
+- completion always requires artifact-quality checking and matching reviewer clearance
+  before the next Day.
 
 When ambiguity remains, stop only if the ambiguity materially changes authority,
 scope, safety, evidence validity, or business/product direction. Otherwise choose the
