@@ -8,15 +8,27 @@ from fastapi.staticfiles import StaticFiles
 from backend.orchestrator.engine import ControlCenterEngine, JsonStateStore
 from backend.models.day import DayExecutionMode
 from backend.control.daily_operation import DailyOperationService
+from backend.control.reviewer_bus import ReviewerBusWatcher
 from backend.models.goal import GoalSubmission
 
 ROOT = Path(__file__).resolve().parent.parent
 engine = ControlCenterEngine(JsonStateStore(ROOT / "state" / "control-center.json"), ROOT / "config" / "budget.yaml")
 daily_operation = DailyOperationService(ROOT)
+reviewer_bus = ReviewerBusWatcher(ROOT, codex_executable=engine.runtime.codex.executable)
 started_at = datetime.now(timezone.utc)
 
 app = FastAPI(title="AI Control Center", version="0.1.0")
 app.mount("/static", StaticFiles(directory=ROOT / "frontend"), name="static")
+
+
+@app.on_event("startup")
+def start_reviewer_bus() -> None:
+    reviewer_bus.start()
+
+
+@app.on_event("shutdown")
+def stop_reviewer_bus() -> None:
+    reviewer_bus.stop()
 
 
 @app.get("/", include_in_schema=False)
@@ -67,7 +79,13 @@ def operation_health() -> dict:
         "started_at": started_at.isoformat(),
         "day_state": engine.day_status()["state"],
         "autostart": daily_operation.autostart_status(),
+        "reviewer_bus": reviewer_bus.status(),
     }
+
+
+@app.get("/api/reviewer-bus/status")
+def reviewer_bus_status() -> dict:
+    return reviewer_bus.status()
 
 
 @app.post("/api/operation/autostart/enable")
