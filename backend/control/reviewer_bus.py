@@ -1,10 +1,4 @@
-"""Deterministic GitHub reviewer-bus watcher for continuing local Codex.
-
-The GitHub Work event Task owns reviewer reasoning. This watcher transports a
-matching reviewer response into a fresh bounded Codex exec turn rooted at the
-AI-Control-Center repository. Continuity comes from persisted repo/state/history,
-not from resuming a desktop/CLI session database.
-"""
+"""Deterministic GitHub reviewer-bus watcher and report transport."""
 
 from __future__ import annotations
 
@@ -16,7 +10,7 @@ import subprocess
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
-from time import monotonic
+from time import monotonic, sleep
 from typing import Callable
 
 REVIEW_REPO = "HIPVG/AI-Control-Center-Review-Bridge"
@@ -25,6 +19,8 @@ POLL_SECONDS = 120
 REPORT_ID_RE = re.compile(r"(?m)^REPORT_ID:\s*([^\s]+)\s*$")
 REPORT_TYPE_RE = re.compile(r"(?m)^REPORT_TYPE:\s*([^\s]+)\s*$")
 IN_REPLY_TO_RE = re.compile(r"(?m)^IN_REPLY_TO:\s*([^\s]+)\s*$")
+REPORT_TYPES = {"PROGRESS_UPDATE", "DECISION_REQUEST", "COMPLETION_REPORT"}
+POST_ACTION = "POST_REPORT"
 
 
 def _utc_now() -> str:
@@ -32,17 +28,9 @@ def _utc_now() -> str:
 
 
 class ReviewerBusWatcher:
-    """Poll PR #1 for one matching reviewer response and start the continuation turn."""
+    """Own reviewer response polling, Codex continuation, and PR publication."""
 
-    def __init__(
-        self,
-        project_root: Path,
-        codex_executable: str = "codex",
-        *,
-        gh_executable: str = "gh",
-        poll_seconds: int = POLL_SECONDS,
-        command_runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
-    ) -> None:
+    def __init__(self, project_root: Path, codex_executable: str = "codex", *, gh_executable: str = "gh", poll_seconds: int = POLL_SECONDS, command_runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run) -> None:
         self.project_root = project_root.resolve()
         self.codex_executable = codex_executable
         self.gh_executable = gh_executable
@@ -91,73 +79,68 @@ class ReviewerBusWatcher:
             self._set_state(last_error=error)
             return self.status()
 
-        pair = self._latest_ready_pair(comments)
-        if pair is None:
+        report = self._current_report(comments)
+        if report is None:
             self._set_state(last_error=None)
             return self.status()
-
-        report, response = pair
-        report_id = self._extract(REPORT_ID_RE, report.get("body", ""))
+        report_id = self._extract(REPORT_ID_RE, str(report.get("body", "")))
         if not report_id:
             self._set_state(last_error="REPORT_ID_MISSING")
             return self.status()
 
-        response_id = int(response.get("id", 0) or 0)
-        prompt = self._resume_prompt(report_id, str(response.get("body", "")))
-        completed = self._continue_codex(prompt)
-        if completed.returncode != 0:
-            self._set_state(
-                last_report_id=report_id,
-                last_response_comment_id=response_id,
-                last_error="CODEX_CONTINUATION_FAILED",
-                last_codex_exit_code=completed.returncode,
-            )
+        response = self._pending_or_matching_response(comments, report, report_id)
+        if response is None:
+            self._nack_unknown_mismatches(comments, report, report_id)
             return self.status()
 
-        self._set_state(
-            last_report_id=report_id,
-            last_applied_response_comment_id=response_id,
-            last_response_comment_id=response_id,
-            last_continuation_at=_utc_now(),
-            last_codex_exit_code=completed.returncode,
-            last_error=None,
-        )
+        response_id = int(response["id"])
+        response_body = str(response.get("body", ""))
+        self._set_state(last_report_id=report_id, last_response_comment_id=response_id, pending_response_comment_id=response_id, pending_response_body=response_body, pending_response_report_id=report_id, outstanding_report_id=None, last_error=None)
+        completed = self._continue_codex(self._resume_prompt(report_id, response_body))
+        self._set_state(last_continuation_at=_utc_now(), last_codex_exit_code=completed.returncode)
+        if completed.returncode != 0:
+            self._set_state(last_error="CODEX_CONTINUATION_FAILED")
+            return self.status()
+
+        envelope = self._extract_envelope(completed.stdout)
+        if envelope is None:
+            self._set_state(last_error="CODEX_CONTINUATION_OUTPUT_INVALID")
+            return self.status()
+        if envelope.get("action") != POST_ACTION:
+            if envelope.get("action") in {"NO_REPORT", "HUMAN_REQUIRED"}:
+                self._mark_response_applied(response_id, report_id)
+                return self.status()
+            self._set_state(last_error="CODEX_CONTINUATION_OUTPUT_INVALID")
+            return self.status()
+
+        report_body = self._validated_report_body(envelope)
+        if report_body is None:
+            self._set_state(last_error="CODEX_CONTINUATION_OUTPUT_INVALID")
+            return self.status()
+        posted_id = self._post_comment(report_body)
+        if posted_id is None:
+            self._set_state(last_error="GITHUB_REPORT_DELIVERY_FAILED")
+            return self.status()
+
+        new_report_id = str(envelope["report_id"])
+        self._mark_response_applied(response_id, report_id, outstanding_report_id=new_report_id, outstanding_report_comment_id=posted_id, last_report_id=new_report_id, last_delivery_comment_id=posted_id, last_delivery_at=_utc_now())
         return self.status()
 
     def _loop(self) -> None:
         while not self._stop.is_set():
             cycle_started = monotonic()
             self.run_once()
-            elapsed = monotonic() - cycle_started
-            self._stop.wait(max(0.0, self.poll_seconds - elapsed))
+            self._stop.wait(max(0.0, self.poll_seconds - (monotonic() - cycle_started)))
 
     def _fetch_comments(self) -> tuple[list[dict[str, object]], str | None]:
         gh = self._resolve_executable(self.gh_executable) or self.gh_executable
-        argv = [
-            gh,
-            "api",
-            f"repos/{REVIEW_REPO}/issues/{REVIEW_PR}/comments?per_page=100",
-            "--paginate",
-            "--jq",
-            ".[] | {id: .id, body: .body, created_at: .created_at}",
-        ]
+        argv = [gh, "api", f"repos/{REVIEW_REPO}/issues/{REVIEW_PR}/comments?per_page=100", "--paginate", "--jq", ".[] | {id: .id, body: .body, created_at: .created_at}"]
         try:
-            completed = self.command_runner(
-                argv,
-                cwd=self.project_root,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=30,
-                check=False,
-                shell=False,
-            )
+            completed = self.command_runner(argv, cwd=self.project_root, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30, check=False, shell=False)
         except (OSError, subprocess.TimeoutExpired):
             return [], "GITHUB_COMMENT_FETCH_FAILED"
         if completed.returncode != 0:
             return [], "GITHUB_COMMENT_FETCH_FAILED"
-
         comments: list[dict[str, object]] = []
         for line in completed.stdout.splitlines():
             if not line.strip():
@@ -171,33 +154,57 @@ class ReviewerBusWatcher:
         comments.sort(key=lambda item: int(item["id"]))
         return comments, None
 
-    def _latest_ready_pair(self, comments: list[dict[str, object]]) -> tuple[dict[str, object], dict[str, object]] | None:
-        reports = [
-            item for item in comments
-            if self._extract(REPORT_ID_RE, str(item.get("body", "")))
-            and self._extract(REPORT_TYPE_RE, str(item.get("body", "")))
-        ]
+    def _current_report(self, comments: list[dict[str, object]]) -> dict[str, object] | None:
+        reports = [item for item in comments if self._extract(REPORT_ID_RE, str(item.get("body", ""))) and self._extract(REPORT_TYPE_RE, str(item.get("body", "")))]
         if not reports:
             return None
+        expected = self._state.get("outstanding_report_id")
+        if isinstance(expected, str):
+            return next((item for item in reversed(reports) if self._extract(REPORT_ID_RE, str(item["body"])) == expected), None)
+        return max(reports, key=lambda item: int(item["id"]))
 
-        latest = max(reports, key=lambda item: int(item["id"]))
-        report_id = self._extract(REPORT_ID_RE, str(latest.get("body", "")))
-        report_comment_id = int(latest["id"])
+    def _pending_or_matching_response(self, comments: list[dict[str, object]], report: dict[str, object], report_id: str) -> dict[str, object] | None:
+        pending_id = int(self._state.get("pending_response_comment_id", 0) or 0)
+        if pending_id:
+            return next((item for item in comments if int(item["id"]) == pending_id), None)
+        report_comment_id = int(report["id"])
         last_applied = int(self._state.get("last_applied_response_comment_id", 0) or 0)
+        matching = [item for item in comments if int(item["id"]) > report_comment_id and int(item["id"]) > last_applied and self._extract(IN_REPLY_TO_RE, str(item.get("body", ""))) == report_id]
+        return min(matching, key=lambda item: int(item["id"])) if matching else None
 
-        matching = [
-            item for item in comments
-            if int(item["id"]) > report_comment_id
-            and int(item["id"]) > last_applied
-            and self._extract(IN_REPLY_TO_RE, str(item.get("body", ""))) == report_id
-        ]
-        if not matching:
+    def _nack_unknown_mismatches(self, comments: list[dict[str, object]], report: dict[str, object], expected: str) -> None:
+        known_reports = set(self._state.get("processed_report_ids", []))
+        nacked = {int(value) for value in self._state.get("protocol_nack_response_comment_ids", [])}
+        for item in comments:
+            response_id = int(item["id"])
+            received = self._extract(IN_REPLY_TO_RE, str(item.get("body", "")))
+            if response_id <= int(report["id"]) or not received or received == expected or received in known_reports or response_id in nacked:
+                continue
+            body = "\n".join(["PROTOCOL_NACK: yes", f"EXPECTED_REPORT_ID: {expected}", f"RECEIVED_IN_REPLY_TO: {received}", "RESULT: IGNORED", "REASON: response_id_mismatch"])
+            if self._post_comment(body) is not None:
+                nacked.add(response_id)
+                self._set_state(protocol_nack_response_comment_ids=sorted(nacked), last_error=None)
+            else:
+                self._set_state(last_error="GITHUB_REPORT_DELIVERY_FAILED")
+            return
+
+    def _post_comment(self, body: str) -> int | None:
+        gh = self._resolve_executable(self.gh_executable) or self.gh_executable
+        argv = [gh, "api", "--method", "POST", f"repos/{REVIEW_REPO}/issues/{REVIEW_PR}/comments", "-f", f"body={body}"]
+        try:
+            completed = self.command_runner(argv, cwd=self.project_root, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30, check=False, shell=False)
+        except (OSError, subprocess.TimeoutExpired):
             return None
-        return latest, min(matching, key=lambda item: int(item["id"]))
+        if completed.returncode != 0:
+            return None
+        try:
+            result = json.loads(completed.stdout)
+        except json.JSONDecodeError:
+            return None
+        return int(result["id"]) if isinstance(result, dict) and isinstance(result.get("id"), int) else None
 
     def _continue_codex(self, prompt: str) -> subprocess.CompletedProcess[str]:
         codex = self._resolve_executable(self.codex_executable) or self.codex_executable
-        argv = [codex, "exec", "--sandbox", "workspace-write", "--json", prompt]
         codex_sqlite_home = (self.project_root / "state" / "codex-sqlite").resolve()
         codex_sqlite_home.mkdir(parents=True, exist_ok=True)
         environment = os.environ.copy()
@@ -205,38 +212,62 @@ class ReviewerBusWatcher:
             environment["HOME"] = environment["USERPROFILE"]
         environment["CODEX_SQLITE_HOME"] = str(codex_sqlite_home)
         try:
-            return self.command_runner(
-                argv,
-                cwd=self.project_root,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=900,
-                check=False,
-                shell=False,
-                stdin=subprocess.DEVNULL,
-                env=environment,
-            )
+            return self.command_runner([codex, "exec", "--sandbox", "workspace-write", "--json", prompt], cwd=self.project_root, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900, check=False, shell=False, stdin=subprocess.DEVNULL, env=environment)
         except (OSError, subprocess.TimeoutExpired):
-            return subprocess.CompletedProcess(argv, 1, "", "resume failed")
+            return subprocess.CompletedProcess([codex], 1, "", "continuation failed")
 
     @staticmethod
     def _resume_prompt(report_id: str, response_body: str) -> str:
         return (
             "A matching ChatGPT reviewer response arrived on the operational GitHub reviewer bus.\n"
             f"REPORT_ID: {report_id}\n"
-            "This is a fresh continuation turn, not a resumed desktop/CLI thread. "
-            "Reconstruct authoritative context from the repository: read AGENTS.md, docs/WORKING_RULES.md, docs/CURRENT_WORK.md, relevant engineering history, persisted Day state, and the latest approved plan/runbook before acting. "
-            "Apply the complete reviewer response below, then continue only the already-approved work. "
-            "Use the minimum sufficient action and do not broaden scope. "
-            "Use PR #1 in HIPVG/AI-Control-Center-Review-Bridge for all reviewer-facing reports. "
-            "After successfully publishing any reviewer-facing report, END THIS CODEX TURN; "
-            "do not poll the PR yourself. The deterministic reviewer-bus watcher will resume the session "
-            "when the matching IN_REPLY_TO response arrives.\n\n"
+            "This is a fresh continuation turn, not a resumed desktop/CLI thread. Reconstruct authoritative context from AGENTS.md, docs/WORKING_RULES.md, docs/CURRENT_WORK.md, relevant engineering history, persisted Day state, and the active plan/runbook before acting. Apply the complete reviewer response and use the minimum sufficient action. Do not access GitHub or publish a report yourself. End with exactly one JSON object: {\"action\":\"POST_REPORT\"|\"NO_REPORT\"|\"HUMAN_REQUIRED\",\"report_id\":\"...\",\"report_type\":\"PROGRESS_UPDATE\"|\"DECISION_REQUEST\"|\"COMPLETION_REPORT\",\"body\":\"...\"}. For POST_REPORT, body must be the complete report and report_id/report_type must match its fields. The watcher owns GitHub delivery.\n\n"
             "REVIEWER_RESPONSE:\n"
             f"{response_body.strip()}\n"
         )
+
+    @staticmethod
+    def _extract_envelope(output: str) -> dict[str, object] | None:
+        candidates = [output.strip()]
+        for line in output.splitlines():
+            try:
+                value = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            candidates.extend(ReviewerBusWatcher._json_strings(value))
+        for candidate in reversed(candidates):
+            try:
+                value = json.loads(candidate)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(value, dict) and isinstance(value.get("action"), str):
+                return value
+        return None
+
+    @staticmethod
+    def _json_strings(value: object) -> list[str]:
+        if isinstance(value, str):
+            return [value]
+        if isinstance(value, list):
+            return [text for item in value for text in ReviewerBusWatcher._json_strings(item)]
+        if isinstance(value, dict):
+            return [text for item in value.values() for text in ReviewerBusWatcher._json_strings(item)]
+        return []
+
+    @staticmethod
+    def _validated_report_body(envelope: dict[str, object]) -> str | None:
+        report_id, report_type, body = envelope.get("report_id"), envelope.get("report_type"), envelope.get("body")
+        if not isinstance(report_id, str) or not report_id or not isinstance(report_type, str) or report_type not in REPORT_TYPES or not isinstance(body, str):
+            return None
+        if ReviewerBusWatcher._extract(REPORT_ID_RE, body) != report_id or ReviewerBusWatcher._extract(REPORT_TYPE_RE, body) != report_type:
+            return None
+        return body
+
+    def _mark_response_applied(self, response_id: int, report_id: str, **changes: object) -> None:
+        processed = list(self._state.get("processed_report_ids", []))
+        if report_id not in processed:
+            processed.append(report_id)
+        self._set_state(last_applied_response_comment_id=response_id, processed_report_ids=processed, pending_response_comment_id=None, pending_response_body=None, pending_response_report_id=None, last_error=None, **changes)
 
     def _load_state(self) -> dict[str, object]:
         try:
@@ -254,7 +285,14 @@ class ReviewerBusWatcher:
             self.state_path.parent.mkdir(parents=True, exist_ok=True)
             temporary = self.state_path.with_suffix(".tmp")
             temporary.write_text(json.dumps(self._state, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
-            temporary.replace(self.state_path)
+            for attempt in range(10):
+                try:
+                    temporary.replace(self.state_path)
+                    return
+                except PermissionError:
+                    if attempt == 9:
+                        raise
+                    sleep(0.1)
 
     @staticmethod
     def _extract(pattern: re.Pattern[str], body: str) -> str | None:

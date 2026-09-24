@@ -9,119 +9,129 @@ def _comment(comment_id: int, body: str) -> dict[str, object]:
     return {"id": comment_id, "body": body, "created_at": "2026-09-24T00:00:00Z"}
 
 
-def _gh_output(comments: list[dict[str, object]]) -> str:
+def _comments_output(comments: list[dict[str, object]]) -> str:
     return "\n".join(json.dumps(item) for item in comments)
 
 
-def test_matching_response_starts_one_fresh_codex_continuation(tmp_path: Path, monkeypatch):
-    comments = [
-        _comment(10, "REPORT_ID: R1\nREPORT_TYPE: PROGRESS_UPDATE"),
-        _comment(11, "IN_REPLY_TO: R1\nRESULT: CONTINUE\nNEXT_ACTION: keep going"),
-    ]
-    calls: list[list[str]] = []
+def _envelope(report_id="R1-NEXT"):
+    body = f"REPORT_ID: {report_id}\nREPORT_TYPE: PROGRESS_UPDATE\nCURRENT_ACTION: bounded acknowledgement"
+    return json.dumps({"action": "POST_REPORT", "report_id": report_id, "report_type": "PROGRESS_UPDATE", "body": body})
+
+
+def _watcher(tmp_path, runner, monkeypatch):
+    watcher = ReviewerBusWatcher(tmp_path, codex_executable="codex", command_runner=runner)
+    monkeypatch.setattr(watcher, "_resolve_executable", lambda value: value)
+    monkeypatch.setattr(watcher, "_set_state", lambda **changes: watcher._state.update(changes))
+    return watcher
+
+
+def test_matching_response_posts_envelope_and_sets_new_outstanding(tmp_path: Path, monkeypatch):
+    comments = [_comment(10, "REPORT_ID: R1\nREPORT_TYPE: PROGRESS_UPDATE"), _comment(11, "IN_REPLY_TO: R1\nRESULT: CONTINUE")]
+    calls = []
 
     def runner(argv, **kwargs):
         calls.append(argv)
-        if "api" in argv:
-            return subprocess.CompletedProcess(argv, 0, _gh_output(comments), "")
-        assert argv[1:5] == ["exec", "--sandbox", "workspace-write", "--json"]
-        assert "resume" not in argv[1:-1]
-        assert "--last" not in argv
-        assert "fresh continuation turn" in argv[-1]
-        assert "IN_REPLY_TO: R1" in argv[-1]
-        assert "END THIS CODEX TURN" in argv[-1]
-        assert kwargs["env"]["CODEX_SQLITE_HOME"] == str((tmp_path / "state" / "codex-sqlite").resolve())
-        return subprocess.CompletedProcess(argv, 0, "", "")
+        if argv[0] == "gh" and "--method" not in argv:
+            return subprocess.CompletedProcess(argv, 0, _comments_output(comments), "")
+        if argv[0] == "codex":
+            assert "Do not access GitHub" in argv[-1]
+            return subprocess.CompletedProcess(argv, 0, _envelope(), "")
+        assert "--method" in argv
+        return subprocess.CompletedProcess(argv, 0, json.dumps({"id": 12}), "")
 
-    watcher = ReviewerBusWatcher(tmp_path, codex_executable="codex", command_runner=runner)
-    monkeypatch.setattr(watcher, "_resolve_executable", lambda value: value)
+    result = _watcher(tmp_path, runner, monkeypatch).run_once()
 
-    first = watcher.run_once()
-    second = watcher.run_once()
-
-    codex_calls = [call for call in calls if call and call[0] == "codex"]
-    assert len(codex_calls) == 1
-    assert first["last_report_id"] == "R1"
-    assert first["last_applied_response_comment_id"] == 11
-    assert first["last_continuation_at"]
-    assert second["last_applied_response_comment_id"] == 11
+    assert result["last_applied_response_comment_id"] == 11
+    assert result["outstanding_report_id"] == "R1-NEXT"
+    assert result["last_delivery_comment_id"] == 12
+    assert len([call for call in calls if call[0] == "codex"]) == 1
+    assert len([call for call in calls if "--method" in call]) == 1
 
 
-def test_mismatched_response_is_ignored(tmp_path: Path, monkeypatch):
-    comments = [
-        _comment(20, "REPORT_ID: R2\nREPORT_TYPE: DECISION_REQUEST"),
-        _comment(21, "IN_REPLY_TO: OLD\nRESULT: DECISION"),
-    ]
-    calls: list[list[str]] = []
+def test_exit_zero_without_payload_is_not_delivery_success(tmp_path: Path, monkeypatch):
+    comments = [_comment(20, "REPORT_ID: R2\nREPORT_TYPE: PROGRESS_UPDATE"), _comment(21, "IN_REPLY_TO: R2\nRESULT: CONTINUE")]
 
     def runner(argv, **kwargs):
-        calls.append(argv)
-        return subprocess.CompletedProcess(argv, 0, _gh_output(comments), "")
+        if argv[0] == "gh":
+            return subprocess.CompletedProcess(argv, 0, _comments_output(comments), "")
+        return subprocess.CompletedProcess(argv, 0, "not an envelope", "")
 
-    watcher = ReviewerBusWatcher(tmp_path, codex_executable="codex", command_runner=runner)
-    monkeypatch.setattr(watcher, "_resolve_executable", lambda value: value)
+    result = _watcher(tmp_path, runner, monkeypatch).run_once()
 
-    result = watcher.run_once()
-
+    assert result["last_codex_exit_code"] == 0
+    assert result["last_error"] == "CODEX_CONTINUATION_OUTPUT_INVALID"
     assert result.get("last_applied_response_comment_id") is None
-    assert all(call[0] != "codex" for call in calls)
+    assert result.get("last_delivery_comment_id") is None
 
 
-def test_only_latest_outstanding_report_can_resume(tmp_path: Path, monkeypatch):
-    comments = [
-        _comment(30, "REPORT_ID: OLD\nREPORT_TYPE: PROGRESS_UPDATE"),
-        _comment(31, "IN_REPLY_TO: OLD\nRESULT: CONTINUE"),
-        _comment(32, "REPORT_ID: NEW\nREPORT_TYPE: COMPLETION_REPORT"),
-    ]
-    calls: list[list[str]] = []
+def test_current_mismatch_posts_one_protocol_nack_without_continuation(tmp_path: Path, monkeypatch):
+    comments = [_comment(30, "REPORT_ID: R3\nREPORT_TYPE: PROGRESS_UPDATE"), _comment(31, "IN_REPLY_TO: OTHER\nRESULT: CONTINUE")]
+    posts = []
+    calls = []
 
     def runner(argv, **kwargs):
         calls.append(argv)
-        return subprocess.CompletedProcess(argv, 0, _gh_output(comments), "")
+        if "--method" not in argv:
+            return subprocess.CompletedProcess(argv, 0, _comments_output(comments), "")
+        posts.append(argv[-1])
+        return subprocess.CompletedProcess(argv, 0, json.dumps({"id": 32}), "")
 
-    watcher = ReviewerBusWatcher(tmp_path, codex_executable="codex", command_runner=runner)
-    monkeypatch.setattr(watcher, "_resolve_executable", lambda value: value)
-
+    watcher = _watcher(tmp_path, runner, monkeypatch)
+    watcher.run_once()
     watcher.run_once()
 
+    assert len(posts) == 1
+    assert "PROTOCOL_NACK: yes" in posts[0]
+    assert "REPORT_TYPE:" not in posts[0]
     assert all(call[0] != "codex" for call in calls)
 
 
-def test_failed_continuation_is_not_marked_applied_and_will_retry(tmp_path: Path, monkeypatch):
-    comments = [
-        _comment(40, "REPORT_ID: R4\nREPORT_TYPE: PROGRESS_UPDATE"),
-        _comment(41, "IN_REPLY_TO: R4\nRESULT: CONTINUE"),
-    ]
-    codex_attempts = 0
+def test_known_old_response_is_silently_ignored(tmp_path: Path, monkeypatch):
+    comments = [_comment(40, "REPORT_ID: R4\nREPORT_TYPE: PROGRESS_UPDATE"), _comment(41, "IN_REPLY_TO: OLD\nRESULT: CONTINUE")]
+    calls = []
 
     def runner(argv, **kwargs):
-        nonlocal codex_attempts
-        if "api" in argv:
-            return subprocess.CompletedProcess(argv, 0, _gh_output(comments), "")
-        codex_attempts += 1
-        return subprocess.CompletedProcess(argv, 1 if codex_attempts == 1 else 0, "", "failed")
+        calls.append(argv)
+        return subprocess.CompletedProcess(argv, 0, _comments_output(comments), "")
 
-    watcher = ReviewerBusWatcher(tmp_path, codex_executable="codex", command_runner=runner)
-    monkeypatch.setattr(watcher, "_resolve_executable", lambda value: value)
+    watcher = _watcher(tmp_path, runner, monkeypatch)
+    watcher._state["processed_report_ids"] = ["OLD"]
+    watcher.run_once()
 
+    assert all("--method" not in call and call[0] != "codex" for call in calls)
+
+
+def test_failed_continuation_keeps_response_pending_for_retry(tmp_path: Path, monkeypatch):
+    comments = [_comment(50, "REPORT_ID: R5\nREPORT_TYPE: PROGRESS_UPDATE"), _comment(51, "IN_REPLY_TO: R5\nRESULT: CONTINUE")]
+    attempts = 0
+
+    def runner(argv, **kwargs):
+        nonlocal attempts
+        if argv[0] == "gh" and "--method" not in argv:
+            return subprocess.CompletedProcess(argv, 0, _comments_output(comments), "")
+        if argv[0] == "codex":
+            attempts += 1
+            return subprocess.CompletedProcess(argv, 1 if attempts == 1 else 0, _envelope(), "")
+        return subprocess.CompletedProcess(argv, 0, json.dumps({"id": 52}), "")
+
+    watcher = _watcher(tmp_path, runner, monkeypatch)
     failed = watcher.run_once()
     succeeded = watcher.run_once()
 
     assert failed["last_error"] == "CODEX_CONTINUATION_FAILED"
-    assert failed.get("last_applied_response_comment_id") is None
-    assert succeeded["last_applied_response_comment_id"] == 41
-    assert codex_attempts == 2
+    assert failed["pending_response_comment_id"] == 51
+    assert succeeded["last_applied_response_comment_id"] == 51
+    assert attempts == 2
 
 
-def test_loop_does_not_add_full_poll_delay_after_long_continuation(tmp_path: Path, monkeypatch):
+def test_loop_keeps_cadence_after_long_continuation(tmp_path: Path, monkeypatch):
     watcher = ReviewerBusWatcher(tmp_path, poll_seconds=120)
     timeline = iter([0.0, 150.0])
     monkeypatch.setattr("backend.control.reviewer_bus.monotonic", lambda: next(timeline))
 
     class StopOnce:
         def __init__(self):
-            self.checks = 0
-            self.waits: list[float] = []
+            self.checks, self.waits = 0, []
 
         def is_set(self):
             self.checks += 1
@@ -130,10 +140,7 @@ def test_loop_does_not_add_full_poll_delay_after_long_continuation(tmp_path: Pat
         def wait(self, timeout):
             self.waits.append(timeout)
 
-    stop = StopOnce()
-    watcher._stop = stop
+    watcher._stop = StopOnce()
     watcher.run_once = lambda: {}
-
     watcher._loop()
-
-    assert stop.waits == [0.0]
+    assert watcher._stop.waits == [0.0]

@@ -6,7 +6,7 @@ h1 { margin: 4px 0 10px; font-size: clamp(2rem, 6vw, 3rem); }
 h2 { margin: 4px 0 10px; }
 p { color: #cbd5e1; line-height: 1.5; }
 .eyebrow { color: #7dd3fc; font-size: .78rem; font-weight: 700; letter-spacing: .1em; margin: 0; text-transform: uppercase; }
-.control, .status, .result, .recommendation, .workboard { background: #172033; border: 1px solid #293956; border-radius: 12px; padding: 22px; }
+.control, .status, .result, .recommendation, .workboard, .reviewer-bus { background: #172033; border: 1px solid #293956; border-radius: 12px; padding: 22px; }
 .control { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .push-status { font-size: .9rem; margin-top: -18px; }
 label { font-weight: 700; }
@@ -24,3 +24,4 @@ dl { display: grid; grid-template-columns: minmax(150px, 1fr) 2fr; gap: 8px 16px
 dt { color: #94a3b8; text-transform: capitalize; }
 dd { margin: 0; overflow-wrap: anywhere; }
 #day-work-items { display: grid; gap: 8px; margin: 16px 0 0; padding-left: 24px; }
+.reviewer-bus-events { color: #cbd5e1; display: grid; font-size: .9rem; gap: 6px; margin: 16px 0 0; padding-left: 24px; }

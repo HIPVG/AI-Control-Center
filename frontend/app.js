@@ -20,9 +20,14 @@ const gitPush = document.querySelector("#git-push");
 const gitPushStatus = document.querySelector("#git-push-status");
 const issueClassification = document.querySelector("#issue-classification");
 const evidenceStatus = document.querySelector("#evidence-status");
+const reviewerBusState = document.querySelector("#reviewer-bus-state");
+const reviewerBusSummary = document.querySelector("#reviewer-bus-summary");
+const reviewerBusEvents = document.querySelector("#reviewer-bus-events");
 let gitCandidate = null;
 let activeRequest = null;
 let lastSnapshot = {};
+let reviewerBusFingerprint = null;
+let reviewerBusHistory = [];
 
 function setCommandAvailability(snapshot, running) {
   const controls = snapshot.enabled_controls || {};
@@ -108,6 +113,33 @@ function render(snapshot) {
 
 async function refresh() { const response = await fetch("/api/local-llm/day/status"); render(await response.json()); }
 
+function reviewerBusEvent(status) {
+  const state = status.running ? (status.available ? "RUNNING" : "UNAVAILABLE") : "STOPPED";
+  const detail = status.last_error || status.outstanding_report_id || status.last_report_id || "No report activity";
+  return { state, detail, fingerprint: [state, detail, status.last_delivery_comment_id, status.last_applied_response_comment_id].join("|") };
+}
+
+function renderReviewerBus(status) {
+  const event = reviewerBusEvent(status);
+  putText(reviewerBusState, event.state);
+  putText(reviewerBusSummary, event.detail);
+  if (event.fingerprint !== reviewerBusFingerprint) {
+    reviewerBusFingerprint = event.fingerprint;
+    reviewerBusHistory = [...reviewerBusHistory, event].slice(-5);
+  }
+  reviewerBusEvents.replaceChildren();
+  for (const item of reviewerBusHistory.slice().reverse()) {
+    const row = document.createElement("li");
+    row.textContent = `${item.state} — ${item.detail}`;
+    reviewerBusEvents.append(row);
+  }
+}
+
+async function refreshReviewerBus() {
+  const response = await fetch("/api/reviewer-bus/status");
+  renderReviewerBus(await response.json());
+}
+
 async function loadDays() {
   const response = await fetch("/api/local-llm/days");
   const days = await response.json();
@@ -171,5 +203,6 @@ gitPush.addEventListener("click", async () => {
   await loadGitPushCandidate();
 });
 
-Promise.all([loadDays(), refresh(), loadGitPushCandidate()]).catch((error) => putText(activity, `Unable to load Day Runner: ${error.name}.`));
+Promise.all([loadDays(), refresh(), loadGitPushCandidate(), refreshReviewerBus()]).catch((error) => putText(activity, `Unable to load Day Runner: ${error.name}.`));
 window.setInterval(() => refresh().catch(() => {}), 1000);
+window.setInterval(() => refreshReviewerBus().catch(() => {}), 1000);

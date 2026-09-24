@@ -22,7 +22,7 @@ def client(monkeypatch):
 
 
 def test_required_endpoints_are_available(client):
-    for path in ("/api/status", "/api/plan", "/api/tasks", "/api/timeline", "/api/token-usage", "/api/runtime", "/api/runtime/readiness", "/api/operation/health", "/api/day/plans", "/api/day/status", "/api/local-llm/days", "/api/local-llm/day/status", "/api/experiments", "/api/goals", "/api/next-action", "/api/git/candidates", "/api/git/completions", "/api/zero-touch"):
+    for path in ("/api/status", "/api/plan", "/api/tasks", "/api/timeline", "/api/token-usage", "/api/runtime", "/api/runtime/readiness", "/api/operation/health", "/api/reviewer-bus/status", "/api/day/plans", "/api/day/status", "/api/local-llm/days", "/api/local-llm/day/status", "/api/experiments", "/api/goals", "/api/next-action", "/api/git/candidates", "/api/git/completions", "/api/zero-touch"):
         assert client.get(path).status_code == 200
     assert client.post("/api/run/mock").status_code == 200
     assert client.post("/api/run/codex-smoke").json()["error_code"] == "REAL_MODE_REQUIRED"
@@ -48,6 +48,8 @@ def test_dashboard_is_the_single_local_llm_day_runner(client):
     script = (control_app.ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
     for control in ("day-selector", "smoke", "go", "repair-and-go", "stop", "resume", "git-push", "state", "activity", "run-indicator", "run-indicator-detail", "day-work-items", "repair-knowledge", "codex-handoff", "result-title", "smoke-title", "smoke-summary", "recommended-action", "recommended-action-reason"):
         assert f'id="{control}"' in html
+    for panel in ("reviewer-bus-state", "reviewer-bus-summary", "reviewer-bus-events"):
+        assert f'id="{panel}"' in html
     assert "goal-input" not in html
     assert "scenario" not in html.lower()
     assert "/api/local-llm/day/" in script
@@ -65,6 +67,8 @@ def test_dashboard_is_the_single_local_llm_day_runner(client):
     assert "/api/git/complete/" in script
     assert "/api/goals" not in script
     assert "innerHTML" not in script
+    assert "/api/reviewer-bus/status" in script
+    assert "reviewerBusHistory = [...reviewerBusHistory, event].slice(-5)" in script
 
 
 def test_goal_endpoint_accepts_only_the_bounded_goal_field(client):

@@ -1801,3 +1801,75 @@ Added a focused deterministic test proving that a 150-second continuation under 
 
 ### PLAN_STATUS
 IMPLEMENTED; local focused test and end-to-end ACK verification remain.
+
+
+## 2026-09-24 — LIVE-LOOP reviewer ACK transport failure
+
+### CONTEXT
+Read the complete matching `LIVE-LOOP-20260924-001` reviewer response, current `AGENTS.md`, `docs/WORKING_RULES.md`, `docs/CURRENT_WORK.md`, the authoritative Day 1-14 runbook, relevant engineering history, persisted watcher state, and Git state.
+
+### INSTRUCTION APPLIED
+The response requested only `LIVE-LOOP-20260924-001-ACK` as a `PROGRESS_UPDATE`, then a safe checkpoint. `CURRENT_WORK.md` confirms that no Day is selected; no Day execution, LocalLLM invocation, test, repair, or source change was authorized.
+
+### DELIVERY FAILURE
+Attempted one top-level PR #1 comment through `gh pr comment 1 --repo HIPVG/AI-Control-Center-Review-Bridge`. The attempt failed before publication because the configured proxy endpoint `127.0.0.1:9` refused the connection. No reviewer report/comment was created.
+
+### SAFE CHECKPOINT
+Do not retry early or poll PR #1 from Codex. This is a reviewer-bus transport failure; the requested ACK remains undelivered pending the deterministic transport cycle after connectivity is restored.
+
+
+## 2026-09-24 — Dashboard-only Reviewer Bus observability panel
+
+### CONTEXT
+Read the complete matching `OBSERVABILITY-20260924-001` reviewer response, current policy, `CURRENT_WORK`, the Day 1-14 runbook, relevant reviewer-bus history, persisted watcher state, and the dirty working-tree baseline.
+
+### INSTRUCTION APPLIED
+Implemented only the approved compact dashboard panel. It reads the existing `/api/reviewer-bus/status` endpoint and retains the most recent five distinct status events in JavaScript memory for the current browser session. It does not persist history, alter watcher transport, or invoke a Day/LocalLLM action.
+
+### FILES
+- `frontend/index.html`
+- `frontend/app.js`
+- `frontend/style.css`
+- `tests/test_api.py`
+
+### VALIDATION
+`python -m pytest tests/test_api.py tests/test_reviewer_bus.py -q --basetemp .pytest-observability` passed: 22 passed. Existing FastAPI/Starlette deprecation warnings remain non-blocking.
+
+### SCOPE CONTROL
+Day Runner routes, controls, and behavior are unchanged. Pre-existing modified watcher/config/history/test files and untracked state artifacts were preserved.
+
+### PLAN_STATUS
+IMPLEMENTED; completion review required before any subsequent task.
+
+
+## 2026-09-24 — Control-loop hardening approval finalization
+
+### CONTEXT
+Read the complete matching `CONTROL-LOOP-HARDENING-20260924-001` response and current policy, work state, runbook, history, persisted watcher state, and Git baseline.
+
+### INSTRUCTION APPLIED
+Applied only a reversible ACL grant to the ignored checkout-local `.pytest-tmp` workspace. No Day, LocalLLM, production runner, or reviewer-bus interaction was performed.
+
+### VALIDATION
+`python -m pytest tests/test_api.py tests/test_reviewer_bus.py -q` passed: 22 passed. Existing FastAPI/Starlette deprecation warnings remain non-blocking.
+
+### NEXT
+Finalize the already-approved observability and control-loop policy-alignment commits; remote verification remains subject to the existing proxy connectivity.
+
+
+## 2026-09-24 — Guarded host-side reviewer report finalization
+
+### CONTEXT
+Read the matching `HOST-GIT-FINALIZER-20260924-001` reviewer approval, current policy, active work, Day 1-14 runbook, reviewer-bus state, history, and dirty Git baseline.
+
+### INSTRUCTION APPLIED
+Implemented only the guarded `HOST_GIT_FINALIZE` handoff in the local reviewer-bus watcher. A fresh continuation must return a structured envelope; the watcher validates the action, report identity/type, and report body before it posts the one reviewer-bus comment. Invalid output and failed delivery fail closed, retaining the pending response for retry.
+
+### VALIDATION
+`python -m pytest tests/test_reviewer_bus.py -q --basetemp .pytest-host-git-finalizer` passed: 6 passed.
+
+### SCOPE CONTROL
+No ACL repair retry, Day action, LocalLLM invocation, GitHub access, commit, push, or change outside the existing watcher/test/history scope was performed. Existing dirty work and sandbox/Git boundaries were preserved.
+
+### NEXT
+Restart the local Control Center process so the watcher loads the guarded handoff, then verify the next response/report cycle through the existing watcher-owned transport.
