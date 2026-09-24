@@ -1721,3 +1721,37 @@ SATISFIED
 
 ### RULE_PROMOTION
 docs/WORKING_RULES.md and AGENTS.md now contain the promoted operating behavior.
+
+
+## 2026-09-24 — Add Codex-side reviewer-bus watcher and automatic resume
+
+### REQUEST / INTENT
+Remove the remaining ChatGPT-to-Codex human relay by implementing the Codex/Control-Center side of the validated reviewer bus.
+
+### ROOT CAUSE
+The GitHub event Task already woke the ChatGPT reviewer and wrote matching PR responses, but no deterministic local component watched those responses and restarted Codex. Therefore a stopped Codex still required a human to tell it that reviewer guidance existed.
+
+### CHANGE
+- Added `backend/control/reviewer_bus.py`.
+- The watcher polls Review-Bridge PR #1 about every 2 minutes through the authenticated GitHub CLI.
+- It identifies only the latest reviewer report, requires exact `REPORT_ID` / `IN_REPLY_TO` correlation, ignores stale/mismatched responses, and persists the last applied response.
+- On a new matching response it executes `codex exec ... resume --last` in the AI-Control-Center repository root and injects the complete reviewer response.
+- The resume prompt requires rereading AGENTS/WORKING_RULES, applying the minimum-sufficient response, and ending the Codex turn after the next report so the watcher owns further response acquisition.
+- Added Control Center startup/shutdown lifecycle integration and reviewer-bus status in operation health/API.
+- Added focused deterministic tests for matching response resume, mismatch rejection, newest-report blocking, dedupe, and retry after failed resume.
+- Updated canonical policy/AGENTS so Codex no longer polls PR #1 itself after reporting.
+
+### FILES
+backend/control/reviewer_bus.py; backend/app.py; tests/test_reviewer_bus.py; docs/WORKING_RULES.md; AGENTS.md; docs/ENGINEERING_WORK_HISTORY.md
+
+### EXPECTED_EVIDENCE
+A matching reviewer response can cause exactly one resume of the latest Codex exec session without a human copy/paste step; stale/mismatched/duplicate responses cannot resume it.
+
+### VERIFICATION
+Static implementation and focused deterministic test coverage were added. The remaining required production proof is one local startup/restart so the new watcher process is actually running, followed by the already-posted POLICY-ACK response round trip.
+
+### REMAINING_CONCERN
+The watcher depends on the local authenticated `gh` CLI and a resumable Codex exec session for the AI-Control-Center working directory. Missing prerequisites fail closed and are exposed in reviewer-bus status.
+
+### RULE_PROMOTION
+docs/WORKING_RULES.md and AGENTS.md now assign response acquisition/resume to the deterministic Control Center watcher.
