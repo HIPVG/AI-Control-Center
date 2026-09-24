@@ -230,13 +230,12 @@ Codex must:
 
 After a report is successfully published to operational PR #1:
 
-1. pause at the appropriate safe checkpoint;
-2. poll the PR conversation about every 2 minutes;
-3. find the first new response whose `IN_REPLY_TO` exactly matches the outstanding
-   `REPORT_ID`;
-4. read the complete response;
-5. apply `RESULT`, `DECISION` when present, and the full `NEXT_ACTION`;
-6. clear the outstanding report and resume according to report type.
+1. Codex ends its current turn at the appropriate safe checkpoint;
+2. the Control Center reviewer-bus watcher polls the PR conversation about every 2 minutes;
+3. the watcher finds the first new response whose `IN_REPLY_TO` exactly matches the outstanding `REPORT_ID`;
+4. the watcher resumes the most recent Codex exec session for the AI-Control-Center working directory with the complete matching response;
+5. resumed Codex reads the complete response and current policy before acting;
+6. resumed Codex applies `RESULT`, `DECISION` when present, and the full `NEXT_ACTION`, clears the outstanding report, and continues according to report type.
 
 The 2026-09-24 PoC measured reviewer-response creation latencies of 36s, 35s, and 47s
 for progress, decision, and completion respectively. Production still uses the simpler
