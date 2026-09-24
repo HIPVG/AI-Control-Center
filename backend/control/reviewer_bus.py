@@ -16,6 +16,7 @@ import subprocess
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
+from time import monotonic
 from typing import Callable
 
 REVIEW_REPO = "HIPVG/AI-Control-Center-Review-Bridge"
@@ -125,8 +126,10 @@ class ReviewerBusWatcher:
 
     def _loop(self) -> None:
         while not self._stop.is_set():
+            cycle_started = monotonic()
             self.run_once()
-            self._stop.wait(self.poll_seconds)
+            elapsed = monotonic() - cycle_started
+            self._stop.wait(max(0.0, self.poll_seconds - elapsed))
 
     def _fetch_comments(self) -> tuple[list[dict[str, object]], str | None]:
         gh = self._resolve_executable(self.gh_executable) or self.gh_executable
