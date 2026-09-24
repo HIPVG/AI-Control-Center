@@ -28,20 +28,31 @@ line or on an old `NEXT_ACTION`; read and apply the complete latest reviewer res
 
 Follow `docs/WORKING_RULES.md` exactly. In particular:
 
-- Keep reviewer-facing reports concise and delta-only. Do not repeat unchanged context or duplicate a report. Use compact policy context when unchanged.
-- The 2-minute transport cadence is not the progress-report cadence: target progress reports at about 5 minutes (effective up to about 6 minutes under a 2-minute checker), while blocking reports are eligible immediately on the next transport check.
-- Every reviewer-facing report must include the mandatory anti-overreach `REVIEWER_GUIDANCE` from `docs/WORKING_RULES.md`, instructing the reviewer to issue only minimum-sufficient, result-oriented next actions and to avoid broader work merely because it is possible.
-
-- Every new reviewer-facing report starts with a direct ChatGPT delivery attempt. Review-Bridge is never the first choice and must not be prepared/pushed before the direct path is attempted for that report, except to protect a verified non-empty editable-buffer draft as defined by policy.
-
-- `PROGRESS_UPDATE` is nominally due about every 5 minutes during active work. A separate deterministic report/instruction task may check about every 2 minutes, so periodic reports may effectively arrive at up to about 6-minute intervals. If a progress report is successfully delivered, pause at the safe checkpoint and wait for reviewer guidance; if delivery fails, continue within existing authority and retry at the next 2-minute transport check.
-- `DECISION_REQUEST` and `COMPLETION_REPORT` are blocking.
-- Blocking reports should be delivered directly to ChatGPT. Review-Bridge is only an
-  audit/relay fallback and does not wake ChatGPT or imply reviewer receipt.
-- For blocking reports, allow up to three direct-delivery opportunities with two-minute waits. A verified composer draft means re-check later, not immediate Review-Bridge fallback. Use Review-Bridge once only after the three direct opportunities are exhausted; do not retry Review-Bridge as a ChatGPT channel.
-- Composer-draft protection never excuses reviewer delivery.
-- Completion requires `ARTIFACT_QUALITY_CHECK: PASS` and reviewer clearance before the next Day.
-- After any successfully delivered report that requires reviewer guidance, actively acquire reviewer responses using the polling loop in `docs/WORKING_RULES.md`; do not enter a passive indefinite wait.
+- Use the validated event-driven reviewer bus at
+  `HIPVG/AI-Control-Center-Review-Bridge` PR #1. Normal reviewer transport does not
+  use the ChatGPT composer.
+- Keep exactly one reviewer report outstanding. Every report has a unique
+  `REPORT_ID`; apply only a response whose `IN_REPLY_TO` exactly matches it.
+- A local deterministic fetch loop checks PR #1 about every 2 minutes for the matching
+  reviewer response. The 2-minute cadence is transport/fetch cadence, not report cadence.
+- `PROGRESS_UPDATE` is normally due after **10 minutes of ACTIVE_WORK**. Report at the
+  next safe boundary, allow at most +3 active minutes to finish a bounded subtask, and
+  never exceed 15 active minutes without progress reporting.
+- Reviewer/report waiting time is excluded from the 30-minute ACTIVE_WORK budget.
+  Reset the 10-minute progress counter after the full matching reviewer response is
+  applied.
+- `DECISION_REQUEST` and `COMPLETION_REPORT` are event-driven and blocking.
+- Completion requires `ARTIFACT_QUALITY_CHECK: PASS`; do not start the next Day until
+  the matching reviewer response accepts completion and authorizes the boundary.
+- Every report must include
+  `ACTION_CLASS: IMPLEMENTATION|VALIDATION|DIAGNOSIS|AUTHORITY`,
+  `MINIMUM_SUFFICIENT_ACTION`, `WHY_NOT_BROADER`, and the mandatory anti-overreach
+  `REVIEWER_GUIDANCE`.
+- Do not turn VALIDATION into more IMPLEMENTATION, a diagnostic checkpoint into a stop,
+  or history/reporting bookkeeping into self-generating engineering work.
+- Human involvement is exceptional and must not be used as a routine copy/paste relay.
+  Use it only for genuine authority/product-direction boundaries or an actual reviewer
+  transport failure.
 
 ## Project constraints
 
