@@ -1783,3 +1783,21 @@ Do not use desktop/CLI session-resume state as the reviewer-bus workflow authori
 
 ### PLAN_STATUS
 IMPLEMENTED; local focused test + end-to-end watcher verification required after sync.
+
+
+## 2026-09-24 — Keep two-minute reviewer polling cadence after continuation
+
+### OBSERVED INCIDENT
+The watcher successfully detected the matching reviewer response and launched the fresh Codex continuation, but the next reviewer-bus poll was delayed because the polling loop waited a full additional poll interval after the continuation command returned.
+
+### ROOT_CAUSE
+The two-minute cadence was implemented as `run_once(); wait(120s)`, so time spent inside the Codex continuation was added on top of the configured polling interval.
+
+### CHANGE
+The watcher now measures cycle elapsed time and waits only the remainder of the configured interval. If a continuation consumes the full interval or longer, the next PR poll runs immediately after that continuation returns.
+
+### VERIFICATION
+Added a focused deterministic test proving that a 150-second continuation under a 120-second cadence produces zero additional wait before the next poll.
+
+### PLAN_STATUS
+IMPLEMENTED; local focused test and end-to-end ACK verification remain.
