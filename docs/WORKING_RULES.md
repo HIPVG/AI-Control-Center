@@ -233,9 +233,11 @@ After a report is successfully published to operational PR #1:
 1. Codex ends its current turn at the appropriate safe checkpoint;
 2. the Control Center reviewer-bus watcher polls the PR conversation about every 2 minutes;
 3. the watcher finds the first new response whose `IN_REPLY_TO` exactly matches the outstanding `REPORT_ID`;
-4. the watcher resumes the most recent Codex exec session for the AI-Control-Center working directory with the complete matching response;
-5. resumed Codex reads the complete response and current policy before acting;
-6. resumed Codex applies `RESULT`, `DECISION` when present, and the full `NEXT_ACTION`, clears the outstanding report, and continues according to report type.
+4. the watcher starts a **fresh bounded Codex continuation turn** in the AI-Control-Center working directory with the complete matching response; it does not use `resume --last` or depend on a desktop/CLI session database;
+5. the continuation turn reconstructs authoritative context from `AGENTS.md`, `docs/WORKING_RULES.md`, `docs/CURRENT_WORK.md`, relevant engineering history, persisted state, and the active plan/runbook before acting;
+6. the continuation turn applies `RESULT`, `DECISION` when present, and the full `NEXT_ACTION`, clears the outstanding report, and continues according to report type.
+
+The watcher must use the Control Center's isolated `CODEX_SQLITE_HOME` under managed project state rather than the desktop Codex state database.
 
 The 2026-09-24 PoC measured reviewer-response creation latencies of 36s, 35s, and 47s
 for progress, decision, and completion respectively. Production still uses the simpler
