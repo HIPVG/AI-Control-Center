@@ -1,0 +1,76 @@
+{
+  "issues": [
+    {
+      "issue_id": "ISSUE-001",
+      "issue_type": "DELIVERY_DATE_AT_RISK",
+      "severity_code": "BLOCKING",
+      "source_fact_ids": [
+        "FACT-REQUESTED-DATE",
+        "FACT-EARLIEST-SHIP"
+      ],
+      "deterministic_values": {
+        "delta": 2
+      }
+    },
+    {
+      "issue_id": "ISSUE-002",
+      "issue_type": "MATERIAL_SHORTAGE",
+      "severity_code": "BLOCKING",
+      "source_fact_ids": [
+        "FACT-MATERIAL-REQUIRED",
+        "FACT-MATERIAL-AVAILABLE"
+      ],
+      "deterministic_values": {
+        "delta": 320
+      }
+    },
+    {
+      "issue_id": "ISSUE-003",
+      "issue_type": "MATERIAL_LATE_RECEIPT",
+      "severity_code": "BLOCKING",
+      "source_fact_ids": [
+        "FACT-MATERIAL-RECEIPT"
+      ],
+      "deterministic_values": {
+        "delta": 3
+      }
+    },
+    {
+      "issue_id": "ISSUE-004",
+      "issue_type": "TRACEABILITY_CONSTRAINT",
+      "severity_code": "ADVISORY",
+      "source_fact_ids": [
+        "FACT-QA-PASSED"
+      ],
+      "deterministic_values": {
+        "delta": null
+      }
+    },
+    {
+      "issue_id": "ISSUE-005",
+      "issue_type": "EXPEDITE_COST_RISK",
+      "severity_code": "ADVISORY",
+      "source_fact_ids": [
+        "FACT-EMERGENCY-PROCUREMENT",
+        "FACT-UNIT-COST",
+        "FACT-EMERGENCY-COST"
+      ],
+      "deterministic_values": {
+        "delta": null
+      }
+    },
+    {
+      "issue_id": "ISSUE-006",
+      "issue_type": "INVENTORY_CONSTRAINT",
+      "severity_code": "ADVISORY",
+      "source_fact_ids": [
+        "FACT-INVENTORY",
+        "FACT-SHIPMENT-REQUIRED"
+      ],
+      "deterministic_values": {
+        "delta": null
+      }
+    }
+  ],
+  "engine_errors": []
+}

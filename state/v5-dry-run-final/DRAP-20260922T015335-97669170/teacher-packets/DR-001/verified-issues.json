@@ -1,0 +1,51 @@
+{
+  "issues": [
+    {
+      "issue_id": "ISSUE-001",
+      "issue_type": "QUALITY_RELEASE_SHORTAGE",
+      "severity_code": "BLOCKING",
+      "source_fact_ids": [
+        "FACT-SHIPMENT-REQUIRED",
+        "FACT-QA-PASSED"
+      ],
+      "deterministic_values": {
+        "delta": 60
+      }
+    },
+    {
+      "issue_id": "ISSUE-002",
+      "issue_type": "TRACEABILITY_CONSTRAINT",
+      "severity_code": "ADVISORY",
+      "source_fact_ids": [
+        "FACT-QA-PASSED"
+      ],
+      "deterministic_values": {
+        "delta": null
+      }
+    },
+    {
+      "issue_id": "ISSUE-003",
+      "issue_type": "CUSTOMER_PRIORITY_CONFLICT",
+      "severity_code": "ADVISORY",
+      "source_fact_ids": [
+        "FACT-CUSTOMER-PRIORITY"
+      ],
+      "deterministic_values": {
+        "delta": null
+      }
+    },
+    {
+      "issue_id": "ISSUE-004",
+      "issue_type": "INVENTORY_CONSTRAINT",
+      "severity_code": "ADVISORY",
+      "source_fact_ids": [
+        "FACT-INVENTORY",
+        "FACT-SHIPMENT-REQUIRED"
+      ],
+      "deterministic_values": {
+        "delta": null
+      }
+    }
+  ],
+  "engine_errors": []
+}

@@ -1,0 +1,49 @@
+{
+  "layer_flags": {
+    "FACT_LAYER_STABLE": true,
+    "KNOWN_ISSUE_LAYER_STABLE": true,
+    "ABSTRACTION_LAYER_STABLE": true,
+    "PLAN_SKELETON_LAYER_USABLE": false,
+    "NORMAL_CONTROL_CLEAN": true,
+    "COMPACT_REASONING_STABLE": false,
+    "DETERMINISTIC_COVERAGE_STABLE": true
+  },
+  "prototype_status": "NEEDS_REVISION",
+  "failure_stage_counts": {
+    "SEMANTIC_ABSTRACTION": 5
+  },
+  "reasoner_compactness": {
+    "parse_schema_success_count": 0,
+    "target_count": 4,
+    "truncated_output_count": 0,
+    "median_output_tokens": null,
+    "max_output_tokens": 1024
+  },
+  "dr005_architecture_metrics": {
+    "valid_plan_count": 0,
+    "blocking_issue_coverage": 0.0,
+    "mandatory_issue_coverage": 0.0,
+    "domain_coverage_count": 0,
+    "multi_action_plan_count": 0
+  },
+  "v0_3_1_comparison": {
+    "planned_calls_v0_3_1": 10,
+    "planned_calls_v0_3_2": 9,
+    "v0_3_1_reasoner_output": "actions plus issue IDs",
+    "v0_3_2_reasoner_output": "actions only",
+    "normal_reasoner_v0_3_2": "SKIPPED_NOT_NEEDED",
+    "coverage_source_v0_3_2": "Python effect mapping"
+  },
+  "action_gate": {
+    "gate_version": "FEASIBLE_RELEVANT_ACTION_GATE-v1",
+    "case_count": 5,
+    "allowed_action_count_by_case": {
+      "DR-001": 5,
+      "DR-002": 5,
+      "DR-003": 6,
+      "DR-004": 0,
+      "DR-005": 12
+    },
+    "all_permitted_actions_feasible_and_relevant": true
+  }
+}

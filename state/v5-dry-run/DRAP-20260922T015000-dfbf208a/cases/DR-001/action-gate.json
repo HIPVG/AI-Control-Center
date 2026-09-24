@@ -1,0 +1,108 @@
+{
+  "gate_version": "FEASIBLE_RELEVANT_ACTION_GATE-v1",
+  "active_verified_issue_types": [
+    "CUSTOMER_PRIORITY_CONFLICT",
+    "INVENTORY_CONSTRAINT",
+    "QUALITY_RELEASE_SHORTAGE",
+    "TRACEABILITY_CONSTRAINT"
+  ],
+  "allowed_action_ids": [
+    "EXPEDITE_QA",
+    "PARTIAL_SHIPMENT",
+    "HOLD_SHIPMENT",
+    "RENEGOTIATE_DELIVERY",
+    "PRIORITIZE_HIGH_PRIORITY_ORDER"
+  ],
+  "action_decisions": [
+    {
+      "action_id": "EXPEDITE_QA",
+      "feasibility_status": "FEASIBLE",
+      "relevant_to_active_verified_issue": true,
+      "permitted": true
+    },
+    {
+      "action_id": "PARTIAL_SHIPMENT",
+      "feasibility_status": "FEASIBLE",
+      "relevant_to_active_verified_issue": true,
+      "permitted": true
+    },
+    {
+      "action_id": "HOLD_SHIPMENT",
+      "feasibility_status": "FEASIBLE",
+      "relevant_to_active_verified_issue": true,
+      "permitted": true
+    },
+    {
+      "action_id": "RENEGOTIATE_DELIVERY",
+      "feasibility_status": "FEASIBLE",
+      "relevant_to_active_verified_issue": true,
+      "permitted": true
+    },
+    {
+      "action_id": "EMERGENCY_PROCUREMENT",
+      "feasibility_status": "PRECONDITION_FALSE",
+      "relevant_to_active_verified_issue": false,
+      "permitted": false
+    },
+    {
+      "action_id": "USE_ALTERNATE_SUPPLIER",
+      "feasibility_status": "MISSING_REQUIRED_FACT",
+      "relevant_to_active_verified_issue": false,
+      "permitted": false
+    },
+    {
+      "action_id": "USE_ALTERNATE_LINE",
+      "feasibility_status": "PRECONDITION_FALSE",
+      "relevant_to_active_verified_issue": false,
+      "permitted": false
+    },
+    {
+      "action_id": "USE_OVERTIME",
+      "feasibility_status": "PRECONDITION_FALSE",
+      "relevant_to_active_verified_issue": false,
+      "permitted": false
+    },
+    {
+      "action_id": "OUTSOURCE_PRODUCTION",
+      "feasibility_status": "PRECONDITION_FALSE",
+      "relevant_to_active_verified_issue": false,
+      "permitted": false
+    },
+    {
+      "action_id": "REPAIR_EQUIPMENT",
+      "feasibility_status": "PRECONDITION_FALSE",
+      "relevant_to_active_verified_issue": false,
+      "permitted": false
+    },
+    {
+      "action_id": "RESCHEDULE_PRODUCTION",
+      "feasibility_status": "FEASIBLE",
+      "relevant_to_active_verified_issue": false,
+      "permitted": false
+    },
+    {
+      "action_id": "PRIORITIZE_HIGH_PRIORITY_ORDER",
+      "feasibility_status": "FEASIBLE",
+      "relevant_to_active_verified_issue": true,
+      "permitted": true
+    },
+    {
+      "action_id": "REALLOCATE_INVENTORY",
+      "feasibility_status": "PRECONDITION_FALSE",
+      "relevant_to_active_verified_issue": true,
+      "permitted": false
+    },
+    {
+      "action_id": "WAIT_FOR_NORMAL_SUPPLY",
+      "feasibility_status": "PRECONDITION_FALSE",
+      "relevant_to_active_verified_issue": false,
+      "permitted": false
+    },
+    {
+      "action_id": "NO_ACTION",
+      "feasibility_status": "PRECONDITION_FALSE",
+      "relevant_to_active_verified_issue": false,
+      "permitted": false
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "case_id": "DR-005",
+  "source": "PYTHON_ACTION_EFFECT_MAPPING",
+  "plans": [],
+  "union_derived_addressed_issue_ids": [],
+  "union_blocking_issue_coverage": 0.0,
+  "union_mandatory_issue_coverage": 0.0,
+  "cross_functional_domain_coverage": []
+}

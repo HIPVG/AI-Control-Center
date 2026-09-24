@@ -1,0 +1,22 @@
+[
+  {
+    "action_id": "EXPEDITE_QA",
+    "description": "Expedite compliant QA processing."
+  },
+  {
+    "action_id": "PARTIAL_SHIPMENT",
+    "description": "Ship only quantities already released by QA."
+  },
+  {
+    "action_id": "HOLD_SHIPMENT",
+    "description": "Hold shipment until blocking constraints are resolved."
+  },
+  {
+    "action_id": "RENEGOTIATE_DELIVERY",
+    "description": "Renegotiate delivery timing with the customer."
+  },
+  {
+    "action_id": "PRIORITIZE_HIGH_PRIORITY_ORDER",
+    "description": "Prioritize the verified high-priority order."
+  }
+]

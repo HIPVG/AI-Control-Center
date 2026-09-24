@@ -1,0 +1,336 @@
+{
+  "case_id": "DR-003",
+  "order": {
+    "order_id": "ORD-DR-003",
+    "quantity": 860
+  },
+  "customer": {
+    "customer_id": "CUS-0004",
+    "priority": "normal"
+  },
+  "production": {
+    "planned_quantity": 860,
+    "good_quantity": 860,
+    "scrap_quantity": 0,
+    "nominal_yield": 0.98
+  },
+  "capacity": {
+    "required_hours": 120,
+    "available_hours": 80,
+    "overtime_available": true,
+    "outsourcing_available": true
+  },
+  "equipment": {
+    "main_status": "down",
+    "downtime_hours": 48,
+    "alternate_line_available": true,
+    "alternate_line_capacity_hours": 80,
+    "alternate_line_yield": 0.9
+  },
+  "quality": {
+    "qa_passed": 860,
+    "qa_rejected": 0,
+    "traceability_required": true
+  },
+  "materials": {
+    "material_id": "MAT-TH-A",
+    "required_quantity": 1720,
+    "available_quantity": 1720
+  },
+  "procurement": {
+    "normal_supplier_lead_days": 5,
+    "emergency_available": false
+  },
+  "inventory": {
+    "finished_goods": 0
+  },
+  "shipment": {
+    "required_quantity": 860
+  },
+  "cost": {
+    "normal_unit_cost": 100,
+    "emergency_unit_cost": 100,
+    "overtime_hourly_cost": 25,
+    "alternate_line_unit_cost": 118
+  },
+  "timeline": {
+    "requested_delivery_date": "2026-09-28",
+    "earliest_feasible_shipment_date": "2026-09-28",
+    "material_receipt_date": "2026-09-20",
+    "material_required_date": "2026-09-22"
+  },
+  "verified_facts": [
+    {
+      "fact_id": "FACT-ORDER-QTY",
+      "fact_code": "ORDER_QUANTITY",
+      "fact_type": "order_quantity",
+      "state_path": "order.quantity",
+      "value": 860,
+      "unit": "unit",
+      "source_record_ids": [
+        "ORDER-001"
+      ]
+    },
+    {
+      "fact_id": "FACT-CUSTOMER-PRIORITY",
+      "fact_code": "CUSTOMER_PRIORITY",
+      "fact_type": "customer_priority",
+      "state_path": "customer.priority",
+      "value": "normal",
+      "unit": "level",
+      "source_record_ids": [
+        "CUSTOMER-001"
+      ]
+    },
+    {
+      "fact_id": "FACT-PRODUCTION-GOOD",
+      "fact_code": "PRODUCTION_GOOD",
+      "fact_type": "production_good",
+      "state_path": "production.good_quantity",
+      "value": 860,
+      "unit": "unit",
+      "source_record_ids": [
+        "PROD-001"
+      ]
+    },
+    {
+      "fact_id": "FACT-CAPACITY-REQUIRED",
+      "fact_code": "REQUIRED_CAPACITY",
+      "fact_type": "required_capacity",
+      "state_path": "capacity.required_hours",
+      "value": 120,
+      "unit": "hour",
+      "source_record_ids": [
+        "CAP-001"
+      ]
+    },
+    {
+      "fact_id": "FACT-CAPACITY-AVAILABLE",
+      "fact_code": "AVAILABLE_CAPACITY",
+      "fact_type": "available_capacity",
+      "state_path": "capacity.available_hours",
+      "value": 80,
+      "unit": "hour",
+      "source_record_ids": [
+        "CAP-001"
+      ]
+    },
+    {
+      "fact_id": "FACT-OVERTIME-AVAILABLE",
+      "fact_code": "OVERTIME_AVAILABLE",
+      "fact_type": "overtime_available",
+      "state_path": "capacity.overtime_available",
+      "value": true,
+      "unit": "boolean",
+      "source_record_ids": [
+        "CAP-OPTION-OVERTIME"
+      ]
+    },
+    {
+      "fact_id": "FACT-OUTSOURCING-AVAILABLE",
+      "fact_code": "OUTSOURCING_AVAILABLE",
+      "fact_type": "outsourcing_available",
+      "state_path": "capacity.outsourcing_available",
+      "value": true,
+      "unit": "boolean",
+      "source_record_ids": [
+        "CAP-OPTION-OUTSOURCE"
+      ]
+    },
+    {
+      "fact_id": "FACT-EQUIPMENT-STATUS",
+      "fact_code": "EQUIPMENT_STATUS",
+      "fact_type": "equipment_status",
+      "state_path": "equipment.main_status",
+      "value": "down",
+      "unit": "status",
+      "source_record_ids": [
+        "EQUIP-001"
+      ]
+    },
+    {
+      "fact_id": "FACT-EQUIPMENT-DOWNTIME",
+      "fact_code": "EQUIPMENT_DOWNTIME_HOURS",
+      "fact_type": "equipment_downtime_hours",
+      "state_path": "equipment.downtime_hours",
+      "value": 48,
+      "unit": "hour",
+      "source_record_ids": [
+        "EQUIP-001"
+      ]
+    },
+    {
+      "fact_id": "FACT-ALTERNATE-LINE",
+      "fact_code": "ALTERNATE_LINE_AVAILABLE",
+      "fact_type": "alternate_line_available",
+      "state_path": "equipment.alternate_line_available",
+      "value": true,
+      "unit": "boolean",
+      "source_record_ids": [
+        "EQUIP-002"
+      ]
+    },
+    {
+      "fact_id": "FACT-QA-PASSED",
+      "fact_code": "QA_PASSED",
+      "fact_type": "qa_passed",
+      "state_path": "quality.qa_passed",
+      "value": 860,
+      "unit": "unit",
+      "source_record_ids": [
+        "QA-001"
+      ]
+    },
+    {
+      "fact_id": "FACT-QA-REJECTED",
+      "fact_code": "QA_REJECTED",
+      "fact_type": "qa_rejected",
+      "state_path": "quality.qa_rejected",
+      "value": 0,
+      "unit": "unit",
+      "source_record_ids": [
+        "QA-001"
+      ]
+    },
+    {
+      "fact_id": "FACT-MATERIAL-REQUIRED",
+      "fact_code": "MATERIAL_REQUIRED",
+      "fact_type": "material_required",
+      "state_path": "materials.required_quantity",
+      "value": 1720,
+      "unit": "unit",
+      "source_record_ids": [
+        "MR-001"
+      ]
+    },
+    {
+      "fact_id": "FACT-MATERIAL-AVAILABLE",
+      "fact_code": "MATERIAL_AVAILABLE",
+      "fact_type": "material_available",
+      "state_path": "materials.available_quantity",
+      "value": 1720,
+      "unit": "unit",
+      "source_record_ids": [
+        "INV-MAT-001"
+      ]
+    },
+    {
+      "fact_id": "FACT-EMERGENCY-PROCUREMENT",
+      "fact_code": "EMERGENCY_PROCUREMENT_AVAILABLE",
+      "fact_type": "emergency_procurement_available",
+      "state_path": "procurement.emergency_available",
+      "value": false,
+      "unit": "boolean",
+      "source_record_ids": [
+        "PO-OPTION-001"
+      ]
+    },
+    {
+      "fact_id": "FACT-INVENTORY",
+      "fact_code": "FINISHED_INVENTORY",
+      "fact_type": "finished_inventory",
+      "state_path": "inventory.finished_goods",
+      "value": 0,
+      "unit": "unit",
+      "source_record_ids": [
+        "INV-FG-001"
+      ]
+    },
+    {
+      "fact_id": "FACT-SHIPMENT-REQUIRED",
+      "fact_code": "SHIPMENT_REQUIRED",
+      "fact_type": "shipment_required",
+      "state_path": "shipment.required_quantity",
+      "value": 860,
+      "unit": "unit",
+      "source_record_ids": [
+        "SHIP-REQ-001"
+      ]
+    },
+    {
+      "fact_id": "FACT-UNIT-COST",
+      "fact_code": "NORMAL_UNIT_COST",
+      "fact_type": "normal_unit_cost",
+      "state_path": "cost.normal_unit_cost",
+      "value": 100,
+      "unit": "currency_per_unit",
+      "source_record_ids": [
+        "COST-001"
+      ]
+    },
+    {
+      "fact_id": "FACT-EMERGENCY-COST",
+      "fact_code": "EMERGENCY_UNIT_COST",
+      "fact_type": "emergency_unit_cost",
+      "state_path": "cost.emergency_unit_cost",
+      "value": 100,
+      "unit": "currency_per_unit",
+      "source_record_ids": [
+        "COST-OPTION-001"
+      ]
+    },
+    {
+      "fact_id": "FACT-OVERTIME-COST",
+      "fact_code": "OVERTIME_HOURLY_COST",
+      "fact_type": "overtime_hourly_cost",
+      "state_path": "cost.overtime_hourly_cost",
+      "value": 25,
+      "unit": "currency_per_hour",
+      "source_record_ids": [
+        "COST-OPTION-OVERTIME"
+      ]
+    },
+    {
+      "fact_id": "FACT-REQUESTED-DATE",
+      "fact_code": "REQUESTED_DELIVERY_DATE",
+      "fact_type": "requested_delivery_date",
+      "state_path": "timeline.requested_delivery_date",
+      "value": "2026-09-28",
+      "unit": "date",
+      "source_record_ids": [
+        "ORDER-001"
+      ]
+    },
+    {
+      "fact_id": "FACT-EARLIEST-SHIP",
+      "fact_code": "EARLIEST_FEASIBLE_SHIPMENT_DATE",
+      "fact_type": "earliest_feasible_shipment_date",
+      "state_path": "timeline.earliest_feasible_shipment_date",
+      "value": "2026-09-28",
+      "unit": "date",
+      "source_record_ids": [
+        "PLAN-001"
+      ]
+    },
+    {
+      "fact_id": "FACT-MATERIAL-RECEIPT",
+      "fact_code": "MATERIAL_RECEIPT_DATE",
+      "fact_type": "material_receipt_date",
+      "state_path": "timeline.material_receipt_date",
+      "value": "2026-09-20",
+      "unit": "date",
+      "source_record_ids": [
+        "RECEIPT-PLAN-001"
+      ]
+    }
+  ],
+  "deterministic_violations": [
+    {
+      "violation_id": "VIOL-CAPACITY-SHORTAGE",
+      "type": "CAPACITY_SHORTAGE",
+      "delta": 40,
+      "source_fact_ids": [
+        "FACT-CAPACITY-REQUIRED",
+        "FACT-CAPACITY-AVAILABLE"
+      ]
+    },
+    {
+      "violation_id": "VIOL-EQUIPMENT",
+      "type": "EQUIPMENT_DOWNTIME_RISK",
+      "delta": 48,
+      "source_fact_ids": [
+        "FACT-EQUIPMENT-STATUS"
+      ]
+    }
+  ]
+}

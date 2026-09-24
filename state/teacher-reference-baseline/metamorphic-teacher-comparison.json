@@ -1,0 +1,68 @@
+[
+  {
+    "mode": "T-STRUCTURED",
+    "pair_id": "GH-001",
+    "decision_status_consistency": true,
+    "valid_plan_rate_delta": 0.0,
+    "blocking_coverage_delta": 0.0,
+    "mandatory_coverage_delta": 0.0,
+    "domain_coverage_delta": 0,
+    "hard_constraint_delta": 0,
+    "metamorphic_status": "STABLE"
+  },
+  {
+    "mode": "T-STRUCTURED",
+    "pair_id": "GH-002",
+    "decision_status_consistency": true,
+    "valid_plan_rate_delta": 0.0,
+    "blocking_coverage_delta": 0.0,
+    "mandatory_coverage_delta": 0.0,
+    "domain_coverage_delta": 0,
+    "hard_constraint_delta": 0,
+    "metamorphic_status": "STABLE"
+  },
+  {
+    "mode": "T-STRUCTURED",
+    "pair_id": "GH-003",
+    "decision_status_consistency": true,
+    "valid_plan_rate_delta": 0.0,
+    "blocking_coverage_delta": 0.0,
+    "mandatory_coverage_delta": 0.0,
+    "domain_coverage_delta": 0,
+    "hard_constraint_delta": 0,
+    "metamorphic_status": "STABLE"
+  },
+  {
+    "mode": "T-RAW",
+    "pair_id": "GH-001",
+    "decision_status_consistency": true,
+    "valid_plan_rate_delta": 0.0,
+    "blocking_coverage_delta": 0.0,
+    "mandatory_coverage_delta": 0.0,
+    "domain_coverage_delta": 0,
+    "hard_constraint_delta": 0,
+    "metamorphic_status": "STABLE"
+  },
+  {
+    "mode": "T-RAW",
+    "pair_id": "GH-002",
+    "decision_status_consistency": true,
+    "valid_plan_rate_delta": 0.0,
+    "blocking_coverage_delta": 0.0,
+    "mandatory_coverage_delta": 0.0,
+    "domain_coverage_delta": 0,
+    "hard_constraint_delta": 0,
+    "metamorphic_status": "STABLE"
+  },
+  {
+    "mode": "T-RAW",
+    "pair_id": "GH-003",
+    "decision_status_consistency": true,
+    "valid_plan_rate_delta": 0.0,
+    "blocking_coverage_delta": 0.0,
+    "mandatory_coverage_delta": 0.0,
+    "domain_coverage_delta": 0,
+    "hard_constraint_delta": 0,
+    "metamorphic_status": "STABLE"
+  }
+]

@@ -1,0 +1,12 @@
+{
+  "gate_version": "FEASIBLE_RELEVANT_ACTION_GATE-v1",
+  "case_count": 5,
+  "allowed_action_count_by_case": {
+    "DR-001": 5,
+    "DR-002": 5,
+    "DR-003": 6,
+    "DR-004": 0,
+    "DR-005": 12
+  },
+  "all_permitted_actions_feasible_and_relevant": true
+}

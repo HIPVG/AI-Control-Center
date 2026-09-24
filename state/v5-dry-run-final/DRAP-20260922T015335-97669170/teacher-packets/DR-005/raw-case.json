@@ -1,0 +1,62 @@
+{
+  "case_id": "DR-005",
+  "order": {
+    "order_id": "ORD-DR-005",
+    "quantity": 860
+  },
+  "customer": {
+    "customer_id": "CUS-0006",
+    "priority": "high"
+  },
+  "production": {
+    "planned_quantity": 860,
+    "good_quantity": 860,
+    "scrap_quantity": 0,
+    "nominal_yield": 0.98
+  },
+  "capacity": {
+    "required_hours": 140,
+    "available_hours": 100,
+    "overtime_available": true,
+    "outsourcing_available": true
+  },
+  "equipment": {
+    "main_status": "partial",
+    "downtime_hours": 24,
+    "alternate_line_available": true,
+    "alternate_line_capacity_hours": 70,
+    "alternate_line_yield": 0.91
+  },
+  "quality": {
+    "qa_passed": 780,
+    "qa_rejected": 80,
+    "traceability_required": true
+  },
+  "materials": {
+    "material_id": "MAT-TH-A",
+    "required_quantity": 1720,
+    "available_quantity": 1500
+  },
+  "procurement": {
+    "normal_supplier_lead_days": 7,
+    "emergency_available": true
+  },
+  "inventory": {
+    "finished_goods": 0
+  },
+  "shipment": {
+    "required_quantity": 860
+  },
+  "cost": {
+    "normal_unit_cost": 100,
+    "emergency_unit_cost": 150,
+    "overtime_hourly_cost": 30,
+    "alternate_line_unit_cost": 122
+  },
+  "timeline": {
+    "requested_delivery_date": "2026-10-01",
+    "earliest_feasible_shipment_date": "2026-10-05",
+    "material_receipt_date": "2026-10-02",
+    "material_required_date": "2026-09-27"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "episodes": [
+    {
+      "episode_id": "browser-interrupted-repair",
+      "project_id": "local_llm_lab",
+      "day": 6,
+      "work_item_id": "repair-D6_SOURCE_CHECK",
+      "failure_class": "ENGINEERING_REPAIR",
+      "failure_fingerprint": "592a3539ba673fc626455efa314b88ff8dd48beacaa0e0a7ced12743d78a2801",
+      "failure_excerpt": "fixed temporal assertion",
+      "component": "",
+      "started_at_epoch": 0.0,
+      "repair_deadline_epoch": 300.0,
+      "catalog_match_ids": [],
+      "proposal_attempts": [],
+      "rejection_feedback": [],
+      "codex_review_outcome": null,
+      "expert_solver_outcome": null,
+      "verification_result": null,
+      "final_outcome": null,
+      "catalog_update_id": null,
+      "contract_version": "2026-09-22-v2-evidence-contract",
+      "scope_fingerprint": "d0f8d03f0897e283aae2841c168d1164b794acf25ada4efd13313a33b135e2ac",
+      "interrupted": true
+    }
+  ]
+}

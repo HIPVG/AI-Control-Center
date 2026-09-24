@@ -1,0 +1,408 @@
+{
+  "teacher_comparison_status": "COMPLETE",
+  "teacher_api_calls": 0,
+  "generalization_status": {
+    "GENERALIZATION_STABLE": true,
+    "source": "C:\\LocalLLM-Lab\\results\\decision-generalization\\DAGB-20260918T111119-d5528472\\summary.json",
+    "modified": false
+  },
+  "discovery": {
+    "expected_count": 12,
+    "found_count": 12,
+    "missing_files": [],
+    "extra_result_files": [],
+    "teacher_manifest_present": true,
+    "teacher_manifest_sha256": "a834c9052002de8e69531c93309b352c7cb91874b92516ce4daee9b2ed0da708",
+    "complete": true
+  },
+  "case_comparisons": [
+    {
+      "case_id": "GH-001",
+      "local_vs_structured": {
+        "labels": [
+          "LOCAL_LOWER_VALIDITY",
+          "LOCAL_LOWER_COVERAGE",
+          "LOCAL_MORE_PRECONDITION_FAILURES"
+        ],
+        "deltas": {
+          "valid_plan_rate_delta": -0.5,
+          "blocking_issue_coverage_delta": -1.0,
+          "mandatory_issue_coverage_delta": -1.0,
+          "domain_coverage_count_delta": -3,
+          "action_precondition_failure_count_delta": 1,
+          "unnecessary_action_count_delta": 1,
+          "hard_constraint_violation_count_delta": 0,
+          "fabricated_fact_count_delta": 0
+        }
+      },
+      "local_vs_raw": {
+        "labels": [
+          "LOCAL_LOWER_VALIDITY",
+          "LOCAL_LOWER_COVERAGE",
+          "LOCAL_MORE_PRECONDITION_FAILURES"
+        ],
+        "deltas": {
+          "valid_plan_rate_delta": -0.5,
+          "blocking_issue_coverage_delta": -1.0,
+          "mandatory_issue_coverage_delta": -1.0,
+          "domain_coverage_count_delta": -3,
+          "action_precondition_failure_count_delta": 1,
+          "unnecessary_action_count_delta": 1,
+          "hard_constraint_violation_count_delta": 0,
+          "fabricated_fact_count_delta": 0
+        }
+      },
+      "structured_vs_raw": {
+        "labels": [
+          "STRUCTURED_SIMILAR_TO_RAW"
+        ],
+        "deltas": {
+          "valid_plan_rate_delta": 0.0,
+          "blocking_issue_coverage_delta": 0.0,
+          "mandatory_issue_coverage_delta": 0.0,
+          "domain_coverage_count_delta": 0,
+          "action_precondition_failure_count_delta": 0,
+          "unnecessary_action_count_delta": 0,
+          "hard_constraint_violation_count_delta": 0,
+          "fabricated_fact_count_delta": 0
+        }
+      },
+      "exact_plan_match_required": false
+    },
+    {
+      "case_id": "GH-001-M",
+      "local_vs_structured": {
+        "labels": [
+          "LOCAL_LOWER_VALIDITY",
+          "LOCAL_LOWER_COVERAGE",
+          "LOCAL_MORE_PRECONDITION_FAILURES"
+        ],
+        "deltas": {
+          "valid_plan_rate_delta": -0.5,
+          "blocking_issue_coverage_delta": -1.0,
+          "mandatory_issue_coverage_delta": -1.0,
+          "domain_coverage_count_delta": -3,
+          "action_precondition_failure_count_delta": 2,
+          "unnecessary_action_count_delta": 0,
+          "hard_constraint_violation_count_delta": 0,
+          "fabricated_fact_count_delta": 0
+        }
+      },
+      "local_vs_raw": {
+        "labels": [
+          "LOCAL_LOWER_VALIDITY",
+          "LOCAL_LOWER_COVERAGE",
+          "LOCAL_MORE_PRECONDITION_FAILURES"
+        ],
+        "deltas": {
+          "valid_plan_rate_delta": -0.5,
+          "blocking_issue_coverage_delta": -1.0,
+          "mandatory_issue_coverage_delta": -1.0,
+          "domain_coverage_count_delta": -3,
+          "action_precondition_failure_count_delta": 2,
+          "unnecessary_action_count_delta": 0,
+          "hard_constraint_violation_count_delta": 0,
+          "fabricated_fact_count_delta": 0
+        }
+      },
+      "structured_vs_raw": {
+        "labels": [
+          "STRUCTURED_SIMILAR_TO_RAW"
+        ],
+        "deltas": {
+          "valid_plan_rate_delta": 0.0,
+          "blocking_issue_coverage_delta": 0.0,
+          "mandatory_issue_coverage_delta": 0.0,
+          "domain_coverage_count_delta": 0,
+          "action_precondition_failure_count_delta": 0,
+          "unnecessary_action_count_delta": 0,
+          "hard_constraint_violation_count_delta": 0,
+          "fabricated_fact_count_delta": 0
+        }
+      },
+      "exact_plan_match_required": false
+    },
+    {
+      "case_id": "GH-002",
+      "local_vs_structured": {
+        "labels": [
+          "LOCAL_MORE_PRECONDITION_FAILURES"
+        ],
+        "deltas": {
+          "valid_plan_rate_delta": 0.0,
+          "blocking_issue_coverage_delta": 0.0,
+          "mandatory_issue_coverage_delta": 0.0,
+          "domain_coverage_count_delta": 0,
+          "action_precondition_failure_count_delta": 3,
+          "unnecessary_action_count_delta": 0,
+          "hard_constraint_violation_count_delta": 0,
+          "fabricated_fact_count_delta": 0
+        }
+      },
+      "local_vs_raw": {
+        "labels": [
+          "LOCAL_MORE_PRECONDITION_FAILURES"
+        ],
+        "deltas": {
+          "valid_plan_rate_delta": 0.0,
+          "blocking_issue_coverage_delta": 0.0,
+          "mandatory_issue_coverage_delta": 0.0,
+          "domain_coverage_count_delta": 0,
+          "action_precondition_failure_count_delta": 3,
+          "unnecessary_action_count_delta": 0,
+          "hard_constraint_violation_count_delta": 0,
+          "fabricated_fact_count_delta": 0
+        }
+      },
+      "structured_vs_raw": {
+        "labels": [
+          "STRUCTURED_SIMILAR_TO_RAW"
+        ],
+        "deltas": {
+          "valid_plan_rate_delta": 0.0,
+          "blocking_issue_coverage_delta": 0.0,
+          "mandatory_issue_coverage_delta": 0.0,
+          "domain_coverage_count_delta": 0,
+          "action_precondition_failure_count_delta": 0,
+          "unnecessary_action_count_delta": 0,
+          "hard_constraint_violation_count_delta": 0,
+          "fabricated_fact_count_delta": 0
+        }
+      },
+      "exact_plan_match_required": false
+    },
+    {
+      "case_id": "GH-002-M",
+      "local_vs_structured": {
+        "labels": [
+          "LOCAL_MORE_PRECONDITION_FAILURES"
+        ],
+        "deltas": {
+          "valid_plan_rate_delta": 0.0,
+          "blocking_issue_coverage_delta": 0.0,
+          "mandatory_issue_coverage_delta": 0.0,
+          "domain_coverage_count_delta": 0,
+          "action_precondition_failure_count_delta": 1,
+          "unnecessary_action_count_delta": 1,
+          "hard_constraint_violation_count_delta": 0,
+          "fabricated_fact_count_delta": 0
+        }
+      },
+      "local_vs_raw": {
+        "labels": [
+          "LOCAL_MORE_PRECONDITION_FAILURES"
+        ],
+        "deltas": {
+          "valid_plan_rate_delta": 0.0,
+          "blocking_issue_coverage_delta": 0.0,
+          "mandatory_issue_coverage_delta": 0.0,
+          "domain_coverage_count_delta": 0,
+          "action_precondition_failure_count_delta": 1,
+          "unnecessary_action_count_delta": 1,
+          "hard_constraint_violation_count_delta": 0,
+          "fabricated_fact_count_delta": 0
+        }
+      },
+      "structured_vs_raw": {
+        "labels": [
+          "STRUCTURED_SIMILAR_TO_RAW"
+        ],
+        "deltas": {
+          "valid_plan_rate_delta": 0.0,
+          "blocking_issue_coverage_delta": 0.0,
+          "mandatory_issue_coverage_delta": 0.0,
+          "domain_coverage_count_delta": 0,
+          "action_precondition_failure_count_delta": 0,
+          "unnecessary_action_count_delta": 0,
+          "hard_constraint_violation_count_delta": 0,
+          "fabricated_fact_count_delta": 0
+        }
+      },
+      "exact_plan_match_required": false
+    },
+    {
+      "case_id": "GH-003",
+      "local_vs_structured": {
+        "labels": [
+          "LOCAL_SIMILAR_TO_TEACHER"
+        ],
+        "deltas": {
+          "valid_plan_rate_delta": 0.0,
+          "blocking_issue_coverage_delta": 0.0,
+          "mandatory_issue_coverage_delta": 0.0,
+          "domain_coverage_count_delta": 0,
+          "action_precondition_failure_count_delta": 0,
+          "unnecessary_action_count_delta": 0,
+          "hard_constraint_violation_count_delta": 0,
+          "fabricated_fact_count_delta": 0
+        }
+      },
+      "local_vs_raw": {
+        "labels": [
+          "LOCAL_SIMILAR_TO_TEACHER"
+        ],
+        "deltas": {
+          "valid_plan_rate_delta": 0.0,
+          "blocking_issue_coverage_delta": 0.0,
+          "mandatory_issue_coverage_delta": 0.0,
+          "domain_coverage_count_delta": 0,
+          "action_precondition_failure_count_delta": 0,
+          "unnecessary_action_count_delta": 0,
+          "hard_constraint_violation_count_delta": 0,
+          "fabricated_fact_count_delta": 0
+        }
+      },
+      "structured_vs_raw": {
+        "labels": [
+          "STRUCTURED_SIMILAR_TO_RAW"
+        ],
+        "deltas": {
+          "valid_plan_rate_delta": 0.0,
+          "blocking_issue_coverage_delta": 0.0,
+          "mandatory_issue_coverage_delta": 0.0,
+          "domain_coverage_count_delta": 0,
+          "action_precondition_failure_count_delta": 0,
+          "unnecessary_action_count_delta": 0,
+          "hard_constraint_violation_count_delta": 0,
+          "fabricated_fact_count_delta": 0
+        }
+      },
+      "exact_plan_match_required": false
+    },
+    {
+      "case_id": "GH-003-M",
+      "local_vs_structured": {
+        "labels": [
+          "LOCAL_HIGHER_COVERAGE"
+        ],
+        "deltas": {
+          "valid_plan_rate_delta": 0.3333333333333333,
+          "blocking_issue_coverage_delta": 1.0,
+          "mandatory_issue_coverage_delta": 0.6666666666666666,
+          "domain_coverage_count_delta": 3,
+          "action_precondition_failure_count_delta": -1,
+          "unnecessary_action_count_delta": 0,
+          "hard_constraint_violation_count_delta": 0,
+          "fabricated_fact_count_delta": 0
+        }
+      },
+      "local_vs_raw": {
+        "labels": [
+          "LOCAL_HIGHER_COVERAGE"
+        ],
+        "deltas": {
+          "valid_plan_rate_delta": 0.3333333333333333,
+          "blocking_issue_coverage_delta": 1.0,
+          "mandatory_issue_coverage_delta": 0.6666666666666666,
+          "domain_coverage_count_delta": 3,
+          "action_precondition_failure_count_delta": -1,
+          "unnecessary_action_count_delta": 0,
+          "hard_constraint_violation_count_delta": 0,
+          "fabricated_fact_count_delta": 0
+        }
+      },
+      "structured_vs_raw": {
+        "labels": [
+          "STRUCTURED_SIMILAR_TO_RAW"
+        ],
+        "deltas": {
+          "valid_plan_rate_delta": 0.0,
+          "blocking_issue_coverage_delta": 0.0,
+          "mandatory_issue_coverage_delta": 0.0,
+          "domain_coverage_count_delta": 0,
+          "action_precondition_failure_count_delta": 0,
+          "unnecessary_action_count_delta": 0,
+          "hard_constraint_violation_count_delta": 0,
+          "fabricated_fact_count_delta": 0
+        }
+      },
+      "exact_plan_match_required": false
+    }
+  ],
+  "aggregates": {
+    "LOCAL": {
+      "case_count": 6,
+      "plan_count": 17,
+      "valid_plan_count": 1,
+      "invalid_plan_count": 16,
+      "valid_plan_rate": 0.058823529411764705,
+      "all_accepted_cases": 0,
+      "partial_accepted_cases": 1,
+      "none_accepted_cases": 5,
+      "schema_failed_cases": 0,
+      "mean_blocking_coverage": 0.16666666666666666,
+      "mean_mandatory_coverage": 0.1111111111111111,
+      "mean_domain_coverage_count": 0.5,
+      "action_precondition_failure_count": 22,
+      "action_conflict_count": 1,
+      "hard_constraint_violation_count": 0,
+      "fabricated_fact_count": 0,
+      "unnecessary_action_count": 2
+    },
+    "T-STRUCTURED": {
+      "case_count": 6,
+      "plan_count": 12,
+      "valid_plan_count": 2,
+      "invalid_plan_count": 10,
+      "valid_plan_rate": 0.16666666666666666,
+      "all_accepted_cases": 0,
+      "partial_accepted_cases": 2,
+      "none_accepted_cases": 4,
+      "schema_failed_cases": 0,
+      "mean_blocking_coverage": 0.3333333333333333,
+      "mean_mandatory_coverage": 0.3333333333333333,
+      "mean_domain_coverage_count": 1,
+      "action_precondition_failure_count": 16,
+      "action_conflict_count": 0,
+      "hard_constraint_violation_count": 0,
+      "fabricated_fact_count": 0,
+      "unnecessary_action_count": 0
+    },
+    "T-RAW": {
+      "case_count": 6,
+      "plan_count": 12,
+      "valid_plan_count": 2,
+      "invalid_plan_count": 10,
+      "valid_plan_rate": 0.16666666666666666,
+      "all_accepted_cases": 0,
+      "partial_accepted_cases": 2,
+      "none_accepted_cases": 4,
+      "schema_failed_cases": 0,
+      "mean_blocking_coverage": 0.3333333333333333,
+      "mean_mandatory_coverage": 0.3333333333333333,
+      "mean_domain_coverage_count": 1,
+      "action_precondition_failure_count": 16,
+      "action_conflict_count": 0,
+      "hard_constraint_violation_count": 0,
+      "fabricated_fact_count": 0,
+      "unnecessary_action_count": 0
+    }
+  },
+  "comparison_deltas": {
+    "valid_plan_rate_mean_absolute_delta": 0.2222222222222222,
+    "blocking_coverage_mean_absolute_delta": 0.5,
+    "mandatory_coverage_mean_absolute_delta": 0.4444444444444444,
+    "domain_coverage_count_mean_absolute_delta": 1.5,
+    "hard_constraint_mean_absolute_delta": 0,
+    "fabricated_fact_mean_absolute_delta": 0,
+    "structured_raw_validity_mean_absolute_delta": 0.0,
+    "structured_raw_blocking_mean_absolute_delta": 0.0,
+    "structured_raw_mandatory_mean_absolute_delta": 0.0,
+    "structured_raw_domain_mean_absolute_delta": 0
+  },
+  "comparison_thresholds": {
+    "valid_plan_rate_mean_absolute_delta": 0.15,
+    "blocking_coverage_mean_absolute_delta": 0.15,
+    "mandatory_coverage_mean_absolute_delta": 0.15
+  },
+  "architecture_interpretation_flags": {
+    "LOCAL_VALIDITY_COMPARABLE": false,
+    "LOCAL_BLOCKING_COVERAGE_COMPARABLE": false,
+    "LOCAL_MANDATORY_COVERAGE_COMPARABLE": false,
+    "LOCAL_CONSTRAINT_PRESERVATION_COMPARABLE": true
+  },
+  "LOCAL_TEACHER_GAP_SMALL": "NOT_COMPUTED_NO_COMPOSITE_SCORE",
+  "ranking_generated": false,
+  "single_composite_score_generated": false,
+  "exact_plan_match_required": false
+}

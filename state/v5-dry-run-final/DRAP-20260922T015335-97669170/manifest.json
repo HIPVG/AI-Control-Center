@@ -1,0 +1,49 @@
+{
+  "run_id": "DRAP-20260922T015335-97669170",
+  "created_at": "2026-09-22T01:53:35.439711+00:00",
+  "dry_run": true,
+  "status": "DRY_RUN_READY",
+  "config_version": "0.5",
+  "config_sha256": "9af92682113e34a5152f42b09bc8bb3793605a11d334539c295406c3ffe24ec5",
+  "planned_llm_calls": 9,
+  "planned_calls_by_stage": {
+    "abstraction": 5,
+    "reasoner": 4
+  },
+  "actual_llm_calls": 0,
+  "models": {
+    "semantic_abstractor": "phi4:14b",
+    "cross_functional_reasoner": "phi4:14b"
+  },
+  "execution": {
+    "temperature": 0,
+    "seed": 42,
+    "context_length": 4096,
+    "timeout_seconds": 240,
+    "abstraction_max_output_tokens": 1024,
+    "reasoner_max_output_tokens": 1024,
+    "parallel": false,
+    "retry": false,
+    "think": false
+  },
+  "parallel": false,
+  "automatic_retry": false,
+  "model_pull_attempted": false,
+  "raw_response_persisted": false,
+  "thinking_persisted": false,
+  "qwen_main_pipeline_calls": 0,
+  "novelty_scout_status": "DISABLED",
+  "normal_reasoner_short_circuit": true,
+  "coverage_source": "PYTHON_ACTION_EFFECT_MAPPING",
+  "evaluation_oracle_in_model_payload": false,
+  "evaluation_oracle_in_known_issue_engine": false,
+  "evaluation_oracle_in_abstraction_validator": false,
+  "evaluation_oracle_in_plan_validator": false,
+  "teacher_api_called": false,
+  "completed_at": "2026-09-22T01:53:35.679897+00:00",
+  "action_gate": {
+    "version": "FEASIBLE_RELEVANT_ACTION_GATE-v1",
+    "enforced": true
+  },
+  "decision_status_authority": "PYTHON"
+}

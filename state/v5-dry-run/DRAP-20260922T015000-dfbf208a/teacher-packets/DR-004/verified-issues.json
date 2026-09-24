@@ -1,0 +1,16 @@
+{
+  "issues": [
+    {
+      "issue_id": "ISSUE-001",
+      "issue_type": "NO_ACTION_REQUIRED",
+      "severity_code": "ADVISORY",
+      "source_fact_ids": [
+        "FACT-ORDER-QTY"
+      ],
+      "deterministic_values": {
+        "delta": null
+      }
+    }
+  ],
+  "engine_errors": []
+}

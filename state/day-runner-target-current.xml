@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="11" skipped="0" tests="25" time="33.208" timestamp="2026-09-23T08:34:17.741055+09:00" hostname="HONEYBEE0001"><testcase classname="tests.test_local_llm_day_program" name="test_retained_day_two_evidence_is_typed_complete_and_fails_closed" time="0.422" /><testcase classname="tests.test_local_llm_day_program" name="test_retained_day_four_evidence_is_typed_complete_and_fails_closed" time="0.381" /><testcase classname="tests.test_local_llm_day_program" name="test_day_one_test_evidence_cache_reuses_only_a_successful_unchanged_key" time="0.037" /><testcase classname="tests.test_local_llm_day_program" name="test_pytest_temporary_directory_is_repository_owned" time="0.003" /><testcase classname="tests.test_local_llm_day_program" name="test_generic_contract_requires_explicit_validated_evidence[2]" time="0.373"><failure message="AssertionError: assert 'FAILED_UNRECOVERABLE' == 'COMPLETE'&#10;  &#10;  - COMPLETE&#10;  + FAILED_UNRECOVERABLE">day = 2
+
+    @pytest.mark.parametrize("day", [2, 6])
+    def test_generic_contract_requires_explicit_validated_evidence(day):
+        runner = LocalLLMDayProgram(FIXTURE_ROOT, planner=_planner, work_order_executor=_valid_executor)
+        runner.start(day)
+        runner.join(3)
+&gt;       assert runner.view()["state"] == LocalLLMDayState.COMPLETE.value
+E       AssertionError: assert 'FAILED_UNRECOVERABLE' == 'COMPLETE'
+E         
+E         - COMPLETE
+E         + FAILED_UNRECOVERABLE
+
+tests\test_local_llm_day_program.py:171: AssertionError</failure></testcase><testcase classname="tests.test_local_llm_day_program" name="test_generic_contract_requires_explicit_validated_evidence[6]" time="0.630"><failure message="AssertionError: assert 'FAILED_UNRECOVERABLE' == 'COMPLETE'&#10;  &#10;  - COMPLETE&#10;  + FAILED_UNRECOVERABLE">day = 6
+
+    @pytest.mark.parametrize("day", [2, 6])
+    def test_generic_contract_requires_explicit_validated_evidence(day):
+        runner = LocalLLMDayProgram(FIXTURE_ROOT, planner=_planner, work_order_executor=_valid_executor)
+        runner.start(day)
+        runner.join(3)
+&gt;       assert runner.view()["state"] == LocalLLMDayState.COMPLETE.value
+E       AssertionError: assert 'FAILED_UNRECOVERABLE' == 'COMPLETE'
+E         
+E         - COMPLETE
+E         + FAILED_UNRECOVERABLE
+
+tests\test_local_llm_day_program.py:171: AssertionError</failure></testcase><testcase classname="tests.test_local_llm_day_program" name="test_completed_task_with_engine_tokens_does_not_satisfy_criterion" time="0.319" /><testcase classname="tests.test_local_llm_day_program" name="test_partial_unrelated_empty_and_unverified_evidence_fail_closed" time="0.313" /><testcase classname="tests.test_local_llm_day_program" name="test_complete_typed_evidence_satisfies_only_matching_criterion" time="0.316"><failure message="AssertionError: assert False&#10; +  where False = DayCriterion(criterion_id='d6-state_representations', statement='Planned, actual, forecast, and snapshot/as-of state a...resented', required_evidence=['schema_contract', 'source_check'], satisfied=False, evidence={}, evidence_record_ids={}).satisfied">def test_complete_typed_evidence_satisfies_only_matching_criterion():
+        runner = LocalLLMDayProgram(FIXTURE_ROOT)
+        runner.smoke(6)
+        criterion = runner.snapshot.contract.completion_criteria[0]
+        criterion.evidence = _valid_evidence(criterion.required_evidence)
+        runner._evaluate_contract(runner.snapshot.contract, {})
+&gt;       assert criterion.satisfied
+E       AssertionError: assert False
+E        +  where False = DayCriterion(criterion_id='d6-state_representations', statement='Planned, actual, forecast, and snapshot/as-of state a...resented', required_evidence=['schema_contract', 'source_check'], satisfied=False, evidence={}, evidence_record_ids={}).satisfied
+
+tests\test_local_llm_day_program.py:204: AssertionError</failure></testcase><testcase classname="tests.test_local_llm_day_program" name="test_missing_evidence_is_diagnosed_before_an_unchanged_action_fails_safe" time="0.631"><failure message="assert 0 == 2&#10; +  where 0 = len([])">def test_missing_evidence_is_diagnosed_before_an_unchanged_action_fails_safe():
+        calls = []
+    
+        def planner(contract, _inventory):
+            calls.append(contract.remaining_gaps[:])
+            return _planner(contract, _inventory)
+    
+        runner = LocalLLMDayProgram(FIXTURE_ROOT, planner=planner, work_order_executor=lambda _order: {"final_result": "COMPLETE", "evidence": {}})
+        runner.start(7)
+        runner.join(3)
+        result = runner.view()
+        assert result["report"]["result"] == "DAY_NO_SAFE_ACTION"
+        assert result["state"] == LocalLLMDayState.FAILED_UNRECOVERABLE.value
+        assert result["issue_classification"] == DayIssueClassification.INSUFFICIENT_EVIDENCE.value
+        assert result["gap_diagnoses"]
+&gt;       assert len(calls) == 2
+E       assert 0 == 2
+E        +  where 0 = len([])
+
+tests\test_local_llm_day_program.py:223: AssertionError</failure></testcase><testcase classname="tests.test_local_llm_day_program" name="test_planner_cannot_expand_authority" time="0.906"><failure message="AssertionError: assert 'PREREQUISITE_DAY_REQUIRED' == 'DAY_HARNESS_FAILURE'&#10;  &#10;  - DAY_HARNESS_FAILURE&#10;  + PREREQUISITE_DAY_REQUIRED">def test_planner_cannot_expand_authority():
+        def unsafe_planner(_contract, _inventory):
+            return [LocalLLMDayWorkItem(item_id="unsafe", title="unsafe", objective="unsafe", kind="SHELL", criterion_ids=["not-a-criterion"])]
+    
+        runner = LocalLLMDayProgram(FIXTURE_ROOT, planner=unsafe_planner)
+        runner.start(2)
+        runner.join(3)
+&gt;       assert runner.view()["report"]["result"] == "DAY_HARNESS_FAILURE"
+E       AssertionError: assert 'PREREQUISITE_DAY_REQUIRED' == 'DAY_HARNESS_FAILURE'
+E         
+E         - DAY_HARNESS_FAILURE
+E         + PREREQUISITE_DAY_REQUIRED
+
+tests\test_local_llm_day_program.py:233: AssertionError</failure></testcase><testcase classname="tests.test_local_llm_day_program" name="test_model_quality_finding_is_preserved_and_never_offers_repair" time="0.911"><failure message="AssertionError: assert 'HUMAN_PRODUC...SION_REQUIRED' == 'MODEL_QUALITY_FINDING'&#10;  &#10;  - MODEL_QUALITY_FINDING&#10;  + HUMAN_PRODUCT_DECISION_REQUIRED">def test_model_quality_finding_is_preserved_and_never_offers_repair():
+        def model_finding(_work_order):
+            return {"final_result": "FAILED", "issue_classification": "MODEL_QUALITY_FINDING", "failure_excerpt": "bad research answer"}
+    
+        runner = LocalLLMDayProgram(FIXTURE_ROOT, planner=_planner, work_order_executor=model_finding)
+        runner.start(2)
+        runner.join(3)
+        result = runner.view()
+&gt;       assert result["issue_classification"] == DayIssueClassification.MODEL_QUALITY_FINDING.value
+E       AssertionError: assert 'HUMAN_PRODUC...SION_REQUIRED' == 'MODEL_QUALITY_FINDING'
+E         
+E         - MODEL_QUALITY_FINDING
+E         + HUMAN_PRODUCT_DECISION_REQUIRED
+
+tests\test_local_llm_day_program.py:244: AssertionError</failure></testcase><testcase classname="tests.test_local_llm_day_program" name="test_static_engine_failure_cannot_offer_repair_and_go_without_an_interrupted_episode" time="0.365"><failure message="AssertionError: assert 'SHOW_FAILURE' == 'SHOW_SAFETY_FAILURE'&#10;  &#10;  - SHOW_SAFETY_FAILURE&#10;  ?     -------&#10;  + SHOW_FAILURE">def test_static_engine_failure_cannot_offer_repair_and_go_without_an_interrupted_episode():
+        class Proposal:
+            diagnosis = "isolated harness defect"
+            edits = ()
+    
+        class Builder:
+            def propose(self, **_kwargs):
+                return Proposal()
+    
+        def defect_executor(work_order):
+            if work_order["kind"] == "ENGINE_WORK_ORDER":
+                return {"final_result": "FAILED", "issue_classification": "IMPLEMENTATION_DEFECT", "failure_excerpt": "safe fixture failed"}
+            assert work_order["kind"] == "LOCAL_LLM_COUNTERMEASURE"
+            return {"final_result": "COMPLETE", "evidence": {}}
+    
+        runner = LocalLLMDayProgram(FIXTURE_ROOT, planner=_planner, work_order_executor=defect_executor, repair_builder=Builder())
+        runner._bounded_repair_files = lambda _item: {"tests/safe.py": "assert False"}
+        runner.start(2)
+        runner.join(3)
+        result = runner.view()
+&gt;       assert result["recommended_action"]["action_id"] == "SHOW_SAFETY_FAILURE"
+E       AssertionError: assert 'SHOW_FAILURE' == 'SHOW_SAFETY_FAILURE'
+E         
+E         - SHOW_SAFETY_FAILURE
+E         ?     -------
+E         + SHOW_FAILURE
+
+tests\test_local_llm_day_program.py:268: AssertionError</failure></testcase><testcase classname="tests.test_local_llm_day_program" name="test_local_rejection_runs_expert_and_teaches_next_episode" time="0.358"><failure message="AssertionError: {'action_attempts': [{'action_fingerprint': 'ebd093f4b6b29e12783cf634d0788f6b2e7e0f32cbedd2be97b601d32d7a507d', 'actio...PLATE' == 'CODEX_EXPERT_SOLVER'&#10;    &#10;    - CODEX_EXPERT_SOLVER&#10;    + DAY_ACTION_TEMPLATE&quot;, 'authority_blocker': None, ...}&#10;assert 'FAILED_UNRECOVERABLE' == 'COMPLETE'&#10;  &#10;  - COMPLETE&#10;  + FAILED_UNRECOVERABLE">tmp_path = WindowsPath('C:/AI-Control-Center/.pytest-tmp/run-29492-11cb54b5/test_local_rejection_runs_expe0')
+
+    def test_local_rejection_runs_expert_and_teaches_next_episode(tmp_path):
+        catalog = SolutionCatalog()
+        episodes = RepairEpisodeStore()
+        calls = []
+    
+        class Proposal:
+            def __init__(self, number):
+                self.diagnosis, self.edits = f"candidate {number}", ()
+    
+        class Builder:
+            def __init__(self):
+                self.calls = []
+            def propose(self, **kwargs):
+                self.calls.append(kwargs)
+                return Proposal(len(self.calls))
+    
+        def planner(contract, _inventory):
+            return [LocalLLMDayWorkItem(
+                item_id="dynamic-repair", title="repair fixture", objective="repair fixture",
+                kind="DYNAMIC_ENGINEERING_WORK", criterion_ids=[item.criterion_id for item in contract.completion_criteria],
+                dynamic_work_order=DynamicDayWorkOrder(
+                    task_id="day-6-repair-fixture", allowed_files=["scripts/check.py"],
+                    context_files=["scripts/check.py"], acceptance_test_files=["tests/test_check.py"],
+                ),
+            )]
+    
+        def executor(order):
+            calls.append(order["kind"])
+            if order["kind"] == "DYNAMIC_ENGINEERING_WORK":
+                return {"final_result": "FAILED", "issue_classification": "IMPLEMENTATION_DEFECT", "failure_excerpt": "fixture assertion failed"}
+            if order["kind"] == "LOCAL_LLM_COUNTERMEASURE":
+                return {"final_result": "FAILED", "error_code": "REJECTED"}
+            assert order["kind"] == "CODEX_EXPERT_SOLVER"
+            return {"final_result": "COMPLETE", "evidence": _valid_evidence([name for criterion in LocalLLMDayProgram(FIXTURE_ROOT). _load_contracts()[6].completion_criteria for name in criterion.required_evidence])}
+    
+        first_builder = Builder()
+        first = LocalLLMDayProgram(
+            FIXTURE_ROOT, planner=planner, work_order_executor=executor, repair_builder=first_builder,
+            solution_catalog=catalog, repair_episode_store=episodes,
+        )
+        first._bounded_repair_files = lambda _item: {"scripts/check.py": "before"}
+        first.start(6); first.join(3)
+&gt;       assert first.view()["state"] == "COMPLETE", first.view()
+E       AssertionError: {'action_attempts': [{'action_fingerprint': 'ebd093f4b6b29e12783cf634d0788f6b2e7e0f32cbedd2be97b601d32d7a507d', 'actio...PLATE' == 'CODEX_EXPERT_SOLVER'
+E           
+E           - CODEX_EXPERT_SOLVER
+E           + DAY_ACTION_TEMPLATE", 'authority_blocker': None, ...}
+E       assert 'FAILED_UNRECOVERABLE' == 'COMPLETE'
+E         
+E         - COMPLETE
+E         + FAILED_UNRECOVERABLE
+
+tests\test_local_llm_day_program.py:314: AssertionError</failure></testcase><testcase classname="tests.test_local_llm_day_program" name="test_repair_deadline_escalates_without_waiting" time="0.677"><failure message="AssertionError: assert ['DAY_ACTION_TEMPLATE'] == ['DYNAMIC_ENG...XPERT_SOLVER']&#10;  &#10;  At index 0 diff: 'DAY_ACTION_TEMPLATE' != 'DYNAMIC_ENGINEERING_WORK'&#10;  Right contains one more item: 'CODEX_EXPERT_SOLVER'&#10;  Use -v to get more diff">tmp_path = WindowsPath('C:/AI-Control-Center/.pytest-tmp/run-29492-11cb54b5/test_repair_deadline_escalates0')
+
+    def test_repair_deadline_escalates_without_waiting(tmp_path):
+        calls = []
+        class Builder:
+            def propose(self, **_kwargs):
+                raise AssertionError("deadline should bypass local proposal")
+        clock_values = iter([0.0, 301.0])
+        def planner(contract, _inventory):
+            return [LocalLLMDayWorkItem(item_id="deadline-repair", title="deadline", objective="deadline", kind="DYNAMIC_ENGINEERING_WORK", criterion_ids=[item.criterion_id for item in contract.completion_criteria], dynamic_work_order=DynamicDayWorkOrder(task_id="day-6-deadline-fixture", allowed_files=["scripts/check.py"], context_files=["scripts/check.py"], acceptance_test_files=["tests/test_check.py"]))]
+        def executor(order):
+            calls.append(order["kind"])
+            if order["kind"] == "DYNAMIC_ENGINEERING_WORK":
+                return {"final_result": "FAILED", "issue_classification": "IMPLEMENTATION_DEFECT", "failure_excerpt": "deadline failure"}
+            return {"final_result": "COMPLETE", "evidence": _valid_evidence([name for criterion in LocalLLMDayProgram(FIXTURE_ROOT)._load_contracts()[6].completion_criteria for name in criterion.required_evidence])}
+        runner = LocalLLMDayProgram(FIXTURE_ROOT, planner=planner, work_order_executor=executor, repair_builder=Builder(), clock=lambda: next(clock_values))
+        runner.start(6); runner.join(3)
+&gt;       assert calls == ["DYNAMIC_ENGINEERING_WORK", "CODEX_EXPERT_SOLVER"]
+E       AssertionError: assert ['DAY_ACTION_TEMPLATE'] == ['DYNAMIC_ENG...XPERT_SOLVER']
+E         
+E         At index 0 diff: 'DAY_ACTION_TEMPLATE' != 'DYNAMIC_ENGINEERING_WORK'
+E         Right contains one more item: 'CODEX_EXPERT_SOLVER'
+E         Use -v to get more diff
+
+tests\test_local_llm_day_program.py:344: AssertionError</failure></testcase><testcase classname="tests.test_local_llm_day_program" name="test_static_process_tasks_cannot_supply_day_one_evidence" time="1.687" /><testcase classname="tests.test_local_llm_day_program" name="test_new_day_drops_stale_work_and_old_contract_state" time="0.618" /><testcase classname="tests.test_local_llm_day_program" name="test_old_false_complete_persistence_is_invalidated" time="0.363" /><testcase classname="tests.test_local_llm_day_program" name="test_same_day_valid_incomplete_evidence_survives_restart" time="0.630"><failure message="assert False is True">def test_same_day_valid_incomplete_evidence_survives_restart():
+        runner = LocalLLMDayProgram(FIXTURE_ROOT)
+        runner.smoke(6)
+        saved = runner.view()
+        criterion = saved["contract"]["completion_criteria"][0]
+        criterion["evidence"] = _valid_evidence(criterion["required_evidence"])
+        criterion["satisfied"] = True
+        saved["state"] = "PAUSED"
+        restored = LocalLLMDayProgram(FIXTURE_ROOT, saved=saved)
+&gt;       assert restored.view()["contract"]["completion_criteria"][0]["satisfied"] is True
+E       assert False is True
+
+tests\test_local_llm_day_program.py:396: AssertionError</failure></testcase><testcase classname="tests.test_local_llm_day_program" name="test_day_one_disposable_git_integration_collects_real_evidence" time="5.001"><failure message="TypeError: string indices must be integers, not 'str'">tmp_path = WindowsPath('C:/AI-Control-Center/.pytest-tmp/run-29492-11cb54b5/test_day_one_disposable_git_in0')
+
+    def test_day_one_disposable_git_integration_collects_real_evidence(tmp_path):
+        root = _day1_repo(tmp_path)
+        result = _run_day1(root)
+        assert result["state"] == LocalLLMDayState.COMPLETE.value
+        criteria = {item["criterion_id"]: item["evidence"] for item in result["contract"]["completion_criteria"]}
+        head = _git(root, "rev-parse", "HEAD")
+&gt;       assert criteria["d1-repository_relationship"]["git_head"]["value"]["head"] == head
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: string indices must be integers, not 'str'
+
+tests\test_local_llm_day_program.py:447: TypeError</failure></testcase><testcase classname="tests.test_local_llm_day_program" name="test_frozen_registry_covers_each_configured_day_evidence_pair" time="0.020" /><testcase classname="tests.test_local_llm_day_program" name="test_day_one_commit_ref_is_not_satisfied_by_read_only_head_observation" time="2.721" /><testcase classname="tests.test_local_llm_day_program" name="test_day_one_integration_rejects_staged_generated_artifact" time="4.918" /><testcase classname="tests.test_local_llm_day_program" name="test_day_one_integration_rejects_broken_authoritative_documentation" time="4.913" /><testcase classname="tests.test_local_llm_day_program" name="test_day_one_integration_rejects_failed_regression" time="5.020" /></testsuite></testsuites>

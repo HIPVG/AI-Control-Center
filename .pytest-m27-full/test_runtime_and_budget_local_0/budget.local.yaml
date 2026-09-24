@@ -1,0 +1,4 @@
+codex:
+  daily_input_tokens: 12
+evaluator:
+  daily_output_tokens: 7

@@ -1,0 +1,103 @@
+[
+  {
+    "action_id": "EXPEDITE_QA",
+    "addresses_issue_types": [
+      "QUALITY_RELEASE_SHORTAGE"
+    ]
+  },
+  {
+    "action_id": "PARTIAL_SHIPMENT",
+    "addresses_issue_types": [
+      "QUALITY_RELEASE_SHORTAGE",
+      "DELIVERY_DATE_AT_RISK",
+      "CUSTOMER_PRIORITY_CONFLICT"
+    ]
+  },
+  {
+    "action_id": "HOLD_SHIPMENT",
+    "addresses_issue_types": [
+      "QUALITY_RELEASE_SHORTAGE",
+      "TRACEABILITY_CONSTRAINT"
+    ]
+  },
+  {
+    "action_id": "RENEGOTIATE_DELIVERY",
+    "addresses_issue_types": [
+      "DELIVERY_DATE_AT_RISK",
+      "CUSTOMER_PRIORITY_CONFLICT"
+    ]
+  },
+  {
+    "action_id": "EMERGENCY_PROCUREMENT",
+    "addresses_issue_types": [
+      "MATERIAL_SHORTAGE",
+      "MATERIAL_LATE_RECEIPT",
+      "DELIVERY_DATE_AT_RISK"
+    ]
+  },
+  {
+    "action_id": "USE_ALTERNATE_SUPPLIER",
+    "addresses_issue_types": [
+      "MATERIAL_SHORTAGE",
+      "MATERIAL_LATE_RECEIPT"
+    ]
+  },
+  {
+    "action_id": "USE_ALTERNATE_LINE",
+    "addresses_issue_types": [
+      "EQUIPMENT_DOWNTIME_RISK",
+      "CAPACITY_SHORTAGE"
+    ]
+  },
+  {
+    "action_id": "USE_OVERTIME",
+    "addresses_issue_types": [
+      "CAPACITY_SHORTAGE",
+      "DELIVERY_DATE_AT_RISK"
+    ]
+  },
+  {
+    "action_id": "OUTSOURCE_PRODUCTION",
+    "addresses_issue_types": [
+      "CAPACITY_SHORTAGE",
+      "EQUIPMENT_DOWNTIME_RISK"
+    ]
+  },
+  {
+    "action_id": "REPAIR_EQUIPMENT",
+    "addresses_issue_types": [
+      "EQUIPMENT_DOWNTIME_RISK"
+    ]
+  },
+  {
+    "action_id": "RESCHEDULE_PRODUCTION",
+    "addresses_issue_types": [
+      "CAPACITY_SHORTAGE",
+      "DELIVERY_DATE_AT_RISK"
+    ]
+  },
+  {
+    "action_id": "PRIORITIZE_HIGH_PRIORITY_ORDER",
+    "addresses_issue_types": [
+      "CUSTOMER_PRIORITY_CONFLICT"
+    ]
+  },
+  {
+    "action_id": "REALLOCATE_INVENTORY",
+    "addresses_issue_types": [
+      "INVENTORY_CONSTRAINT",
+      "MATERIAL_SHORTAGE"
+    ]
+  },
+  {
+    "action_id": "WAIT_FOR_NORMAL_SUPPLY",
+    "addresses_issue_types": [
+      "MATERIAL_SHORTAGE",
+      "MATERIAL_LATE_RECEIPT"
+    ]
+  },
+  {
+    "action_id": "NO_ACTION",
+    "addresses_issue_types": []
+  }
+]

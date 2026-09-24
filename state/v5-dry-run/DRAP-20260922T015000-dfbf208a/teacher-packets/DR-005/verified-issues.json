@@ -1,0 +1,167 @@
+{
+  "issues": [
+    {
+      "issue_id": "ISSUE-001",
+      "issue_type": "QUALITY_RELEASE_SHORTAGE",
+      "severity_code": "BLOCKING",
+      "source_fact_ids": [
+        "FACT-SHIPMENT-REQUIRED",
+        "FACT-QA-PASSED"
+      ],
+      "deterministic_values": {
+        "delta": 80
+      }
+    },
+    {
+      "issue_id": "ISSUE-002",
+      "issue_type": "DELIVERY_DATE_AT_RISK",
+      "severity_code": "BLOCKING",
+      "source_fact_ids": [
+        "FACT-REQUESTED-DATE",
+        "FACT-EARLIEST-SHIP"
+      ],
+      "deterministic_values": {
+        "delta": 4
+      }
+    },
+    {
+      "issue_id": "ISSUE-003",
+      "issue_type": "MATERIAL_SHORTAGE",
+      "severity_code": "BLOCKING",
+      "source_fact_ids": [
+        "FACT-MATERIAL-REQUIRED",
+        "FACT-MATERIAL-AVAILABLE"
+      ],
+      "deterministic_values": {
+        "delta": 220
+      }
+    },
+    {
+      "issue_id": "ISSUE-004",
+      "issue_type": "MATERIAL_LATE_RECEIPT",
+      "severity_code": "BLOCKING",
+      "source_fact_ids": [
+        "FACT-MATERIAL-RECEIPT"
+      ],
+      "deterministic_values": {
+        "delta": 5
+      }
+    },
+    {
+      "issue_id": "ISSUE-005",
+      "issue_type": "CAPACITY_SHORTAGE",
+      "severity_code": "BLOCKING",
+      "source_fact_ids": [
+        "FACT-CAPACITY-REQUIRED",
+        "FACT-CAPACITY-AVAILABLE"
+      ],
+      "deterministic_values": {
+        "delta": 40
+      }
+    },
+    {
+      "issue_id": "ISSUE-006",
+      "issue_type": "EQUIPMENT_DOWNTIME_RISK",
+      "severity_code": "BLOCKING",
+      "source_fact_ids": [
+        "FACT-EQUIPMENT-STATUS"
+      ],
+      "deterministic_values": {
+        "delta": 24
+      }
+    },
+    {
+      "issue_id": "ISSUE-007",
+      "issue_type": "ALTERNATE_LINE_AVAILABLE",
+      "severity_code": "ADVISORY",
+      "source_fact_ids": [
+        "FACT-ALTERNATE-LINE"
+      ],
+      "deterministic_values": {
+        "delta": null
+      }
+    },
+    {
+      "issue_id": "ISSUE-008",
+      "issue_type": "YIELD_RISK",
+      "severity_code": "ADVISORY",
+      "source_fact_ids": [
+        "FACT-ALTERNATE-LINE"
+      ],
+      "deterministic_values": {
+        "delta": null
+      }
+    },
+    {
+      "issue_id": "ISSUE-009",
+      "issue_type": "TRACEABILITY_CONSTRAINT",
+      "severity_code": "ADVISORY",
+      "source_fact_ids": [
+        "FACT-QA-PASSED"
+      ],
+      "deterministic_values": {
+        "delta": null
+      }
+    },
+    {
+      "issue_id": "ISSUE-010",
+      "issue_type": "CUSTOMER_PRIORITY_CONFLICT",
+      "severity_code": "ADVISORY",
+      "source_fact_ids": [
+        "FACT-CUSTOMER-PRIORITY"
+      ],
+      "deterministic_values": {
+        "delta": null
+      }
+    },
+    {
+      "issue_id": "ISSUE-011",
+      "issue_type": "EXPEDITE_COST_RISK",
+      "severity_code": "ADVISORY",
+      "source_fact_ids": [
+        "FACT-EMERGENCY-PROCUREMENT",
+        "FACT-UNIT-COST",
+        "FACT-EMERGENCY-COST"
+      ],
+      "deterministic_values": {
+        "delta": null
+      }
+    },
+    {
+      "issue_id": "ISSUE-012",
+      "issue_type": "OVERTIME_COST_RISK",
+      "severity_code": "ADVISORY",
+      "source_fact_ids": [
+        "FACT-CAPACITY-REQUIRED",
+        "FACT-CAPACITY-AVAILABLE"
+      ],
+      "deterministic_values": {
+        "delta": null
+      }
+    },
+    {
+      "issue_id": "ISSUE-013",
+      "issue_type": "OUTSOURCING_OPTION",
+      "severity_code": "ADVISORY",
+      "source_fact_ids": [
+        "FACT-CAPACITY-REQUIRED"
+      ],
+      "deterministic_values": {
+        "delta": null
+      }
+    },
+    {
+      "issue_id": "ISSUE-014",
+      "issue_type": "INVENTORY_CONSTRAINT",
+      "severity_code": "ADVISORY",
+      "source_fact_ids": [
+        "FACT-INVENTORY",
+        "FACT-SHIPMENT-REQUIRED"
+      ],
+      "deterministic_values": {
+        "delta": null
+      }
+    }
+  ],
+  "engine_errors": []
+}

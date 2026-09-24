@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0",
+  "day": 2,
+  "failure_class": "MANIFEST_FINALIZATION_INCONSISTENT",
+  "run_id": "DRAP-20260922T090743-e98f6a3d",
+  "status": "APPLIED",
+  "proposal": {
+    "provider": "LocalLLM phi4:14b",
+    "diagnosis": "The manifest was marked COMPLETED before summary and results writes had succeeded.",
+    "method": "Write summary and results first; write COMPLETED to the manifest only after every finalization write succeeds.",
+    "edits": [
+      {
+        "path": "scripts/finalize_decision_reasoning_run.py",
+        "operation": "reorder terminal manifest update after all output writes"
+      }
+    ]
+  },
+  "source_scope": [
+    "scripts/finalize_decision_reasoning_run.py"
+  ],
+  "repair_authority": "CONTROL_CENTER_VALIDATED_LOCAL_LLM_PROPOSAL_ONLY",
+  "apply_authority": "CONTROL_CENTER_ONLY",
+  "evidence": {
+    "manifest_before": "running",
+    "manifest_after": "COMPLETED",
+    "terminal_command_result": "NOT_RECOVERED",
+    "focused_test": "tests/test_finalize_decision_reasoning_run.py",
+    "focused_test_result": "PASS",
+    "new_inference_started": false
+  },
+  "next_action": "PRESERVE_COMPLETED_ARTIFACT_AND_CONTINUE_DAY_MANAGEMENT"
+}

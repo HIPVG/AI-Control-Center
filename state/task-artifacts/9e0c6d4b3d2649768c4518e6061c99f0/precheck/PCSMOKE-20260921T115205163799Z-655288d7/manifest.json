@@ -1,0 +1,52 @@
+{
+  "automatic_scoring": false,
+  "base_url": "http://127.0.0.1:11434",
+  "blocked_count": 0,
+  "case_manifest_sha256": "2dc0661e6b2b4afad83273a76eea03b2f75485f4cf81d4ef10f6906f7ba6aed7",
+  "completed_at": "2026-09-21T11:52:05.468005+00:00",
+  "context_length": 4096,
+  "created_at": "2026-09-21T11:52:05.344916+00:00",
+  "dry_run": true,
+  "engine": "ollama",
+  "engine_version": null,
+  "environment_summary": {
+    "architecture": "AMD64",
+    "gpu_observed": false,
+    "os": "Windows",
+    "os_release": "11",
+    "python_version": "3.12.10"
+  },
+  "error": null,
+  "failed_count": 0,
+  "git_commit": "cebb92a5450231f70428cf750a0ff32c680f0831",
+  "git_dirty": false,
+  "input_character_count_basis": "System and user message contents; chat-template overhead excluded.",
+  "input_sha256": {
+    "PC-001-A": "4dd57ccc51359db078728cc6f39f3ca5e3c5b2dae4a5bd0f942c5059cc4782b6"
+  },
+  "max_output_tokens": 512,
+  "measurement_method": "Non-streaming request wall time; TPS=eval_count/(eval_duration/1e9). No TTFT/GPU measurement.",
+  "model": null,
+  "process_consistency_schema_version": "1.0",
+  "rag": false,
+  "raw_response_storage": "allowlisted numeric/completion metadata only",
+  "response_count": 1,
+  "run_id": "PCSMOKE-20260921T115205163799Z-655288d7",
+  "runner_version": "1.0.0",
+  "seed": 42,
+  "seed_effective": null,
+  "seed_note": "Requested option only; installed engine/model determinism is not verified.",
+  "seed_parameter_sent": false,
+  "seed_supported": null,
+  "selected_case_ids": [
+    "PC-001-A"
+  ],
+  "skipped_count": 1,
+  "status": "dry_run",
+  "success_count": 0,
+  "system_prompt_sha256": "04c27fdc8b9ab9f77fb0b3e57a88921b0ebce2ba0d7b41e050a8c21fcdba6668",
+  "system_prompt_version": "1.0-ja",
+  "temperature": 0,
+  "thinking_requested": false,
+  "timeout": 120
+}

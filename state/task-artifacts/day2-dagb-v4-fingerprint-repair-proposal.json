@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "day": 2,
+  "failure_class": "DAGB_BASELINE_FINGERPRINT_DRIFT",
+  "status": "APPLIED",
+  "proposal": {
+    "provider": "LocalLLM phi4:14b",
+    "diagnosis": "The v0.4 baseline fingerprint did not match the deterministically measured v0.2 baseline configuration.",
+    "method": "Replace only baseline_config_sha256 with the supplied SHA256.",
+    "edits": [
+      {
+        "path": "config/decision-generalization-benchmark-v4.json",
+        "operation": "replace stale baseline_config_sha256"
+      }
+    ]
+  },
+  "source_scope": [
+    "config/decision-generalization-benchmark-v4.json"
+  ],
+  "evidence": {
+    "baseline_sha256": "934db37d0cd1ca4f9dece5beaf16b15b51a722f87321d2f43007fa28dfd1855a",
+    "focused_test": "tests/test_decision_generalization_benchmark_v4.py",
+    "focused_test_result": "2 passed"
+  },
+  "next_action": "CONTINUE_REGRESSION"
+}

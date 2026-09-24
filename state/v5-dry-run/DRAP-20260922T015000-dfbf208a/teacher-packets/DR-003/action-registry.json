@@ -1,0 +1,26 @@
+[
+  {
+    "action_id": "HOLD_SHIPMENT",
+    "description": "Hold shipment until blocking constraints are resolved."
+  },
+  {
+    "action_id": "USE_ALTERNATE_LINE",
+    "description": "Route production to the available alternate line."
+  },
+  {
+    "action_id": "USE_OVERTIME",
+    "description": "Use available overtime capacity."
+  },
+  {
+    "action_id": "OUTSOURCE_PRODUCTION",
+    "description": "Use an approved outsourcing option."
+  },
+  {
+    "action_id": "REPAIR_EQUIPMENT",
+    "description": "Repair unavailable required equipment."
+  },
+  {
+    "action_id": "RESCHEDULE_PRODUCTION",
+    "description": "Reschedule production within verified constraints."
+  }
+]

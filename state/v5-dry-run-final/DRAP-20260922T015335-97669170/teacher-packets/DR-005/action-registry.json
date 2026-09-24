@@ -1,0 +1,50 @@
+[
+  {
+    "action_id": "EXPEDITE_QA",
+    "description": "Expedite compliant QA processing."
+  },
+  {
+    "action_id": "PARTIAL_SHIPMENT",
+    "description": "Ship only quantities already released by QA."
+  },
+  {
+    "action_id": "HOLD_SHIPMENT",
+    "description": "Hold shipment until blocking constraints are resolved."
+  },
+  {
+    "action_id": "RENEGOTIATE_DELIVERY",
+    "description": "Renegotiate delivery timing with the customer."
+  },
+  {
+    "action_id": "EMERGENCY_PROCUREMENT",
+    "description": "Use an approved emergency procurement route."
+  },
+  {
+    "action_id": "USE_ALTERNATE_LINE",
+    "description": "Route production to the available alternate line."
+  },
+  {
+    "action_id": "USE_OVERTIME",
+    "description": "Use available overtime capacity."
+  },
+  {
+    "action_id": "OUTSOURCE_PRODUCTION",
+    "description": "Use an approved outsourcing option."
+  },
+  {
+    "action_id": "REPAIR_EQUIPMENT",
+    "description": "Repair unavailable required equipment."
+  },
+  {
+    "action_id": "RESCHEDULE_PRODUCTION",
+    "description": "Reschedule production within verified constraints."
+  },
+  {
+    "action_id": "PRIORITIZE_HIGH_PRIORITY_ORDER",
+    "description": "Prioritize the verified high-priority order."
+  },
+  {
+    "action_id": "WAIT_FOR_NORMAL_SUPPLY",
+    "description": "Wait for the normal supply path and accept the timing impact."
+  }
+]

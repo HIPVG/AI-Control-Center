@@ -1,0 +1,7 @@
+diff --git a/backend/orchestrator/engine.py b/backend/orchestrator/engine.py
+--- a/backend/orchestrator/engine.py
++++ b/backend/orchestrator/engine.py
+@@ -703,0 +704,3 @@
++    def repair_and_go_local_llm_day(self) -> dict[str, object]:
++        return self.local_llm_day_program.repair_and_go()
++

@@ -1,0 +1,3 @@
+codex:
+  mode: mock
+  timeout_seconds: 300

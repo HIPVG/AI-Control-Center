@@ -1,0 +1,88 @@
+{
+  "messages": [
+    {
+      "content": "あなたは製造業の業務データを確認するアシスタントです。\n与えられた資料だけを根拠に回答してください。\n業務上の不整合、確認が必要な点、影響があれば説明してください。\n資料に存在しない事実を推測で補わないでください。\n不明な点は不明と明示してください。",
+      "role": "system"
+    },
+    {
+      "content": "この取引・製造・品質情報を確認し、業務上の不整合、確認が必要な点、影響があれば説明してください。根拠のレコードIDを示し、資料にない事実は推測で補わないでください。\n\n以下は参照資料です。\n\n[Record 1]\nrecord_id: products:PRD-TH-SHEET-00001\nbusiness_unit: \"TH\"\nfamily: \"TH-SHEET\"\nproduct_id: \"PRD-TH-SHEET-00001\"\nproduct_name: \"HLM-SYN TH-SHEET variant 00001\"\nunit: \"piece\"\n\n[Record 2]\nrecord_id: customers:CUS-0003\ncustomer_id: \"CUS-0003\"\ncustomer_name: \"HLM-SYN Automotive Partner 0003\"\nregion: \"ASIA\"\n\n[Record 3]\nrecord_id: manufacturing_lots:LOT-2026-003735\nlot_id: \"LOT-2026-003735\"\nproduct_id: \"PRD-TH-SHEET-00001\"\nproduction_date: \"2026-03-31\"\nunit: \"piece\"\n\n[Record 4]\nrecord_id: case_orders:CTX-002-ORDER\ncustomer_id: \"CUS-0003\"\nproduct_id: \"PRD-TH-SHEET-00001\"\nquantity: \"175\"\nunit: \"piece\"\n\n[Record 5]\nrecord_id: case_qa_releases:CTX-002-QA\ncustomer_id: \"CUS-0003\"\nlot_id: \"LOT-2026-003735\"\npassed_quantity: \"115\"\nproduct_id: \"PRD-TH-SHEET-00001\"\nrelease_date: \"2026-03-31\"\nunit: \"piece\"\n\n[Record 6]\nrecord_id: case_released_inventory:CTX-002-STOCK\navailable_quantity: \"35\"\ncustomer_id: \"CUS-0003\"\nlot_id: \"EVAL-RELEASED-LOT\"\nproduct_id: \"PRD-TH-SHEET-00001\"\nunit: \"piece\"\n\n[Record 7]\nrecord_id: case_shipments:CTX-002-SHIP\ncustomer_id: \"CUS-0003\"\norder_record_id: \"case_orders:CTX-002-ORDER\"\nproduct_id: \"PRD-TH-SHEET-00001\"\nquantity: \"175\"\nshipment_date: \"2026-04-01\"\nsupply_scope: [\"case_qa_releases:CTX-002-QA\", \"case_released_inventory:CTX-002-STOCK\"]\nunit: \"piece\"",
+      "role": "user"
+    }
+  ],
+  "records": [
+    {
+      "fields": {
+        "business_unit": "TH",
+        "family": "TH-SHEET",
+        "product_id": "PRD-TH-SHEET-00001",
+        "product_name": "HLM-SYN TH-SHEET variant 00001",
+        "unit": "piece"
+      },
+      "record_id": "products:PRD-TH-SHEET-00001"
+    },
+    {
+      "fields": {
+        "customer_id": "CUS-0003",
+        "customer_name": "HLM-SYN Automotive Partner 0003",
+        "region": "ASIA"
+      },
+      "record_id": "customers:CUS-0003"
+    },
+    {
+      "fields": {
+        "lot_id": "LOT-2026-003735",
+        "product_id": "PRD-TH-SHEET-00001",
+        "production_date": "2026-03-31",
+        "unit": "piece"
+      },
+      "record_id": "manufacturing_lots:LOT-2026-003735"
+    },
+    {
+      "fields": {
+        "customer_id": "CUS-0003",
+        "product_id": "PRD-TH-SHEET-00001",
+        "quantity": "175",
+        "unit": "piece"
+      },
+      "record_id": "case_orders:CTX-002-ORDER"
+    },
+    {
+      "fields": {
+        "customer_id": "CUS-0003",
+        "lot_id": "LOT-2026-003735",
+        "passed_quantity": "115",
+        "product_id": "PRD-TH-SHEET-00001",
+        "release_date": "2026-03-31",
+        "unit": "piece"
+      },
+      "record_id": "case_qa_releases:CTX-002-QA"
+    },
+    {
+      "fields": {
+        "available_quantity": "35",
+        "customer_id": "CUS-0003",
+        "lot_id": "EVAL-RELEASED-LOT",
+        "product_id": "PRD-TH-SHEET-00001",
+        "unit": "piece"
+      },
+      "record_id": "case_released_inventory:CTX-002-STOCK"
+    },
+    {
+      "fields": {
+        "customer_id": "CUS-0003",
+        "order_record_id": "case_orders:CTX-002-ORDER",
+        "product_id": "PRD-TH-SHEET-00001",
+        "quantity": "175",
+        "shipment_date": "2026-04-01",
+        "supply_scope": [
+          "case_qa_releases:CTX-002-QA",
+          "case_released_inventory:CTX-002-STOCK"
+        ],
+        "unit": "piece"
+      },
+      "record_id": "case_shipments:CTX-002-SHIP"
+    }
+  ],
+  "system_prompt": "あなたは製造業の業務データを確認するアシスタントです。\n与えられた資料だけを根拠に回答してください。\n業務上の不整合、確認が必要な点、影響があれば説明してください。\n資料に存在しない事実を推測で補わないでください。\n不明な点は不明と明示してください。",
+  "user_prompt": "この取引・製造・品質情報を確認し、業務上の不整合、確認が必要な点、影響があれば説明してください。根拠のレコードIDを示し、資料にない事実は推測で補わないでください。"
+}
