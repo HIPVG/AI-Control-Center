@@ -198,7 +198,8 @@ For every reviewer-facing report:
 2. ensure no other reviewer report is outstanding;
 3. publish one top-level comment to operational PR #1 containing `REPORT_TYPE:`;
 4. record the comment/report identifier and publication time;
-5. after successful publication, follow the response-acquisition rules below.
+5. after successful publication, end the current Codex turn at the safe checkpoint; do not poll the PR from inside Codex;
+6. the deterministic Control Center reviewer-bus watcher owns response polling and resumes the most recent Codex exec session when the matching response arrives.
 
 The operational path does **not** use the ChatGPT composer. Do not automate the
 composer, inspect drafts/placeholders, or attempt direct browser message injection as
