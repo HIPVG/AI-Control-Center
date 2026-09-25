@@ -1873,3 +1873,35 @@ No ACL repair retry, Day action, LocalLLM invocation, GitHub access, commit, pus
 
 ### NEXT
 Restart the local Control Center process so the watcher loads the guarded handoff, then verify the next response/report cycle through the existing watcher-owned transport.
+
+## 2026-09-25 — Reviewer event detection missed the actual PR report
+
+### REQUEST / INTENT
+Ensure the Work-side reviewer reliably detects and reviews every new reviewer-facing PR report that Codex/Control Center says it has submitted.
+
+### OBSERVED INCIDENT
+- The Work reviewer stated that no new unprocessed `REPORT_TYPE:` comment existed on PR #1.
+- It identified the last visible request as `G2-ACC-REVIEW-20260925-001` and treated it as a resubmission-needed state because the actual artifact could not be confirmed.
+- A subsequent report, `G2-ACC-REVIEW-20260925-002`, was in fact present and was later detected and accepted after an explicit re-check.
+- Therefore the reviewer-side event handling produced a false “no new report” conclusion even though a new top-level report comment had already reached GitHub.
+
+### ROOT CAUSE
+The webhook/event notification did not carry enough report identity/content for reliable one-shot handling, and the Work-side reviewer did not deterministically re-fetch and reconcile the latest PR conversation state after the notification. It relied too heavily on the notification event itself instead of treating GitHub PR #1 as the source of truth.
+
+### USER CORRECTION
+When Codex says that a review request was submitted, the reviewer must not assume absence from one event observation. It must verify the current PR conversation and reconcile against the latest top-level `REPORT_TYPE:` comments before concluding that no report arrived.
+
+### REQUIRED BEHAVIOR / REGRESSION PREVENTION
+- GitHub PR #1 is the source of truth for reviewer reports, not the webhook payload alone.
+- On every reviewer event, re-fetch the current PR conversation before deciding whether a new report exists.
+- Compare the latest top-level `REPORT_TYPE:` comments and `REPORT_ID` values against previously processed IDs.
+- Do not state “no new report” until the latest PR conversation has been re-read after the event.
+- If the event payload is incomplete or ambiguous, perform deterministic GitHub re-fetch/reconciliation rather than waiting for the human to point out the missing report.
+- Reviewer event delivery and reviewer state correlation must be validated by actual PR evidence, not by notification metadata alone.
+
+### EXPECTED EVIDENCE
+A new report comment arriving after an incomplete webhook notification is still detected on the same reviewer turn by re-fetching PR #1, and the reviewer answers the correct latest unprocessed `REPORT_ID` without human prompting.
+
+### PLAN_STATUS
+LESSON RECORDED; reviewer/task implementation should preserve GitHub re-fetch/reconciliation as the authoritative detection path.
+
