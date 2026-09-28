@@ -27,3 +27,20 @@ service operation, no credential action, no external publication, and no
 destructive Git operation. WC-03's own read-only catalog/fixture scope must be
 inspected before any source change; card transition does not reset the G6 time
 window or alter the completed WC-02 fixture tally.
+
+## Correction — acceptance not applied
+
+The original `HUMAN_REQUIRED` response was subsequently read in full from its
+preserved Git-file evidence (`1c456d17a81208320a5a2c42840da686cc082ee2`). It
+requires three additional, coupled decisions: a named limited ratification of
+the actual alternative edit route, a minimal fail-closed bounds repair for
+`active_work_seconds <= 1800` and `max_attempts <= 2`, and one newly allocated
+fresh-process focused fixture attempt. The preceding human 「はい」 answered an
+incomplete proposal that mentioned only the observed 16-pass fixture result; it
+does not authorize those three items.
+
+Accordingly, this record does **not** accept WC-02, does not resolve
+`G6-ACC-WC02-IMPLEMENTATION-20260928-001`, and does not select or start WC-03.
+The persisted Reviewer state remains `HUMAN_REQUIRED`. This correction preserves
+the mistaken proposal and the human response as audit context without treating
+either as expanded authority.

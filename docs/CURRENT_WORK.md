@@ -1,20 +1,19 @@
 # Current Work
 
-## Current G6 checkpoint — WC-02 accepted; WC-03 is next (2026-09-28)
+## Current G6 checkpoint — WC-02 remains human-required (2026-09-28)
 
-Human decision `AUTH-G6-WC02-ACCEPT-20260928-001`, recorded in
-`docs/review-records/G6_WC02_DIRECT_ACCEPTANCE_2026-09-28.md`, accepts the
-fixed WC-02 implementation commit `12176209ffe27c6ae5cf18c85865fb238c801986`
-on the confirmed 16-pass fixture run. The wider second run remains
-`OUTCOME_UNOBSERVED`, is not a pass or a failure, and is not rerun. The Reviewer
-file response remains preserved as `HUMAN_REQUIRED` provenance; this is a direct
-human card decision, not a rewritten Reviewer acceptance.
+The full preserved Reviewer file response to
+`G6-ACC-WC02-IMPLEMENTATION-20260928-001` was read after an incomplete initial
+summary. It requires a named limited ratification of the alternative edit route,
+the fail-closed bounds repair `active_work_seconds <= 1800` and
+`max_attempts <= 2`, and one newly allocated fresh-process focused fixture
+attempt. The earlier human 「はい」 answered only the incomplete 16-pass proposal;
+it does not grant those items. Correction record:
+`docs/review-records/G6_WC02_DIRECT_ACCEPTANCE_2026-09-28.md`.
 
-Select WC-03 next in G5 dependency order only after checking its bounded
-read-only catalog scope and the residual G6 30-ACTIVE-WORK window. Card switching
-does not reset time or trial limits. No Day selection/Go, model/service operation,
-credential action, paid work, destructive Git operation, or later-card work is
-authorized by this checkpoint.
+Keep WC-02 `HUMAN_REQUIRED`; do not accept the fixed implementation commit, run
+another fixture, modify source, or select/start WC-03 until the human explicitly
+chooses the bounded repair-and-fixture authority or the unaccepted stop.
 
 ## Current maintenance — rejection recovery (2026-09-28)
 
