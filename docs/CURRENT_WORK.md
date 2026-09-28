@@ -1,19 +1,19 @@
 # Current Work
 
-## Current G6 checkpoint — WC-02 remains human-required (2026-09-28)
+## Current G6 checkpoint — WC-02 bounded repair confirmation (2026-09-28)
 
-The full preserved Reviewer file response to
-`G6-ACC-WC02-IMPLEMENTATION-20260928-001` was read after an incomplete initial
-summary. It requires a named limited ratification of the alternative edit route,
-the fail-closed bounds repair `active_work_seconds <= 1800` and
-`max_attempts <= 2`, and one newly allocated fresh-process focused fixture
-attempt. The earlier human 「はい」 answered only the incomplete 16-pass proposal;
-it does not grant those items. Correction record:
-`docs/review-records/G6_WC02_DIRECT_ACCEPTANCE_2026-09-28.md`.
+Human chose the bounded repair option in `AUTH-G6-WC02-REPAIR-20260928-001`,
+recorded at `docs/review-records/G6_WC02_REPAIR_AUTHORITY_2026-09-28.md`.
+The existing foreground Codex edit route is named and limited; the only intended
+source change is fail-closed rejection of `active_work_seconds > 1800` or
+`max_attempts > 2`, followed by one new focused fixture attempt.
 
-Keep WC-02 `HUMAN_REQUIRED`; do not accept the fixed implementation commit, run
-another fixture, modify source, or select/start WC-03 until the human explicitly
-chooses the bounded repair-and-fixture authority or the unaccepted stop.
+First send a new exact confirmation report for the existing
+`G6-ACC-WC02-IMPLEMENTATION-20260928-001` `HUMAN_REQUIRED` response. Do not
+patch or run the new fixture until its matching positive confirmation is applied.
+Then perform only the bounded repair, publish its fixed commit for review, and
+stop. WC-02 is not yet accepted; WC-03, Day selection/Go, model/service work,
+credential actions, paid work, and destructive Git remain excluded.
 
 ## Current maintenance — rejection recovery (2026-09-28)
 
