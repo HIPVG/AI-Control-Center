@@ -250,7 +250,9 @@ class ReviewerBusWatcher:
                     if value:
                         entry[field.lower()] = value
             entry.setdefault("response_required", not bool(re.search(r"(?mi)^RESPONSE_REQUIRED:\s*no\s*$", str(report["body"]))))
-            entry.setdefault("response_transport", "comment")
+            # Older watcher versions did not persist transport. Honor an explicit
+            # file contract on first upgraded read; never infer it from PoC flags.
+            entry.setdefault("response_transport", "github_file" if self._single_field(str(report["body"]), "RESPONSE_TRANSPORT") == "github_file" else "comment")
             if rid in self._state.get("non_controlling_report_ids", []):
                 entry["state"] = "NON_CONTROLLING"
             elif rid in self._state.get("processed_report_ids", []) and entry["state"] not in {"HUMAN_REQUIRED", "RESOLVED_BY_CONFIRMATION"}:

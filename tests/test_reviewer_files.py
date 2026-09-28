@@ -226,6 +226,16 @@ def test_no_opt_in_keeps_legacy_poc_informational(tmp_path, monkeypatch):
     assert len(b.calls) == 1 and not b.prompts
 
 
+def test_upgrade_reads_explicit_file_report_registered_by_older_watcher(tmp_path, monkeypatch):
+    b = Bus(tmp_path, monkeypatch)
+    w = b.watcher()
+    w._set_state(report_registry={"F1": {"report_comment_id": 10,
+        "state": "WAITING_RESPONSE", "response_required": True}})
+    assert w.run_once()["report_registry"]["F1"]["state"] == "APPLIED"
+    b.watcher().run_once()
+    assert len(b.prompts) == 1
+
+
 def test_file_confirmation_resolves_old_wait_only_after_success(tmp_path, monkeypatch):
     b = Bus(tmp_path, monkeypatch)
     fields = (f"REVIEWED_COMMIT: {REQUEST}\nCONFIRMS_REPORT_ID: OLD\n"

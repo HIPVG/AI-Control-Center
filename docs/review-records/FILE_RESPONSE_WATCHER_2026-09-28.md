@@ -62,11 +62,14 @@ Implemented reader in backend/control/reviewer_files.py and integrated it with
 ReviewerBusWatcher. Pending file identity is checked both against persisted request
 state and freshly fetched contents. Invalidated pending state is quarantined;
 file provenance never masquerades as a numeric comment ID. Existing registrations
-retain comment mode; old PoCs are not silently promoted into execution requests.
+retain their persisted mode; old PoCs are not silently promoted into execution
+requests. A registry written by the old watcher without a transport field derives
+the mode once from the explicit RESPONSE_TRANSPORT marker at upgrade; this allows
+review requests published before deployment to be consumed after loading the reader.
 
 Focused command: `python -m pytest tests/test_reviewer_files.py
 tests/test_reviewer_bus.py tests/test_reviewer_confirmation.py -q -p no:cacheprovider`.
-Result: 50 passed. Tests assert APPLIED once across restart, ACK with zero Codex
+Result: 51 passed. Tests assert APPLIED once across restart, ACK with zero Codex
 calls, field/hash/type/size failures with zero calls, missing reply waiting,
 pending deletion/edit/mismatch quarantine, network error preserving pending,
 unchanged failed pending retry, corrupted pending IDs not executing another reply,
