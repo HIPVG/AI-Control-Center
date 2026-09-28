@@ -1,5 +1,17 @@
 # Current Work
 
+## Current maintenance — file-response reader (2026-09-28)
+
+Human requested design and implementation of file replies in the existing Watcher.
+Scope/DoD: explicitly opted-in new reports, immutable request/response correlation,
+pending-file revalidation, informational ACK without execution, restart deduplication
+and unchanged legacy comment handling. Record:
+`docs/review-records/FILE_RESPONSE_WATCHER_2026-09-28.md`.
+Deliver source and focused fixture evidence for review. Runtime reload and live
+continuation are separate deployment evidence, not implied by passing fixtures.
+WC02's host source-write/reload handoff remains HUMAN_REQUIRED under reply
+5867480489; this transport implementation does not grant that authority.
+
 ## Active engineering work — G6 dependency-order continuation (2026-09-28)
 
 - Latest human instruction: 「では設計変更し、進めてください。」

@@ -13,6 +13,8 @@ from pathlib import Path
 from time import monotonic, sleep
 from typing import Callable
 
+from backend.control.reviewer_files import FileReplyError, GitHubFileReader, binding
+
 REVIEW_REPO = "HIPVG/AI-Control-Center-Review-Bridge"
 REVIEW_PR = 1
 POLL_SECONDS = 120
@@ -86,22 +88,30 @@ class ReviewerBusWatcher:
             return self.status()
 
         self._sync_report_registry(comments)
+        if not self._validate_pending_file_state():
+            return self.status()
+        file_responses = self._sync_file_responses(comments)
         report = self._current_report(comments)
         if report is None:
-            self._set_state(last_error=None)
+            if not any(e.get("file_error") for e in self._state.get("report_registry", {}).values()):
+                self._set_state(last_error=None)
             return self.status()
         report_id = self._extract(REPORT_ID_RE, str(report.get("body", "")))
         if not report_id:
             self._set_state(last_error="REPORT_ID_MISSING")
             return self.status()
 
-        response, pending_invalidated = self._pending_or_matching_response(comments, report, report_id)
+        entry = self._state.get("report_registry", {}).get(report_id, {})
+        if entry.get("response_transport") == "github_file":
+            response, pending_invalidated = file_responses.get(report_id), True
+        else:
+            response, pending_invalidated = self._pending_or_matching_response(comments, report, report_id)
         if response is None:
             if not pending_invalidated:
                 self._record_unmatched_response(comments, report, report_id)
             return self.status()
 
-        response_id = int(response["id"])
+        response_id = response["id"]
         response_body = str(response.get("body", ""))
         confirmation_error = self._confirmation_error(report_id, response_body)
         if confirmation_error:
@@ -109,14 +119,17 @@ class ReviewerBusWatcher:
                                 rejected_response_comment_id=response_id)
             self._set_state(last_error=confirmation_error)
             return self.status()
-        self._set_state(last_report_id=report_id, last_response_comment_id=response_id, pending_response_comment_id=response_id, pending_response_body=response_body, pending_response_report_id=report_id, outstanding_report_id=report_id, outstanding_report_comment_id=int(report["id"]), last_error=None)
+        comment_id = response_id if isinstance(response_id, int) else None
+        file_source = {k: v for k, v in response.items() if k != "body"} if comment_id is None else None
+        self._set_state(last_report_id=report_id, last_response_comment_id=comment_id, pending_response_comment_id=comment_id, pending_response_file=file_source, pending_response_body=response_body, pending_response_report_id=report_id, outstanding_report_id=report_id, outstanding_report_comment_id=int(report["id"]), last_error=None)
         prompt = self._resume_prompt(report_id, response_body)
         prompt += "\nORIGINAL_REPORT:\n" + str(report["body"])
         prompt += "\nREVIEW_WORK_IN_PROGRESS:\n" + json.dumps(self._work_in_progress(), ensure_ascii=False)
         recovery = self._state.get("last_binding_recovery", {})
         if recovery.get("target_report_id") == report_id:
             prompt += "\nCURRENT HUMAN AUTHORIZED RECOVERY SCOPE:\n" + str(recovery["continuation_scope"])
-        self._update_report(report_id, state="APPLYING", response_comment_id=response_id)
+        self._update_report(report_id, state="APPLYING", response_comment_id=comment_id,
+                            response_file=file_source, response_file_id=response_id if file_source else None)
         completed = self._continue_codex(prompt)
         self._set_state(last_continuation_at=_utc_now(), last_codex_exit_code=completed.returncode)
         if completed.returncode != 0:
@@ -153,7 +166,8 @@ class ReviewerBusWatcher:
 
         new_report_id = str(envelope["report_id"])
         self._update_report(new_report_id, state="WAITING_RESPONSE", report_comment_id=posted_id,
-                            report_type=envelope["report_type"], predecessor_report_id=report_id)
+                            report_type=envelope["report_type"], predecessor_report_id=report_id,
+                            response_transport="github_file" if self._single_field(report_body, "RESPONSE_TRANSPORT") == "github_file" else "comment")
         self._mark_response_applied(response_id, report_id, outstanding_report_id=new_report_id, outstanding_report_comment_id=posted_id, last_report_id=new_report_id, last_delivery_comment_id=posted_id, last_delivery_at=_utc_now())
         return self.status()
 
@@ -195,7 +209,7 @@ class ReviewerBusWatcher:
             expected = self._state.get("pending_response_report_id")
         registry = self._state.get("report_registry")
         if registry is not None:
-            if self._state.get("pending_response_comment_id"):
+            if self._state.get("pending_response_comment_id") or self._state.get("pending_response_file"):
                 return next((item for item in reversed(reports) if self._extract(REPORT_ID_RE, str(item["body"])) == expected), None)
             eligible = [item for item in reports if registry.get(self._extract(REPORT_ID_RE, str(item["body"])), {}).get("state")
                         in {"QUEUED", "WAITING_RESPONSE", "RESPONSE_RECEIVED", "CONTINUATION_FAILED"}]
@@ -229,24 +243,26 @@ class ReviewerBusWatcher:
                 if rid == anchor:
                     state = "WAITING_RESPONSE"
                 reply_required = not re.search(r"(?mi)^RESPONSE_REQUIRED:\s*no\s*$", str(report["body"]))
-                entry = {"report_comment_id": int(report["id"]), "report_type": self._extract(REPORT_TYPE_RE, str(report["body"])), "state": state, "response_required": reply_required}
+                entry = {"report_comment_id": int(report["id"]), "report_type": self._extract(REPORT_TYPE_RE, str(report["body"])), "state": state, "response_required": reply_required,
+                         "response_transport": "github_file" if self._single_field(str(report["body"]), "RESPONSE_TRANSPORT") == "github_file" else "comment"}
                 for field in ("REVIEWED_COMMIT", "BASELINE_ID"):
                     value = self._extract(re.compile(r"(?m)^" + field + r":\s*([^\s]+)\s*$"), str(report["body"]))
                     if value:
                         entry[field.lower()] = value
             entry.setdefault("response_required", not bool(re.search(r"(?mi)^RESPONSE_REQUIRED:\s*no\s*$", str(report["body"]))))
+            entry.setdefault("response_transport", "comment")
             if rid in self._state.get("non_controlling_report_ids", []):
                 entry["state"] = "NON_CONTROLLING"
             elif rid in self._state.get("processed_report_ids", []) and entry["state"] not in {"HUMAN_REQUIRED", "RESOLVED_BY_CONFIRMATION"}:
                 entry["state"] = "HUMAN_REQUIRED" if rid == self._state.get("last_report_id") and self._state.get("last_continuation_action") == "HUMAN_REQUIRED" else "APPLIED"
-            elif entry.get("response_required") is False and entry["state"] != "HISTORICAL_NOT_REPLAYED":
+            elif entry.get("response_required") is False and entry["state"] != "HISTORICAL_NOT_REPLAYED" and entry["response_transport"] == "comment":
                 acknowledgements = [item for item in comments if int(item["id"]) > entry["report_comment_id"]
                                     and self._response_target(str(item["body"])) == rid
                                     and re.search(r"(?m)^RESULT:\s*ACKNOWLEDGED\s*$", str(item["body"]))]
                 entry["state"] = "ACKNOWLEDGED" if acknowledgements else "NOT_REQUIRED"
                 if acknowledgements:
                     entry["response_comment_id"] = int(min(acknowledgements, key=lambda item: int(item["id"]))["id"])
-            elif entry["state"] in {"QUEUED", "WAITING_RESPONSE", "RESPONSE_RECEIVED"}:
+            elif entry["state"] in {"QUEUED", "WAITING_RESPONSE", "RESPONSE_RECEIVED"} and entry["response_transport"] == "comment":
                 replies = [item for item in comments if int(item["id"]) > entry["report_comment_id"]
                            and self._response_target(str(item["body"])) == rid]
                 if replies:
@@ -261,6 +277,85 @@ class ReviewerBusWatcher:
                 if value:
                     entry.setdefault(field.lower(), value)
         self._set_state(report_registry=registry)
+
+    def _validate_pending_file_state(self):
+        pending = self._state.get("pending_response_file")
+        if not pending:
+            return True
+        rid = self._state.get("pending_response_report_id")
+        entry = self._state.get("report_registry", {}).get(rid, {})
+        if (isinstance(pending, dict) and entry.get("response_transport") == "github_file"
+                and entry.get("file_binding", {}).get("RESPONSE_PATH") == pending.get("path")
+                and self._state.get("outstanding_report_id") == rid
+                and rid not in self._state.get("processed_report_ids", [])
+                and not self._state.get("pending_response_comment_id")):
+            return True
+        evidence = {"reason": "PENDING_FILE_STATE_MISMATCH", "pending_file": pending,
+                    "report_id": rid, "outstanding_report_id": self._state.get("outstanding_report_id"),
+                    "observed_at": _utc_now()}
+        self._set_state(last_file_response_error=evidence, last_error="PENDING_FILE_STATE_MISMATCH",
+                        pending_response_file=None, pending_response_body=None,
+                        pending_response_report_id=None, pending_response_comment_id=None)
+        # Quarantine the source identified by the stored file, not an unrelated report ID.
+        for key, value in list(self._state.get("report_registry", {}).items()):
+            if value.get("response_file") == pending and value.get("response_transport") == "github_file":
+                self._update_report(key, state="FILE_RESPONSE_INVALIDATED",
+                                    invalidated_file_response=evidence, file_error="PENDING_FILE_STATE_MISMATCH")
+        return False
+
+    def _sync_file_responses(self, comments):
+        """Validate each opted-in report independently; never manufacture comment IDs."""
+        reader = GitHubFileReader(self, REVIEW_REPO, REVIEW_PR)
+        responses, head = {}, None
+        terminal = {"APPLIED", "ACKNOWLEDGED", "HUMAN_REQUIRED", "RESOLVED_BY_CONFIRMATION",
+                    "NON_CONTROLLING", "HISTORICAL_NOT_REPLAYED", "FILE_RESPONSE_INVALIDATED"}
+        for rid, entry in list(self._state.get("report_registry", {}).items()):
+            if entry.get("response_transport") != "github_file" or entry["state"] in terminal:
+                continue
+            pending = self._state.get("pending_response_file")
+            pending_for_report = pending and self._state.get("pending_response_report_id") == rid
+            try:
+                reports = [c for c in comments if self._extract(REPORT_ID_RE, str(c["body"])) == rid]
+                if not reports:
+                    raise FileReplyError("FILE_REPORT_MISSING")
+                pin = binding(str(reports[0]["body"]))
+                if any(binding(str(c["body"])) != pin for c in reports[1:]):
+                    raise FileReplyError("FILE_REPORT_BINDING_CHANGED")
+                if entry.get("file_binding") and entry["file_binding"] != pin:
+                    raise FileReplyError("FILE_REPORT_BINDING_CHANGED")
+                self._update_report(rid, file_binding=pin)
+                if head is None:
+                    head = reader.head()
+                response = reader.response(pin, head)
+                if pending_for_report:
+                    if (response is None or pending.get("id") != response["id"] or
+                            self._state.get("outstanding_report_id") != rid or
+                            rid in self._state.get("processed_report_ids", [])):
+                        raise FileReplyError("PENDING_FILE_CHANGED_OR_MISSING")
+                if response is None:
+                    self._update_report(rid, state="WAITING_RESPONSE" if entry["response_required"] else "NOT_REQUIRED", file_error=None)
+                    continue
+                provenance = {k: v for k, v in response.items() if k != "body"}
+                if not entry["response_required"]:
+                    self._update_report(rid, state="ACKNOWLEDGED", response_file=provenance,
+                                        response_file_id=response["id"], file_error=None)
+                else:
+                    self._update_report(rid, state="RESPONSE_RECEIVED", file_error=None)
+                    responses[rid] = response
+            except FileReplyError as exc:
+                reason = str(exc)
+                evidence = {"report_id": rid, "reason": reason, "observed_at": _utc_now(),
+                            "pending_file": pending if pending_for_report else None}
+                # Network errors preserve the pending item for a later read, not an execution.
+                if pending_for_report and reason != "GITHUB_FILE_FETCH_FAILED":
+                    self._update_report(rid, state="FILE_RESPONSE_INVALIDATED", file_error=reason,
+                                        invalidated_file_response=evidence)
+                    self._set_state(pending_response_file=None, pending_response_body=None,
+                                    pending_response_report_id=None)
+                else:
+                    self._update_report(rid, file_error=reason)
+                self._set_state(last_error=reason, last_file_response_error=evidence)
+        return responses
 
     @staticmethod
     def _single_field(body: str, name: str) -> str | None:
@@ -283,7 +378,7 @@ class ReviewerBusWatcher:
             return "CONFIRMATION_TARGET_NOT_WAITING"
         if not target.get("reviewed_commit") or entry.get("reviewed_commit") != target.get("reviewed_commit"):
             return "CONFIRMATION_COMMIT_MISMATCH"
-        if str(target.get("response_comment_id")) != entry.get("confirms_response_id"):
+        if str(target.get("response_file_id") or target.get("response_comment_id")) != entry.get("confirms_response_id"):
             return "CONFIRMATION_PRIOR_RESPONSE_MISMATCH"
         for field in CONFIRMATION_FIELDS:
             if not entry.get(field.lower()) or self._single_field(response_body, field) != entry[field.lower()]:
@@ -295,7 +390,7 @@ class ReviewerBusWatcher:
             return "CONFIRMATION_NEXT_ACTION_MISSING"
         return None
 
-    def _resolve_confirmed_wait(self, report_id: str, response_id: int) -> None:
+    def _resolve_confirmed_wait(self, report_id: str, response_id: int | str) -> None:
         entry = self._state.get("report_registry", {}).get(report_id, {})
         target_id = entry.get("confirms_report_id")
         if not target_id or self._state.get("last_continuation_action") == "HUMAN_REQUIRED":
@@ -308,7 +403,8 @@ class ReviewerBusWatcher:
         # Never replace the original response ID or delete its history.
         self._update_report(target_id, state="RESOLVED_BY_CONFIRMATION",
                             previous_state="HUMAN_REQUIRED", resolved_by_report_id=report_id,
-                            resolution_response_comment_id=response_id,
+                            resolution_response_comment_id=response_id if isinstance(response_id, int) else None,
+                            resolution_response_file_id=response_id if isinstance(response_id, str) else None,
                             resolution_decision_id=entry["decision_id"], resolved_at=_utc_now())
 
     @staticmethod
@@ -517,7 +613,7 @@ class ReviewerBusWatcher:
             return None
         return body
 
-    def _mark_response_applied(self, response_id: int, report_id: str, **changes: object) -> None:
+    def _mark_response_applied(self, response_id: int | str, report_id: str, **changes: object) -> None:
         self._resolve_confirmed_wait(report_id, response_id)
         processed = list(self._state.get("processed_report_ids", []))
         if report_id not in processed:
@@ -525,8 +621,10 @@ class ReviewerBusWatcher:
         changes.setdefault("outstanding_report_id", None)
         changes.setdefault("outstanding_report_comment_id", None)
         self._update_report(report_id, state="HUMAN_REQUIRED" if self._state.get("last_continuation_action") == "HUMAN_REQUIRED" else "APPLIED",
-                            response_comment_id=response_id, applied_at=_utc_now())
-        self._set_state(last_applied_response_comment_id=response_id, processed_report_ids=processed, pending_response_comment_id=None, pending_response_body=None, pending_response_report_id=None, last_error=None, **changes)
+                            response_comment_id=response_id if isinstance(response_id, int) else None, applied_at=_utc_now())
+        self._set_state(last_applied_response_comment_id=response_id if isinstance(response_id, int) else None,
+                        last_applied_response_file_id=response_id if isinstance(response_id, str) else None,
+                        processed_report_ids=processed, pending_response_file=None, pending_response_comment_id=None, pending_response_body=None, pending_response_report_id=None, last_error=None, **changes)
 
     def _load_state(self) -> dict[str, object]:
         try:

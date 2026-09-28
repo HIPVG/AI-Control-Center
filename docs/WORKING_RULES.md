@@ -263,6 +263,22 @@ Codex must:
 
 ### Reviewer response acquisition
 
+New reports may explicitly select `RESPONSE_TRANSPORT: github_file`. Such a
+report pins REQUEST_COMMIT and the exact request/response paths under
+`poc/file-review-requests/` and `poc/file-review-responses/`, named by REPORT_ID.
+The immutable request contains the report control fields (REQUEST_COMMIT may be
+omitted within its own file). Its trigger comment is still required to wake the
+Reviewer. File responses must echo IN_REPLY_TO, REQUEST_COMMIT, REQUEST_PATH,
+RESPONSE_KIND: GIT_FILE, RESULT and NEXT_ACTION. The Watcher verifies the fixed
+same-repository PR head/branch, content hashes, request and response bindings
+before using the existing serialized continuation path. It stores file provenance
+separately from comment IDs and re-fetches pending files before retrying.
+Missing/invalid/changed content cannot authorize continuation; invalidated pending
+files retain evidence and require a new report rather than silent replacement.
+Informational ACKNOWLEDGED files never launch Codex. A file-mode report cannot
+consume a comment reply. Existing reports and PoCs are not migrated implicitly.
+See G4 v2 section 15 and docs/review-records/FILE_RESPONSE_WATCHER_2026-09-28.md.
+
 After a report is successfully published to operational PR #1:
 
 1. Codex ends its current turn at the appropriate safe checkpoint;
