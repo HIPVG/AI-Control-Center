@@ -131,6 +131,7 @@ def test_stale_pending_response_is_invalidated_without_continuation_or_post(tmp_
     comments = [
         _comment(60, "REPORT_ID: G5-ACC-REVIEW-20260928-004\nREPORT_TYPE: PROGRESS_UPDATE"),
         _comment(61, "IN_REPLY_TO: G5-ACC-REVIEW-20260928-003\nRESULT: REJECT"),
+        _comment(62, "REPORT_ID: G5-ACC-WATCHER-CORRELATION-20260928-AAF1EDD\nREPORT_TYPE: PROGRESS_UPDATE"),
     ]
     calls = []
 
@@ -152,6 +153,7 @@ def test_stale_pending_response_is_invalidated_without_continuation_or_post(tmp_
     assert result["pending_response_body"] is None
     assert result["pending_response_report_id"] is None
     assert result["outstanding_report_id"] == "G5-ACC-REVIEW-20260928-004"
+    assert result["outstanding_report_comment_id"] == 60
     assert result["last_error"] == "REVIEW_RESPONSE_CORRELATION_MISMATCH"
     assert result["last_invalidated_response"] == {
         "response_comment_id": 61,

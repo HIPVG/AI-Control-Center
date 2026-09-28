@@ -160,6 +160,8 @@ class ReviewerBusWatcher:
         if not reports:
             return None
         expected = self._state.get("outstanding_report_id")
+        if not isinstance(expected, str):
+            expected = self._state.get("pending_response_report_id")
         if isinstance(expected, str):
             return next((item for item in reversed(reports) if self._extract(REPORT_ID_RE, str(item["body"])) == expected), None)
         return max(reports, key=lambda item: int(item["id"]))
