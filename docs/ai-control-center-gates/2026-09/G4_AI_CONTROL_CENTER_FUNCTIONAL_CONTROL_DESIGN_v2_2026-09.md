@@ -1,7 +1,7 @@
 # G4 再実施 — AI-Control-Center 機能・制御設計 v2
 
 - 文書ID: `G4-ACC-FUNCTIONAL-DESIGN-20260928-001`
-- 状態: `COMPLETE`（人間承認済みv2基線および観測補遺。v2.1のレビュー基線運用補遺はReviewer確認待ち）
+- 状態: `REVISED_REVIEW_PENDING`（承認済みv2基線・観測補遺の来歴は保持。12節の版固定と13節の承認対象・再確認設計は改訂としてレビュー待ち）
 - 行為分類: `DIAGNOSIS`
 - 設計担当: CODEX
 - 人間の責任者・最終判断: 広瀬剛
@@ -245,3 +245,87 @@ Watcherは`ReviewRequestBinding`のcommit SHAとresponseの`IN_REPLY_TO`を保�
 `ARTIFACT_QUALITY_CHECK: SELF_CHECK_PASS`は、本補遺が固定commit、正本区分、承認根拠の限界、
 report相関、更新時の再提出規則を定義することだけを示す。実actorがcommit bindingを検証した証拠、
 人間原指示の外部参照、又は製品受入を示さない。
+
+## 13. v2.2補遺 — 人間の承認対象とReviewer再確認
+
+### 13.1 一つの判断依頼は一つの対象と効果
+
+「Reviewerのコメントに賛成」と「Codexの成果物を受理」は異なる判断である。
+一件だけの未解決依頼、直前の発言、投稿順、肯定語だけでは対象を確定しない。
+人間に提示する各判断依頼には次の組を固定する。
+
+| 項目 | 内容 |
+| --- | --- |
+| `DECISION_ID` / revision | 一つの対象と効果を持つ判断依頼ID・版。内容変更時は再提示する。 |
+| `SUBJECT_TYPE` / `DECISION_SUBJECT` | 下表の種類と、人間が読める一文の問い。 |
+| target | G、baseline ID、対象commit・path、必要ならReviewer comment ID・該当提案箇所。 |
+| correlation | 元のREPORT_ID、Reviewer response comment ID、確認報告ID、判断の返信先。 |
+| effect / limits | 承認で許される行為、範囲、条件、予算、承認しても開始しない行為。 |
+| response destination | このチャット内の対象付き返信、又は指定Review Bridgeコメントへの返信。受信側の担当と転送先を明記する。 |
+
+| SUBJECT_TYPE | 問いの例 | 承認の効果 |
+| --- | --- | --- |
+| `REVIEWER_RECOMMENDATION` | ReviewerコメントXの指摘Yに沿ってG5を修正してよいか | 指定修正の採用・実施許可。修正結果の受理を兼ねない。 |
+| `CODEX_ARTIFACT` | commit CのG5成果物を文書として受理するか | その版の人間受入。工程出口・次工程開始は別。 |
+| `GATE_EXIT` | 指定証拠を基にG5出口を承認するか | 対象Gの出口に対する人間判断。必要なReviewer確認は残る。 |
+| `EXECUTION_AUTHORITY` | カードWを範囲S・上限Bで開始してよいか | 明示された作業だけの許可。別カード、Day、費用へ波及しない。 |
+
+異なる種類を一つの「承認」ボタンや選択肢に混ぜない。拒否・修正依頼・保留は同じ対象への
+回答として扱う。一発言に複数の明示判断がある場合は、原文を保持した上で対象別に記録する。
+
+### 13.2 「承認します」の受信・対象確定
+
+人間には「D-xxx：ReviewerコメントXの修正提案を採用する承認です。成果物の受入やG5終了は
+含みません」のように対象と効果を表示する。返信の選択操作又は引用がこの判断依頼のID・版に
+結び付くときだけ、短い肯定をその対象への承認として正規化できる。
+
+通常のチャット／PRに単独で書かれた「承認します」で、対象を確定できない場合は
+`HUMAN_RESPONSE_UNCLASSIFIED`として原文を保存する。「Reviewerの修正提案の採用ですか、
+Codexの成果物の受理ですか」のように不足する対象だけを質問し、回答を元の発言へ関連付ける。
+明確な対象付き指示には繰り返し承認を求めない。GitHubへ同じ承認を手動転記することを通常手順にしない。
+
+`HumanDecision`には原文、判断者、受信channel、message/comment ID（取得不能ならUNKNOWN）、
+source class、受信時刻、対象DECISION_ID・版、対象commit、判断内容、効果、対象確定の根拠を保存する。
+チャットで直接受けた指示は`RECORDED_DIRECT_CONVERSATION`として配送できる。
+GitHubの投稿アカウントがHIPVGでも、Codexが代理投稿した引用は人間本人の投稿と断定しない。
+発信者の来歴と承認対象の一意性は別々に検査する。
+
+### 13.3 Reviewerが反応する配送とClose条件
+
+```text
+Reviewer応答 R1 → 対象・効果を明示した判断依頼 D1
+  → 人間返答 → 不明なら HUMAN_RESPONSE_UNCLASSIFIED → 対象だけ確認
+  → 確定した返答を HUMAN_DECISION_RECEIVED として記録
+  → 新しい確認報告 R2（D1・原文・出所・対象commit・許可範囲）
+  → REVIEW_CONFIRMATION_PENDING
+  → R2への一致応答を全文確認 → REVIEW_CONFIRMED 又は REJECT/HUMAN_REQUIRED
+  → 許可された効果だけ適用 → 読み戻しで検証
+```
+
+人間コメント自体がReviewerを起動するとは仮定しない。チャットはCodexが受信し、PR上の人間返信は
+将来の受信adapterが取得する。Codex／配送担当は同じ経路に集約し、通常の`REPORT_TYPE:`付き
+確認報告をReview Bridge PR #1へ一件送る。Watcherはその一致応答を取得して継続へ渡す。
+再起動・二重取得でも同じ人間message/comment ID＋DECISION_ID＋版から二件の報告を作らない。
+別reportが未解決なら確認報告を待機させ、既存reportの解消後に送る。
+
+Reviewer応答は確認報告の`IN_REPLY_TO`、DECISION_ID、判断版、対象commit、判断種類・範囲が
+一致した場合だけ有効とする。状態ファイルのpending IDと応答本文のIN_REPLY_TOが異なる場合も
+不一致であり、本文を書換えたり最新IDへ付け替えたりしない。
+
+人間返答の保存・対象確定・報告送信は、それぞれの受信／配送処理の完了にすぎない。
+Reviewerの確認前に承認対象を`APPLIED/VERIFIED`、GをCOMPLETE、判断案件をCLOSEDにしない。
+Reviewerが`CONTINUE`した修正提案を適用しても、成果物受理又はG出口完了へ読み替えない。
+Closeは同一判断の必要な人間決定とReviewer確認が揃い、種類に応じた効果を適用・確認したときに限る。
+PRのclose/merge、次工程開始は個別の実施許可・出口条件が必要である。
+
+拒否・相関不一致・送達失敗・応答期限超過は理由付きの待機又は判断要求に留め、承認の推測や
+自動Closeをしない。対象commit変更時は旧判断を新成果物に継承せず、変更後の対象を再提示する。
+人間による明示的な手順変更は現行規則の優先順位に従い記録し、Reviewerが受理済みと偽らない。
+
+### 13.4 実現手段と未実装範囲
+
+判断・相関ガードは既存Python/PydanticとJSON永続化境界、配送はReview Bridge、表示は既存read modelを
+再利用する。新たな常駐サービスは前提にしない。これは設計案であり、現行Watcherに人間コメントの
+識別、判断対象の解釈、再確認報告の重複防止が実装済みとは主張しない。
+G5 WC-07Bで契約・ガード・配送adapter境界を実装し、WC-09/10で対象・許可範囲・確認待ちを表示、
+VC-11で実actorの再確認を検証する。通常の運用規則そのものの変更はこの補遺だけでは行わない。

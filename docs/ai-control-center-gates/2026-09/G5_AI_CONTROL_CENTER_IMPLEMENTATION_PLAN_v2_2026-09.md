@@ -1,7 +1,7 @@
 # G5 — AI-Control-Center 実装計画・作業カード・検証計画 v2
 
 - 文書ID: `G5-ACC-PLAN-20260928-003`
-- 状態: `REVISED_REVIEW_PENDING`（v2.1のレビュー基線カードを追加。新しい固定commitで再提出するまで旧レビュー入力を置換しない）
+- 状態: `REVISED_REVIEW_PENDING`（v2.2の承認対象・再確認カードを追加。004の固定commitを保持し、改訂版は別途提出待ち）
 - 行為分類: `DIAGNOSIS`（実装前の作業計画化）
 - 計画・実装担当: CODEX
 - 人間の責任者・最終判断: 広瀬剛
@@ -21,11 +21,11 @@ G5の目的は、G4 v2で固定された機能・制御設計を、単独で実�
 
 | 入力 | SHA-256 | この計画での使い方 |
 | --- | --- | --- |
-| G0プロジェクト定義 | `C27515902E419A267E41C5BC109AF484FBEA0B09628FB85BF493CA32425B2AD6` | P01〜P08、役割、製品目的をカードの網羅基準にする。 |
-| G1現状 | `BCD6C368F99FC071C84BC5D1C3B5E70DDCBCC80F575E6E0E7CAF813CF572F2D5` | 既存資産は条件付き再利用とし、保存値を稼働／受入根拠にしない。 |
+| G0プロジェクト定義 | `E4A2C224B0DCF94B9126917A4EDE366785BE39FFD025645986B5B3129CB11F8F` | P01〜P08、役割、製品目的をカードの網羅基準にする。 |
+| G1現状 | `D39E08D5A1FABFD9B4ABEAA3AAE4B82B0505F5F887890F0329FD71FBB7BFB3B9` | 既存資産は条件付き再利用とし、保存値を稼働／受入根拠にしない。 |
 | G2要求 | `E2C85FF52F80D2DC9B54E101D823B2B639A0EFF8A5885144B43214FEC893B99E` | A01〜A06、NFR-02/03を受入・証拠境界へ対応付ける。 |
 | G3実現性 | `B260705BBD504F57D8DBB480168D586FC9CA16EE0CB48B5B709ECDF2A8B18BE8` | M01を主候補、M04を条件付き再評価、M05を停止とする。 |
-| G4 v2機能・制御設計（v2.1補遺を含む） | `459E0FF886F1CC9CE86B5C69265325B3C70CA4251655D00550014AA3FD9586BF` | 本計画の唯一の機能設計正本。固定commit・対象path・hash・承認source classによるレビュー入力を追加する。 |
+| G4 v2機能・制御設計（v2.2補遺を含む） | `0993F29730566B86D476263CF7AA6512C64066B8A087A2C37E166957F6CABE53` | 本計画の唯一の機能設計正本。固定commit・対象path・hash・承認source classによるレビュー入力を追加する。 |
 | 初回ReviewArtifactBaseline | `644d9dd579a69130dad3649c4b5160528398ac00` | `docs/ai-control-center-gates/2026-09/README.md`で現行正本・補助・撤回済みを区分した最初の公開commit。レビュー対象はbranch名だけでなく固定commitとする。 |
 | 現行運用規則 | `62500493D49EA54259C395E1B147CD1DE6560E7FE2995F1321941894514B5F9B` | 実施、報告、停止、Reviewer Bridgeの規範。 |
 | 標準 | `HIPVG/ai_work_operating_standard@13065155999b799fdd2766630696d523fc53beaf` | G5カード必須項目、工程境界を適用する。 |
@@ -45,6 +45,7 @@ G5の目的は、G4 v2で固定された機能・制御設計を、単独で実�
 | 7 | WC-06 repair/recovery | 5.2・5.3・6節 | P04/P05、A03、M05 |
 | 8 | WC-07 review control | 4・5.3・5.4・6節 | P01/P05、A04、NFR-03、M01/M04/M05 |
 | 9 | WC-07A continuation observability | 4・5.4・6・12節 | A04、NFR-03、G3 SC-05 |
+| 9の後 | WC-07B human decision binding | 13節 | P01/P05、A04、承認対象と適用範囲の分離 |
 | 10 | WC-08 telemetry | 4・5.4節 | P06/P08、A06 |
 | 11 | WC-09 read API | 3・4・5.4節 | P06、A05、NFR-03 |
 | 12 | WC-10 dashboard | 5.4・5.5節 | P01/P06/P08、A05/A06 |
@@ -171,6 +172,19 @@ G5の目的は、G4 v2で固定された機能・制御設計を、単独で実�
 | 結果・受領証跡／検証 | 一致応答受信、継続実行中、無効envelope、exit 0かつ後続配送なし、後続report検証済みの各fixtureで、状態・時刻・理由・次行為を一意に読めること。 |
 | 停止・判断／後始末・次状態 | 実行主体ごとの認証可用性が不一致なら`AUTH_CONTEXT_MISMATCH`で外部配送を止める。秘密値や実reportを残さず、`WC-07A_VALIDATED`又は`WC-07A_STOPPED`へ。 |
 
+### WC-07B — 承認対象・人間返答・Reviewer再確認
+
+| 項目 | 内容 |
+| --- | --- |
+| 担当／入力版 | CODEX。G4 v2.2 13節、WC-00/07/07A、既存の`backend/control/reviewer_bus.py`、JSON保存境界、対象fixture。 |
+| 目的 | Reviewer提案への賛同、Codex成果物受入、G出口、実施許可を区別し、人間返答だけでClose又は次工程開始にならない契約を実現する。 |
+| 対象 | HumanDecisionと対象ガード、チャット／PR受信adapter境界、確認報告payloadと送信待ち・重複防止。投稿者だけで人間と断定しない出所記録。 |
+| 非目的 | 自然言語の推測による承認、承認原文の創作、UI全面変更、運用規則の無断変更、実Day・実外部投稿。 |
+| 前提／許可操作 | WC-00の版固定、`WC-07_VALIDATED`、`WC-07A_VALIDATED`、G6で本カードを明示選択。対象fixtureを最大2回、費用0円。 |
+| 禁止／費用 | 単一pendingや直前発言だけでの対象決定、Reviewer未確認のClose、対象外への権限拡張、同時複数outstanding。費用0円。 |
+| 結果・受領証跡／検証 | 下記H01〜H08のfixtureで、対象、返答原文、出所、確認報告、一致応答、許された効果、停止理由を照合する。送信前／応答前には適用しない。 |
+| 停止・判断／後始末・次状態 | 対象不明は`HUMAN_RESPONSE_UNCLASSIFIED`で対象だけ確認。不一致・期限超過・配送失敗は理由付き待機。fixtureだけを後始末し証跡を保持、`WC-07B_VALIDATED`又は`WC-07B_STOPPED`へ。 |
+
 ### WC-08 — run telemetry契約
 
 | 項目 | 内容 |
@@ -192,9 +206,9 @@ G5の目的は、G4 v2で固定された機能・制御設計を、単独で実�
 | 目的 | run ID、admission、current/history、未達criterion、next action、review、telemetryと出所を、書込みなしで返す。 |
 | 対象 | read-only API投影とテスト。 |
 | 非目的 | 選択／Go、状態更新、認証方式変更、Watcher仕様変更。 |
-| 前提／許可操作 | `WC-05_VALIDATED`、`WC-07_VALIDATED`、`WC-08_VALIDATED`、G6のカード選択。対象APIテストを最大2回。 |
+| 前提／許可操作 | `WC-05_VALIDATED`、`WC-07A_VALIDATED`、`WC-07B_VALIDATED`、`WC-08_VALIDATED`、G6のカード選択。対象APIテストを最大2回。 |
 | 禁止／費用 | historicalをcurrentと表示、保存値だけで稼働と断言、外部通信。費用0円。 |
-| 結果・受領証跡／検証 | 未選択、PREFLIGHT、停止、unknown、履歴あり、不整合でrun ID・時刻・出所を欠かさず返すAPI証跡。 |
+| 結果・受領証跡／検証 | 未選択、PREFLIGHT、停止、unknown、履歴あり、不整合でrun ID・時刻・出所を欠かさず返すAPI証跡。判断ID、種類、対象commit、効果、人間返答とReviewer確認の別状態も返す。 |
 | 停止・判断／後始末・次状態 | 書込みが必要になる設計なら停止してG4へ戻す。serviceを残さず`WC-09_VALIDATED`へ。 |
 
 ### WC-10 — Dashboard projection
@@ -207,7 +221,7 @@ G5の目的は、G4 v2で固定された機能・制御設計を、単独で実�
 | 非目的 | Go権限、backend契約、新フレームワーク、Day実行、通知自動再試行。 |
 | 前提／許可操作 | `WC-04_VALIDATED`、`WC-08_VALIDATED`、`WC-09_VALIDATED`、G6のカード選択。静的／stub確認を最大2回。 |
 | 禁止／費用 | Go暗黙発火、unknownのゼロ表示、historicalのcurrent化、React/Node導入。費用0円。 |
-| 結果・受領証跡／検証 | 未選択、PREFLIGHT、停止、判断待ち、介入あり、unknown、履歴ありをAPI応答と画面証跡で照合する。 |
+| 結果・受領証跡／検証 | 未選択、PREFLIGHT、停止、判断待ち、介入あり、unknown、履歴ありをAPI応答と画面証跡で照合する。「何への承認か」「承認で許すこと」「Reviewer確認待ち」を表示し、人間返答のみを完了表示にしない。 |
 | 停止・判断／後始末・次状態 | APIが必要な意味を提供しないならWC-09へ戻して停止する。fixture以外を残さず`WC-10_VALIDATED`へ。 |
 
 ### VC-11 — 実actorレビュー検証と選択Day受入ゲート
@@ -216,7 +230,7 @@ G5の目的は、G4 v2で固定された機能・制御設計を、単独で実�
 | --- | --- |
 | 担当／入力版 | CODEX、ChatGPTレビュー／検証、広瀬剛は製品利用権限の判断者。G4 v2 8〜10節、WC-01〜10の受領証跡、Review Bridge PR #1。 |
 | 目的 | WC-07のfixture根拠と実actor根拠を分け、通常配送の一意送達・一意適用だけを確認する。選択Day製品受入に必要な追加入力を明示する。 |
-| 対象 | 一件の許可済み通常レビュー報告とそのmatching response、Watcherのactor trace。将来の選択Day E2E受入条件表。 |
+| 対象 | WC-07B検証済みを前提に、一件の許可済み確認報告（判断ID・出所・対象版付き）とmatching response、Watcherのactor trace。将来の選択Day E2E受入条件表。 |
 | 非目的 | Day選択／Go、Day実行、モデル実行、修正、M04実装、複数報告、費用発生。 |
 | 前提／許可操作 | G6で本カードを選択し、outstanding=0、既存認証、費用0円、運用規則の配送条件を満たすこと。選択Day E2Eには別途、Day番号、製品Go、環境、時間・試行・費用、認証の人間明示が必要。 |
 | 禁止／費用 | 応答なし／ID不一致を受理、人間の通常中継、M01失敗時のM04自動導入、Day開始。費用0円。 |
@@ -236,6 +250,7 @@ G5の目的は、G4 v2で固定された機能・制御設計を、単独で実�
 | WC-06 | guarded-repair fixture | 二回上限、停止、同一Day復帰先 | 実修正成功率 |
 | WC-07 | reviewer-control fixture | 一件制限、不一致／期限の拒否 | 実actor配送 |
 | WC-07A | reviewer continuation fixture | 受信中／適用中／適用済み／失敗、envelope、後続IDの区別 | 実actor配送又は認証の実利用 |
+| WC-07B | human decision fixture | H01〜H08、対象別効果、一致応答前のClose拒否 | 実人間の認証、実actor配送、G出口承認 |
 | WC-08 | model/JSON | relay／介入／unknown／出所の保存 | 実測値の取得 |
 | WC-09 | API | read-only、current/history・時点・出所 | UI受入 |
 | WC-10 | UI/API stub | 状態別の誤認しない表示 | 稼働又は製品受入 |
@@ -243,6 +258,22 @@ G5の目的は、G4 v2で固定された機能・制御設計を、単独で実�
 | 将来の製品受入 | 選択Day実環境 | A01〜A06を同一runで照合 | 他Dayへの一般化 |
 
 失敗したカードは次カードへ進まず、`IMPLEMENTATION`、`VALIDATION`、`DIAGNOSIS`又は`AUTHORITY`に分類する。終了コード、テスト件数、保存状態、AI自己報告を単独の合格根拠にしない。
+
+### 人間判断の検証ケース（計画、未実行）
+
+| ID | 入力・状況 | 期待結果 |
+| --- | --- | --- |
+| H01 | Reviewer提案とCodex成果物が並ぶ会話へ「承認します」 | 未解決依頼が一件でも対象未確定。質問して保持、Closeなし。 |
+| H02 | 対象・効果を明示したD1へ引用／返信選択付きで「承認します」 | D1への返答を記録。Reviewer確認前は適用・Closeなし。 |
+| H03 | Reviewer提案の採用を承認し、一致確認応答を受領 | 指定修正のみ許可。成果物受理・G出口・次工程へ拡大しない。 |
+| H04 | Codex成果物commit Cを受理 | Cの人間受入を記録。G出口又はG6開始へ読み替えない。 |
+| H05 | 同じ返答を再取得／再起動、又は別reportが未解決 | 確認報告の二重作成を防止。既存report中は送信待ち。 |
+| H06 | pending IDと応答本文のIN_REPLY_TO不一致、又は判断版・commit変更 | 旧応答を新対象へ適用せず理由付き停止。 |
+| H07 | 代理投稿・原文参照不能、拒否、保留、期限超過、配送失敗 | 出所と理由を保存。人間本人投稿／承認済み／Closeへ格上げしない。 |
+| H08 | 対象G出口の人間判断と一致Reviewer確認・必要証拠が揃う | 当該G出口だけ完了。次工程やPR close/mergeは別許可がなければ実施しない。 |
+
+G5出口の追加条件: G4 13節の四つの承認対象、曖昧返答の保持、確認報告によるReviewer起動、
+一致応答前の適用／Close禁止がWC-07B・WC-09/10・VC-11へ対応すること。
 
 ## 6. G5出口と後続境界
 
