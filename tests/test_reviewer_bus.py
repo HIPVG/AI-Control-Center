@@ -64,26 +64,29 @@ def test_exit_zero_without_payload_is_not_delivery_success(tmp_path: Path, monke
     assert result.get("last_delivery_comment_id") is None
 
 
-def test_current_mismatch_posts_one_protocol_nack_without_continuation(tmp_path: Path, monkeypatch):
+def test_current_mismatch_is_recorded_without_post_or_continuation(tmp_path: Path, monkeypatch):
     comments = [_comment(30, "REPORT_ID: R3\nREPORT_TYPE: PROGRESS_UPDATE"), _comment(31, "IN_REPLY_TO: OTHER\nRESULT: CONTINUE")]
-    posts = []
     calls = []
 
     def runner(argv, **kwargs):
         calls.append(argv)
-        if "--method" not in argv:
-            return subprocess.CompletedProcess(argv, 0, _comments_output(comments), "")
-        posts.append(argv[-1])
-        return subprocess.CompletedProcess(argv, 0, json.dumps({"id": 32}), "")
+        return subprocess.CompletedProcess(argv, 0, _comments_output(comments), "")
 
     watcher = _watcher(tmp_path, runner, monkeypatch)
-    watcher.run_once()
-    watcher.run_once()
+    result = watcher.run_once()
 
-    assert len(posts) == 1
-    assert "PROTOCOL_NACK: yes" in posts[0]
-    assert "REPORT_TYPE:" not in posts[0]
+    assert result["last_error"] == "REVIEW_RESPONSE_CORRELATION_MISMATCH"
+    assert result["outstanding_report_id"] == "R3"
+    assert result["last_invalidated_response"] == {
+        "response_comment_id": 31,
+        "pending_response_report_id": None,
+        "expected_report_id": "R3",
+        "actual_in_reply_to": "OTHER",
+        "reason": "UNMATCHED_RESPONSE_IN_REPLY_TO_MISMATCH",
+        "invalidated_at": result["last_invalidated_response"]["invalidated_at"],
+    }
     assert all(call[0] != "codex" for call in calls)
+    assert all("--method" not in call for call in calls)
 
 
 def test_known_old_response_is_silently_ignored(tmp_path: Path, monkeypatch):
@@ -122,6 +125,104 @@ def test_failed_continuation_keeps_response_pending_for_retry(tmp_path: Path, mo
     assert failed["pending_response_comment_id"] == 51
     assert succeeded["last_applied_response_comment_id"] == 51
     assert attempts == 2
+
+
+def test_stale_pending_response_is_invalidated_without_continuation_or_post(tmp_path: Path, monkeypatch):
+    comments = [
+        _comment(60, "REPORT_ID: G5-ACC-REVIEW-20260928-004\nREPORT_TYPE: PROGRESS_UPDATE"),
+        _comment(61, "IN_REPLY_TO: G5-ACC-REVIEW-20260928-003\nRESULT: REJECT"),
+    ]
+    calls = []
+
+    def runner(argv, **kwargs):
+        calls.append(argv)
+        return subprocess.CompletedProcess(argv, 0, _comments_output(comments), "")
+
+    watcher = _watcher(tmp_path, runner, monkeypatch)
+    watcher._state.update(
+        pending_response_comment_id=61,
+        pending_response_body=comments[1]["body"],
+        pending_response_report_id="G5-ACC-REVIEW-20260928-004",
+        last_report_id="G5-ACC-REVIEW-20260928-004",
+    )
+
+    result = watcher.run_once()
+
+    assert result["pending_response_comment_id"] is None
+    assert result["pending_response_body"] is None
+    assert result["pending_response_report_id"] is None
+    assert result["outstanding_report_id"] == "G5-ACC-REVIEW-20260928-004"
+    assert result["last_error"] == "REVIEW_RESPONSE_CORRELATION_MISMATCH"
+    assert result["last_invalidated_response"] == {
+        "response_comment_id": 61,
+        "pending_response_report_id": "G5-ACC-REVIEW-20260928-004",
+        "expected_report_id": "G5-ACC-REVIEW-20260928-004",
+        "actual_in_reply_to": "G5-ACC-REVIEW-20260928-003",
+        "reason": "PENDING_RESPONSE_IN_REPLY_TO_MISMATCH",
+        "invalidated_at": result["last_invalidated_response"]["invalidated_at"],
+    }
+    assert result.get("last_applied_response_comment_id") is None
+    assert all(call[0] != "codex" for call in calls)
+    assert all("--method" not in call for call in calls)
+
+
+def test_pending_state_report_id_mismatch_is_traceable_and_not_continued(tmp_path: Path, monkeypatch):
+    comments = [_comment(65, "REPORT_ID: R6\nREPORT_TYPE: PROGRESS_UPDATE"), _comment(66, "IN_REPLY_TO: R6\nRESULT: CONTINUE")]
+    calls = []
+
+    def runner(argv, **kwargs):
+        calls.append(argv)
+        return subprocess.CompletedProcess(argv, 0, _comments_output(comments), "")
+
+    watcher = _watcher(tmp_path, runner, monkeypatch)
+    watcher._state.update(
+        pending_response_comment_id=66,
+        pending_response_body=comments[1]["body"],
+        pending_response_report_id="R6-OLD",
+        outstanding_report_id="R6",
+    )
+
+    result = watcher.run_once()
+
+    assert result["pending_response_comment_id"] is None
+    assert result["outstanding_report_id"] == "R6"
+    assert result["last_error"] == "REVIEW_RESPONSE_CORRELATION_MISMATCH"
+    assert result["last_invalidated_response"]["response_comment_id"] == 66
+    assert result["last_invalidated_response"]["pending_response_report_id"] == "R6-OLD"
+    assert result["last_invalidated_response"]["expected_report_id"] == "R6"
+    assert result["last_invalidated_response"]["actual_in_reply_to"] == "R6"
+    assert result["last_invalidated_response"]["reason"] == "PENDING_RESPONSE_REPORT_ID_MISMATCH"
+    assert all(call[0] != "codex" for call in calls)
+    assert all("--method" not in call for call in calls)
+
+
+def test_exactly_matching_pending_response_continues_once(tmp_path: Path, monkeypatch):
+    comments = [_comment(70, "REPORT_ID: R7\nREPORT_TYPE: PROGRESS_UPDATE"), _comment(71, "IN_REPLY_TO: R7\nRESULT: CONTINUE")]
+    attempts = 0
+
+    def runner(argv, **kwargs):
+        nonlocal attempts
+        if argv[0] == "gh":
+            return subprocess.CompletedProcess(argv, 0, _comments_output(comments), "")
+        attempts += 1
+        return subprocess.CompletedProcess(argv, 0, json.dumps({"action": "NO_REPORT"}), "")
+
+    watcher = _watcher(tmp_path, runner, monkeypatch)
+    watcher._state.update(
+        pending_response_comment_id=71,
+        pending_response_body=comments[1]["body"],
+        pending_response_report_id="R7",
+        outstanding_report_id="R7",
+    )
+
+    first = watcher.run_once()
+    second = watcher.run_once()
+
+    assert first["last_applied_response_comment_id"] == 71
+    assert first["pending_response_comment_id"] is None
+    assert first["outstanding_report_id"] is None
+    assert second["last_applied_response_comment_id"] == 71
+    assert attempts == 1
 
 
 def test_loop_keeps_cadence_after_long_continuation(tmp_path: Path, monkeypatch):

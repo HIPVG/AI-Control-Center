@@ -88,14 +88,15 @@ class ReviewerBusWatcher:
             self._set_state(last_error="REPORT_ID_MISSING")
             return self.status()
 
-        response = self._pending_or_matching_response(comments, report, report_id)
+        response, pending_invalidated = self._pending_or_matching_response(comments, report, report_id)
         if response is None:
-            self._nack_unknown_mismatches(comments, report, report_id)
+            if not pending_invalidated:
+                self._record_unmatched_response(comments, report, report_id)
             return self.status()
 
         response_id = int(response["id"])
         response_body = str(response.get("body", ""))
-        self._set_state(last_report_id=report_id, last_response_comment_id=response_id, pending_response_comment_id=response_id, pending_response_body=response_body, pending_response_report_id=report_id, outstanding_report_id=None, last_error=None)
+        self._set_state(last_report_id=report_id, last_response_comment_id=response_id, pending_response_comment_id=response_id, pending_response_body=response_body, pending_response_report_id=report_id, outstanding_report_id=report_id, outstanding_report_comment_id=int(report["id"]), last_error=None)
         completed = self._continue_codex(self._resume_prompt(report_id, response_body))
         self._set_state(last_continuation_at=_utc_now(), last_codex_exit_code=completed.returncode)
         if completed.returncode != 0:
@@ -163,30 +164,78 @@ class ReviewerBusWatcher:
             return next((item for item in reversed(reports) if self._extract(REPORT_ID_RE, str(item["body"])) == expected), None)
         return max(reports, key=lambda item: int(item["id"]))
 
-    def _pending_or_matching_response(self, comments: list[dict[str, object]], report: dict[str, object], report_id: str) -> dict[str, object] | None:
+    def _pending_or_matching_response(self, comments: list[dict[str, object]], report: dict[str, object], report_id: str) -> tuple[dict[str, object] | None, bool]:
         pending_id = int(self._state.get("pending_response_comment_id", 0) or 0)
         if pending_id:
-            return next((item for item in comments if int(item["id"]) == pending_id), None)
+            pending = next((item for item in comments if int(item["id"]) == pending_id), None)
+            pending_report_id = self._state.get("pending_response_report_id")
+            actual_in_reply_to = self._extract(IN_REPLY_TO_RE, str(pending.get("body", ""))) if pending else None
+            state_outstanding = self._state.get("outstanding_report_id")
+            reasons: list[str] = []
+            if pending is None:
+                reasons.append("PENDING_RESPONSE_COMMENT_NOT_FOUND")
+            if not isinstance(pending_report_id, str) or pending_report_id != report_id:
+                reasons.append("PENDING_RESPONSE_REPORT_ID_MISMATCH")
+            if actual_in_reply_to != report_id:
+                reasons.append("PENDING_RESPONSE_IN_REPLY_TO_MISMATCH")
+            if state_outstanding is not None and state_outstanding != report_id:
+                reasons.append("OUTSTANDING_REPORT_ID_MISMATCH")
+            if reasons:
+                self._invalidate_pending_response(
+                    response_comment_id=pending_id,
+                    pending_response_report_id=pending_report_id if isinstance(pending_report_id, str) else None,
+                    expected_report_id=report_id,
+                    actual_in_reply_to=actual_in_reply_to,
+                    reason="|".join(reasons),
+                    report_comment_id=int(report["id"]),
+                )
+                return None, True
+            return pending, False
         report_comment_id = int(report["id"])
         last_applied = int(self._state.get("last_applied_response_comment_id", 0) or 0)
         matching = [item for item in comments if int(item["id"]) > report_comment_id and int(item["id"]) > last_applied and self._extract(IN_REPLY_TO_RE, str(item.get("body", ""))) == report_id]
-        return min(matching, key=lambda item: int(item["id"])) if matching else None
+        return (min(matching, key=lambda item: int(item["id"])), False) if matching else (None, False)
 
-    def _nack_unknown_mismatches(self, comments: list[dict[str, object]], report: dict[str, object], expected: str) -> None:
+    def _record_unmatched_response(self, comments: list[dict[str, object]], report: dict[str, object], expected: str) -> None:
         known_reports = set(self._state.get("processed_report_ids", []))
-        nacked = {int(value) for value in self._state.get("protocol_nack_response_comment_ids", [])}
         for item in comments:
             response_id = int(item["id"])
             received = self._extract(IN_REPLY_TO_RE, str(item.get("body", "")))
-            if response_id <= int(report["id"]) or not received or received == expected or received in known_reports or response_id in nacked:
+            if response_id <= int(report["id"]) or not received or received == expected or received in known_reports:
                 continue
-            body = "\n".join(["PROTOCOL_NACK: yes", f"EXPECTED_REPORT_ID: {expected}", f"RECEIVED_IN_REPLY_TO: {received}", "RESULT: IGNORED", "REASON: response_id_mismatch"])
-            if self._post_comment(body) is not None:
-                nacked.add(response_id)
-                self._set_state(protocol_nack_response_comment_ids=sorted(nacked), last_error=None)
-            else:
-                self._set_state(last_error="GITHUB_REPORT_DELIVERY_FAILED")
+            self._set_state(
+                last_error="REVIEW_RESPONSE_CORRELATION_MISMATCH",
+                outstanding_report_id=expected,
+                outstanding_report_comment_id=int(report["id"]),
+                last_invalidated_response={
+                    "response_comment_id": response_id,
+                    "pending_response_report_id": None,
+                    "expected_report_id": expected,
+                    "actual_in_reply_to": received,
+                    "reason": "UNMATCHED_RESPONSE_IN_REPLY_TO_MISMATCH",
+                    "invalidated_at": _utc_now(),
+                },
+            )
             return
+
+    def _invalidate_pending_response(self, *, response_comment_id: int, pending_response_report_id: str | None, expected_report_id: str, actual_in_reply_to: str | None, reason: str, report_comment_id: int) -> None:
+        """Fail closed: retain mismatch evidence and restore the current report wait."""
+        self._set_state(
+            pending_response_comment_id=None,
+            pending_response_body=None,
+            pending_response_report_id=None,
+            outstanding_report_id=expected_report_id,
+            outstanding_report_comment_id=report_comment_id,
+            last_error="REVIEW_RESPONSE_CORRELATION_MISMATCH",
+            last_invalidated_response={
+                "response_comment_id": response_comment_id,
+                "pending_response_report_id": pending_response_report_id,
+                "expected_report_id": expected_report_id,
+                "actual_in_reply_to": actual_in_reply_to,
+                "reason": reason,
+                "invalidated_at": _utc_now(),
+            },
+        )
 
     def _post_comment(self, body: str) -> int | None:
         gh = self._resolve_executable(self.gh_executable) or self.gh_executable
@@ -267,6 +316,8 @@ class ReviewerBusWatcher:
         processed = list(self._state.get("processed_report_ids", []))
         if report_id not in processed:
             processed.append(report_id)
+        changes.setdefault("outstanding_report_id", None)
+        changes.setdefault("outstanding_report_comment_id", None)
         self._set_state(last_applied_response_comment_id=response_id, processed_report_ids=processed, pending_response_comment_id=None, pending_response_body=None, pending_response_report_id=None, last_error=None, **changes)
 
     def _load_state(self) -> dict[str, object]:
