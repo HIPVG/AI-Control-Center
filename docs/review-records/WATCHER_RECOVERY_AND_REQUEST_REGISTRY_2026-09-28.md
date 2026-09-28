@@ -36,3 +36,16 @@ Reviewer指示ファイルの追記案はstate/reviewer-task-prompt-update.mdに
 既存の外部本文と同一で、追記だけであることを読取確認したが、外部ファイル更新は
 自動承認審査に拒否された。ユーザーによるこの宛先・内容への明示承認が必要とされた。
 外部指示更新と新方式のReviewer実応答は未完了。fixture結果を実配送成功としない。
+
+## 後続の明示承認と指示反映
+
+広瀬剛が更新案と宛先 `Review Bridge/poc/reviewer-task-prompt.md` を指定して
+反映を直接承認した。PR head `poc/review-loop-report-types-20260924` の旧本文を
+保持し、承認済み追記案をcommit `658da08b642a357103dd1c70f0a555c02e1b2119`
+として反映。固定commitからの読戻しでローカル承認案との完全一致を確認した。
+前節の外部更新ブロックはこれにより解消した。
+
+起動時の具体的な動作指示を `prompts/REVIEWER_OPERATING_PROMPT_2026-09.md` に保存。
+新しい一意の報告ID `REVIEWER-OPERATING-PROMPT-20260928-001` を既存PRの
+イベント経路へ渡し、更新読込のACKNOWLEDGEDを求める。Reviewerの実際の読込・
+応答・Watcherによる確認はその返信を取得するまで未検証とし、書込成功と区別する。
