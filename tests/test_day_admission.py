@@ -2,6 +2,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 import subprocess
 
+import pytest
+
 from backend.control.day_git import day_admission, fingerprint
 from backend.control.local_llm_day_program import LocalLLMDayProgram
 from backend.models.local_llm_day import RunIntent, RunLimits
@@ -24,12 +26,20 @@ def _repository(tmp_path: Path) -> Path:
     return root
 
 
-def _intent(root: Path, *, day: int = 1, contract: str = "contract-v1") -> RunIntent:
+def _intent(
+    root: Path,
+    *,
+    day: int = 1,
+    contract: str = "contract-v1",
+    active_work_seconds: int = 1800,
+    max_attempts: int = 2,
+) -> RunIntent:
     return RunIntent(
         run_id="admission-fixture", selected_day=day, go_at=datetime.now(timezone.utc),
         contract_fingerprint=contract, policy_fingerprint="policy-v1", config_fingerprint="config-v1",
         git_fingerprint=fingerprint(root),
-        requested_limits=RunLimits(active_work_seconds=1800, max_attempts=2, max_cost=0, currency="JPY"),
+        requested_limits=RunLimits(active_work_seconds=active_work_seconds, max_attempts=max_attempts,
+                                   max_cost=0, currency="JPY"),
     )
 
 
@@ -82,6 +92,25 @@ def test_missing_limits_and_contract_mismatch_are_separate_blockers(tmp_path):
 
     assert (missing.status, missing.reason_code) == ("BLOCKED", "LIMITS_UNCONFIRMED")
     assert (mismatch.status, mismatch.reason_code) == ("BLOCKED", "CONTRACT_FINGERPRINT_MISMATCH")
+
+
+@pytest.mark.parametrize(("limits", "value"), [
+    ("active_work_seconds", 1801),
+    ("max_attempts", 3),
+])
+def test_limits_above_approved_bounds_fail_closed_before_git_or_day_action(tmp_path, limits, value):
+    root = _repository(tmp_path)
+    intent = _intent(root, **{limits: value})
+    changed = root / "docs" / "contract.md"
+    changed.write_text("user change\n", encoding="utf-8")
+
+    result = _admit(root, intent)
+
+    assert (result.status, result.next_state, result.reason_code) == (
+        "BLOCKED", "HUMAN_ACTION_REQUIRED", "LIMITS_EXCEED_APPROVED_BOUND")
+    assert result.git_fingerprint is None
+    assert result.next_action == "Use limits at or below 1800 active-work seconds and 2 attempts."
+    assert changed.read_text(encoding="utf-8") == "user change\n"
 
 
 def test_unconfirmed_external_prerequisite_stops_without_day_execution(tmp_path):

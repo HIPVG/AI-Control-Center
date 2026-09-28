@@ -13,6 +13,10 @@ from typing import Literal
 from backend.models.local_llm_day import RunIntent
 
 
+MAX_ACTIVE_WORK_SECONDS = 1800
+MAX_ATTEMPTS = 2
+
+
 class GitSafetyError(RuntimeError):
     pass
 
@@ -68,6 +72,10 @@ def day_admission(
             or intent.requested_limits.max_cost != 0):
         return DayAdmission("BLOCKED", "HUMAN_ACTION_REQUIRED", "LIMITS_UNCONFIRMED",
                             "Provide confirmed zero-cost time and attempt limits.")
+    if (intent.requested_limits.active_work_seconds > MAX_ACTIVE_WORK_SECONDS
+            or intent.requested_limits.max_attempts > MAX_ATTEMPTS):
+        return DayAdmission("BLOCKED", "HUMAN_ACTION_REQUIRED", "LIMITS_EXCEED_APPROVED_BOUND",
+                            "Use limits at or below 1800 active-work seconds and 2 attempts.")
     try:
         if git(root, "status", "--porcelain=v1", "-z", "-uall"):
             return DayAdmission("BLOCKED", "HUMAN_ACTION_REQUIRED", "DIRTY_GIT_BASELINE",
