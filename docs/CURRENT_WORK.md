@@ -1,5 +1,22 @@
 # Current Work
 
+## Current G6 checkpoint — WC-02 foreground route review (2026-09-28)
+
+Human approved the proposed existing foreground edit/test route with
+「はい、そうしてください。」. Exact authority, targets, actor map, limits and
+happy/failure/rollback/evidence plan:
+docs/review-records/G6_WC02_FOREGROUND_AUTHORITY_2026-09-28.md.
+Decision AUTH-G6-WC02-FOREGROUND-20260928-001; new review request
+G6-ACC-WC02-FOREGROUND-20260928-001. Await full matching route review before patching.
+The Watcher child must only record this route-review checkpoint (NO_REPORT on
+positive review); it is NOT the approved source-writing actor and must not retry
+the failed WC-02 patch. Foreground chat owns implementation after review, within
+existing G5 WC-02 scope, residual budget and two-fixture-attempt cap. No services,
+Day/model work or new host writer. No repeat human approval for this same decision.
+Old diagnosis lacks a commit binding; retain its state without invented confirmation
+or hand editing. Its separate registry bookkeeping is not product implementation.
+Maintenance replies below remain limited to their own IDs and cannot start WC-02.
+
 ## Current maintenance — reviewer progress visibility (2026-09-28)
 
 Human requested visible progress in the dashboard or this chat. Implement a read-only
