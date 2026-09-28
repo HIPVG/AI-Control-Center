@@ -1,5 +1,16 @@
 # Current Work
 
+## Current maintenance — reviewer progress visibility (2026-09-28)
+
+Human requested visible progress in the dashboard or this chat. Implement a read-only
+dashboard projection of the existing persisted report registry: pending/human waits,
+processed records, exact file/comment links, timestamps, and explicit stale/offline
+status. Record: docs/review-records/REVIEWER_PROGRESS_UI_2026-09-28.md.
+No Watcher/state contract changes, restart, replay, chat automation or WC02 work.
+On acceptance of REVIEWER-PROGRESS-UI-20260928-001, record this UI-only checkpoint
+and return NO_REPORT; do not begin another stage. Concrete review gaps remain scoped
+to this display. Older maintenance instructions below are historical checkpoints.
+
 ## Current maintenance — file-response reader (2026-09-28)
 
 ### Live deployment verified; completion-review checkpoint

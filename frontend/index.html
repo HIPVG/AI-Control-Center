@@ -13,6 +13,25 @@
         <h1>LocalLLM-Lab Day Runner</h1>
         <p>Choose one day from the approved Day 1–14 runbook. The runner stops when that day has a trusted result.</p>
       </header>
+      <section class="reviewer-bus" aria-label="Reviewer Bus status" id="review-progress">
+        <p class="eyebrow">レビューの経過</p>
+        <h2 id="reviewer-bus-state" aria-live="polite">Loading</h2>
+        <p id="reviewer-bus-summary">Watcherの状態を確認しています…</p>
+        <p id="reviewer-bus-checked">画面の取得成功: まだありません</p>
+        <p id="reviewer-bus-counts"></p>
+        <p>自動更新。表示は保存済み状態の参照のみで、再実行や次工程の承認は行いません。</p>
+        <h3>未完了・要確認</h3>
+        <ol id="reviewer-bus-pending" class="reviewer-bus-records"></ol>
+        <details open>
+          <summary>処理済み・過去の記録（依頼ごとの最新状態）</summary>
+          <ol id="reviewer-bus-completed" class="reviewer-bus-records"></ol>
+        </details>
+        <details>
+          <summary>この画面を開いている間に観測した変化（最大20件）</summary>
+          <p>未観測の中間遷移は補完しません。再読込後も上の保存済み記録は参照できます。</p>
+          <ol id="reviewer-bus-events" class="reviewer-bus-events"></ol>
+        </details>
+      </section>
       <section class="control" aria-label="Day Runner controls">
         <label for="day-selector">Day</label>
         <select id="day-selector" aria-label="Select Day 1 through Day 14"></select>
@@ -33,12 +52,6 @@
         <p>Evidence: <strong id="evidence-status">0 / 0 criteria</strong></p>
         <div class="meter" aria-label="Day progress"><i id="progress-meter"></i></div>
         <p id="progress">0%</p>
-      </section>
-      <section class="reviewer-bus" aria-live="polite" aria-label="Reviewer Bus status">
-        <p class="eyebrow">Reviewer Bus</p>
-        <h2 id="reviewer-bus-state">Loading</h2>
-        <p id="reviewer-bus-summary">Checking the reviewer-bus watcher…</p>
-        <ol id="reviewer-bus-events" class="reviewer-bus-events"></ol>
       </section>
       <section class="workboard" aria-live="polite">
         <p class="eyebrow">Day work board</p>
@@ -71,6 +84,7 @@
         <p id="recommended-action-reason">Select a configured Day and run its trusted checks.</p>
       </section>
     </main>
-    <script src="/static/app.js"></script>
+    <script src="/static/reviewer-status.js?v=20260928"></script>
+    <script src="/static/app.js?v=20260928-review-progress"></script>
   </body>
 </html>

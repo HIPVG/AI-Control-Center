@@ -68,7 +68,10 @@ def test_dashboard_is_the_single_local_llm_day_runner(client):
     assert "/api/goals" not in script
     assert "innerHTML" not in script
     assert "/api/reviewer-bus/status" in script
-    assert "reviewerBusHistory = [...reviewerBusHistory, event].slice(-5)" in script
+    assert "ReviewerStatus.rows(status)" in script
+    assert 'id="reviewer-bus-pending"' in html
+    assert 'id="reviewer-bus-completed"' in html
+    assert "/static/reviewer-status.js" in html
 
 
 def test_goal_endpoint_accepts_only_the_bounded_goal_field(client):

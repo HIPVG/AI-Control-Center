@@ -25,3 +25,9 @@ dt { color: #94a3b8; text-transform: capitalize; }
 dd { margin: 0; overflow-wrap: anywhere; }
 #day-work-items { display: grid; gap: 8px; margin: 16px 0 0; padding-left: 24px; }
 .reviewer-bus-events { color: #cbd5e1; display: grid; font-size: .9rem; gap: 6px; margin: 16px 0 0; padding-left: 24px; }
+.reviewer-bus-records { display: grid; gap: 14px; padding-left: 22px; overflow-wrap: anywhere; }
+.reviewer-bus-records p { font-size: .85rem; margin: 5px 0; }
+.reviewer-bus-records a { color: #7dd3fc; display: inline-block; margin-right: 18px; }
+.reviewer-bus details { margin-top: 18px; }
+.reviewer-bus summary { cursor: pointer; }
+#reviewer-bus-completed { max-height: 26rem; overflow-y: auto; }

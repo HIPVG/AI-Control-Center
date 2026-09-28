@@ -23,11 +23,17 @@ const evidenceStatus = document.querySelector("#evidence-status");
 const reviewerBusState = document.querySelector("#reviewer-bus-state");
 const reviewerBusSummary = document.querySelector("#reviewer-bus-summary");
 const reviewerBusEvents = document.querySelector("#reviewer-bus-events");
+const reviewerBusPending = document.querySelector("#reviewer-bus-pending");
+const reviewerBusCompleted = document.querySelector("#reviewer-bus-completed");
+const reviewerBusCounts = document.querySelector("#reviewer-bus-counts");
+const reviewerBusChecked = document.querySelector("#reviewer-bus-checked");
 let gitCandidate = null;
 let activeRequest = null;
 let lastSnapshot = {};
-let reviewerBusFingerprint = null;
+let reviewerBusPrevious = new Map();
 let reviewerBusHistory = [];
+let reviewerBusFetching = false;
+let reviewerBusRowsFingerprint = null;
 
 function setCommandAvailability(snapshot, running) {
   const controls = snapshot.enabled_controls || {};
@@ -113,31 +119,79 @@ function render(snapshot) {
 
 async function refresh() { const response = await fetch("/api/local-llm/day/status"); render(await response.json()); }
 
-function reviewerBusEvent(status) {
-  const state = status.running ? (status.available ? "RUNNING" : "UNAVAILABLE") : "STOPPED";
-  const detail = status.last_error || status.outstanding_report_id || status.last_report_id || "No report activity";
-  return { state, detail, fingerprint: [state, detail, status.last_delivery_comment_id, status.last_applied_response_comment_id].join("|") };
+function renderReviewerRows(node, rows) {
+  node.replaceChildren();
+  for (const item of rows) {
+    const row = document.createElement("li");
+    const heading = document.createElement("strong");
+    heading.textContent = `${item.label} — ${item.id}`;
+    const detail = document.createElement("p");
+    detail.textContent = `${item.transport} ／ 記録更新: ${ReviewerStatus.time(item.timestamp)}${item.appliedAt ? ` ／ 適用記録: ${ReviewerStatus.time(item.appliedAt)}` : ""}${item.error ? ` ／ エラー: ${item.error}` : ""}`;
+    row.append(heading, detail);
+    for (const [label, url] of [["依頼", item.reportUrl], ["応答・指示を読む", item.responseUrl]]) {
+      if (!url) continue;
+      const link = document.createElement("a");
+      link.textContent = label;
+      link.href = url;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      row.append(link);
+    }
+    node.append(row);
+  }
+  if (!rows.length) {
+    const row = document.createElement("li");
+    row.textContent = "該当する保存済み記録はありません。";
+    node.append(row);
+  }
 }
 
 function renderReviewerBus(status) {
-  const event = reviewerBusEvent(status);
-  putText(reviewerBusState, event.state);
-  putText(reviewerBusSummary, event.detail);
-  if (event.fingerprint !== reviewerBusFingerprint) {
-    reviewerBusFingerprint = event.fingerprint;
-    reviewerBusHistory = [...reviewerBusHistory, event].slice(-5);
+  const health = ReviewerStatus.health(status);
+  putText(reviewerBusState, health.state);
+  putText(reviewerBusSummary, health.detail);
+  putText(reviewerBusChecked, `画面の取得成功: ${ReviewerStatus.time(new Date().toISOString())}`);
+  const rows = ReviewerStatus.rows(status);
+  const pending = rows.filter(item => item.active);
+  putText(reviewerBusCounts, `未完了・要確認 ${pending.length}件 ／ 保存済み記録 ${rows.length}件`);
+  // Persisted per-report snapshots survive a closed browser. This separate log
+  // contains only transitions actually observed in this page, never inferred ones.
+  for (const item of rows) {
+    const fingerprint = JSON.stringify([item.state, item.error, item.responseId]);
+    if (reviewerBusPrevious.has(item.id) && reviewerBusPrevious.get(item.id) !== fingerprint) {
+      reviewerBusHistory = [{ text: `${ReviewerStatus.time(new Date().toISOString())} — ${item.id}: ${item.label}` }, ...reviewerBusHistory].slice(0, 20);
+    }
+    reviewerBusPrevious.set(item.id, fingerprint);
+  }
+  const rowsFingerprint = JSON.stringify(rows);
+  if (rowsFingerprint !== reviewerBusRowsFingerprint) {
+    renderReviewerRows(reviewerBusPending, pending);
+    renderReviewerRows(reviewerBusCompleted, rows.filter(item => !item.active));
+    reviewerBusRowsFingerprint = rowsFingerprint;
   }
   reviewerBusEvents.replaceChildren();
-  for (const item of reviewerBusHistory.slice().reverse()) {
+  for (const item of reviewerBusHistory) {
     const row = document.createElement("li");
-    row.textContent = `${item.state} — ${item.detail}`;
+    row.textContent = item.text;
     reviewerBusEvents.append(row);
   }
 }
 
 async function refreshReviewerBus() {
-  const response = await fetch("/api/reviewer-bus/status");
-  renderReviewerBus(await response.json());
+  if (reviewerBusFetching) return;
+  reviewerBusFetching = true;
+  try {
+    const response = await fetch("/api/reviewer-bus/status", { cache: "no-store", signal: AbortSignal.timeout(8000) });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const status = await response.json();
+    if (!status || typeof status !== "object" || Array.isArray(status) || typeof status.running !== "boolean") throw new Error("Invalid status");
+    renderReviewerBus(status);
+  } catch (error) {
+    putText(reviewerBusState, "通信断・最新状態は未確認");
+    putText(reviewerBusSummary, `取得失敗: ${error.message}。以下は最後に取得できた記録です。自動で再取得します。`);
+  } finally {
+    reviewerBusFetching = false;
+  }
 }
 
 async function loadDays() {
