@@ -46,13 +46,17 @@ def test_dashboard_is_the_single_local_llm_day_runner(client):
     assert [day["day"] for day in days] == list(range(1, 15))
     html = (control_app.ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     script = (control_app.ROOT / "frontend" / "app.js").read_text(encoding="utf-8")
-    for control in ("day-selector", "smoke", "go", "repair-and-go", "stop", "resume", "git-push", "state", "activity", "run-indicator", "run-indicator-detail", "day-work-items", "repair-knowledge", "codex-handoff", "result-title", "smoke-title", "smoke-summary", "recommended-action", "recommended-action-reason"):
+    for control in ("day-selector", "selection-status", "smoke", "go", "repair-and-go", "stop", "resume", "git-push", "state", "activity", "run-indicator", "run-indicator-detail", "day-work-items", "repair-knowledge", "codex-handoff", "result-title", "smoke-title", "smoke-summary", "recommended-action", "recommended-action-reason"):
         assert f'id="{control}"' in html
     for panel in ("reviewer-bus-state", "reviewer-bus-summary", "reviewer-bus-events"):
         assert f'id="{panel}"' in html
     assert "goal-input" not in html
     assert "scenario" not in html.lower()
     assert "/api/local-llm/day/" in script
+    assert 'fetch("/api/local-llm/day/go"' in script
+    assert "JSON.stringify({selected_day: selectedDay})" in script
+    assert "/select`" not in script
+    assert "/start`" not in script
     assert "/smoke" in script
     assert "repair-and-go" in script
     assert "snapshot.enabled_controls" in script
@@ -72,6 +76,36 @@ def test_dashboard_is_the_single_local_llm_day_runner(client):
     assert 'id="reviewer-bus-pending"' in html
     assert 'id="reviewer-bus-completed"' in html
     assert "/static/reviewer-status.js" in html
+
+
+def test_go_api_accepts_selection_only_and_never_starts_a_day(client, monkeypatch):
+    observed = {}
+
+    def prepare(day):
+        observed["day"] = day
+        return {
+            "run_id": "run-api-fixture",
+            "selected_day": day,
+            "run_intent": {"run_id": "run-api-fixture", "selected_day": day},
+            "admission_run_id": "run-api-fixture",
+            "admission": {"status": "ADMISSIBLE", "next_state": "PREFLIGHT", "reason_code": None},
+            "execution_started": False,
+            "snapshot": {"selected_day": None, "state": "IDLE"},
+        }
+
+    monkeypatch.setattr(control_app.engine, "prepare_local_llm_day_go", prepare)
+
+    response = client.post("/api/local-llm/day/go", json={"selected_day": 6})
+
+    assert response.status_code == 200
+    assert observed == {"day": 6}
+    assert response.json()["run_id"] == response.json()["admission_run_id"]
+    assert response.json()["admission"]["next_state"] == "PREFLIGHT"
+    assert response.json()["execution_started"] is False
+    assert client.post("/api/local-llm/day/go", json={
+        "selected_day": 6, "effective_permission": True,
+    }).status_code == 422
+    assert client.post("/api/local-llm/day/6/select").status_code == 404
 
 
 def test_goal_endpoint_accepts_only_the_bounded_goal_field(client):

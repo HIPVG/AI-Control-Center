@@ -33,6 +33,8 @@ from backend.control.day_git import (
     fingerprint as git_fingerprint,
     unsafe_paths,
     GitSafetyError,
+    MAX_ACTIVE_WORK_SECONDS,
+    MAX_ATTEMPTS,
 )
 from backend.control.retained_evidence import RetainedEvidenceResolver
 from backend.control.solution_catalog import RepairEpisodeStore, SolutionCatalog, SolutionCatalogEntry
@@ -53,6 +55,7 @@ from backend.models.local_llm_day import (
     RepairEpisode,
     RepairProposalAttempt,
     RunIntent,
+    RunLimits,
     LocalLLMWorkItemState,
 )
 from backend.models.audit import AuditEventType
@@ -294,6 +297,87 @@ class LocalLLMDayProgram:
             effective_permission=effective_permission,
             external_prerequisite=external_prerequisite,
         ).view()
+
+    def prepare_go(
+        self,
+        day: int,
+        *,
+        effective_permission: bool | None = None,
+        external_prerequisite: bool | None = None,
+    ) -> dict[str, object]:
+        """Create one immutable RunIntent and evaluate preflight without starting a Day.
+
+        The public API supplies only ``day``. Trusted permission and external
+        prerequisite facts remain server-owned and therefore default to unknown.
+        Tests may inject observed values at this internal boundary.
+        """
+        contract = self._load_contracts().get(day)
+        if contract is None:
+            return {
+                "error_code": "DAY_NOT_CONFIGURED",
+                "selected_day": day,
+                "run_id": None,
+                "run_intent": None,
+                "admission": {
+                    "status": "BLOCKED", "next_state": "INPUT_BLOCKED",
+                    "reason_code": "DAY_NOT_CONFIGURED",
+                    "next_action": "Select a configured Day before Go.",
+                },
+                "execution_started": False,
+                "snapshot": self.view(),
+            }
+        try:
+            repository_fingerprint = git_fingerprint(
+                self.root,
+                self.approved_day_one_snapshot_paths if day == 1 else frozenset(),
+            )
+        except (GitSafetyError, OSError):
+            return {
+                "error_code": "GIT_BASELINE_UNAVAILABLE",
+                "selected_day": day,
+                "run_id": None,
+                "run_intent": None,
+                "admission": {
+                    "status": "BLOCKED", "next_state": "HUMAN_ACTION_REQUIRED",
+                    "reason_code": "GIT_BASELINE_UNAVAILABLE",
+                    "next_action": "Restore a readable Git baseline without resetting user work.",
+                },
+                "execution_started": False,
+                "snapshot": self.view(),
+            }
+        intent = RunIntent(
+            run_id=f"run-{uuid4().hex}",
+            selected_day=day,
+            go_at=datetime.now(timezone.utc),
+            contract_fingerprint=self._contract_fingerprint(contract),
+            policy_fingerprint=self._file_fingerprint(
+                Path(__file__).resolve().parents[2] / "docs" / "WORKING_RULES.md"),
+            config_fingerprint=self._file_fingerprint(self.PROGRAM_PATH),
+            git_fingerprint=repository_fingerprint,
+            requested_limits=RunLimits(
+                active_work_seconds=MAX_ACTIVE_WORK_SECONDS,
+                max_attempts=MAX_ATTEMPTS,
+                max_cost=0,
+                currency="JPY",
+            ),
+        )
+        admission = day_admission(
+            self.root,
+            intent=intent,
+            expected_day=day,
+            expected_contract_fingerprint=intent.contract_fingerprint,
+            effective_permission=effective_permission,
+            external_prerequisite=external_prerequisite,
+        ).view()
+        return {
+            "run_id": intent.run_id,
+            "selected_day": day,
+            "run_intent": intent.model_dump(mode="json"),
+            "admission_run_id": intent.run_id,
+            "admission": admission,
+            "execution_started": False,
+            "snapshot": self.view(),
+        }
 
     def day_one_read_only_diagnostic(self) -> dict[str, object]:
         """Collect inspectable Day 1 facts without running the regression suite."""

@@ -27,6 +27,7 @@ const reviewerBusPending = document.querySelector("#reviewer-bus-pending");
 const reviewerBusCompleted = document.querySelector("#reviewer-bus-completed");
 const reviewerBusCounts = document.querySelector("#reviewer-bus-counts");
 const reviewerBusChecked = document.querySelector("#reviewer-bus-checked");
+const selectionStatus = document.querySelector("#selection-status");
 let gitCandidate = null;
 let activeRequest = null;
 let lastSnapshot = {};
@@ -243,8 +244,34 @@ async function request(path, label) {
   }
 }
 
-document.querySelector("#go").addEventListener("click", () => request(`/api/local-llm/day/${encodeURIComponent(selector.value)}/start`, `Day ${selector.value} Go`));
-selector.addEventListener("change", () => request(`/api/local-llm/day/${encodeURIComponent(selector.value)}/select`, `Day ${selector.value} Select`));
+async function requestGoPreview() {
+  const selectedDay = Number(selector.value);
+  activeRequest = `Day ${selectedDay} Go preflight`;
+  renderRunIndicator(lastSnapshot);
+  try {
+    const response = await fetch("/api/local-llm/day/go", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({selected_day: selectedDay}),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    activeRequest = null;
+    render(result.snapshot || lastSnapshot);
+    putText(state, result.admission?.next_state || "PREFLIGHT_BLOCKED");
+    putText(activity, `Run ${result.run_id || "not-created"}: ${result.admission?.reason_code || "ADMISSIBLE"}. Day execution was not started.`);
+  } catch (error) {
+    activeRequest = null;
+    renderRunIndicator(lastSnapshot);
+    putText(state, "REQUEST_FAILED");
+    putText(activity, `Go preflight request failed: ${error.name}`);
+  }
+}
+
+document.querySelector("#go").addEventListener("click", requestGoPreview);
+selector.addEventListener("change", () => {
+  putText(selectionStatus, `Day ${selector.value} selected locally. No run or external action was created.`);
+});
 document.querySelector("#smoke").addEventListener("click", () => request(`/api/local-llm/day/${encodeURIComponent(selector.value)}/smoke`, `Day ${selector.value} Smoke`));
 document.querySelector("#repair-and-go").addEventListener("click", () => request("/api/local-llm/day/repair-and-go", "修復＆GO"));
 document.querySelector("#stop").addEventListener("click", () => request("/api/local-llm/day/stop", "Stop"));

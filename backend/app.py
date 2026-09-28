@@ -10,6 +10,7 @@ from backend.models.day import DayExecutionMode
 from backend.control.daily_operation import DailyOperationService
 from backend.control.reviewer_bus import ReviewerBusWatcher
 from backend.models.goal import GoalSubmission
+from backend.models.local_llm_day import DayGoRequest
 
 ROOT = Path(__file__).resolve().parent.parent
 engine = ControlCenterEngine(JsonStateStore(ROOT / "state" / "control-center.json"), ROOT / "config" / "budget.yaml")
@@ -126,9 +127,9 @@ def start_local_llm_day(day: int) -> dict:
     return engine.start_local_llm_day(day)
 
 
-@app.post("/api/local-llm/day/{day}/select")
-def select_local_llm_day(day: int) -> dict:
-    return engine.local_llm_day_program.select_day(day)
+@app.post("/api/local-llm/day/go")
+def prepare_local_llm_day_go(request: DayGoRequest) -> dict:
+    return engine.prepare_local_llm_day_go(request.selected_day)
 
 
 @app.post("/api/local-llm/day/resume")

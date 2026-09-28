@@ -752,6 +752,9 @@ class ControlCenterEngine:
     def start_local_llm_day(self, day: int) -> dict[str, object]:
         return self.local_llm_day_program.start(day)
 
+    def prepare_local_llm_day_go(self, day: int) -> dict[str, object]:
+        return self.local_llm_day_program.prepare_go(day)
+
     def resume_local_llm_day(self) -> dict[str, object]:
         return self.local_llm_day_program.resume()
 

@@ -69,6 +69,13 @@ class RunIntent(BaseModel):
         return value
 
 
+class DayGoRequest(BaseModel):
+    """Browser intent contains selection only; server owns all trusted preflight facts."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    selected_day: int = Field(ge=1, le=14)
+
+
 class RunControl(BaseModel):
     """Server-owned snapshot, not a liveness or completion certificate."""
 
