@@ -36,6 +36,16 @@ That review check is scope/provenance control; it is not a request for the human
 to repeat approval in GitHub.  On mismatch, rejection, or no response, no WC-02
 source or fixture work starts.
 
+### Delivery correction
+
+The `001` PR trigger omitted `AUTHORITY_RECORD` even though its immutable request
+contained that field.  The Watcher correctly retained the request and recorded
+`REQUEST_BINDING_MISMATCH_AUTHORITY_RECORD`; no Reviewer response can authorize it.
+Do not alter `001` or its state.  Replacement `G6-ACC-WC02-WINDOW-20260928-002`
+uses the same decision and limits with a new immutable request and an identical
+complete binding in its trigger.  This is a delivery correction, not a new human
+decision or a reset of the work window.
+
 ## Planned evidence and stop
 
 Before implementation, re-read the accepted foreground-route response and this

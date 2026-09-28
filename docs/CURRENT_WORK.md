@@ -7,10 +7,14 @@ G6 window had only about five active minutes remaining before WC-02 source or
 fixture work.  Human now explicitly approved one new window with
 「新しい作業枠を承認します。」.  Record and exact limits:
 docs/review-records/G6_WC02_BUDGET_AUTHORITY_2026-09-28.md.
-Decision `AUTH-G6-WC02-WINDOW-20260928-001`; submit
-`G6-ACC-WC02-WINDOW-20260928-001` and await its full matching positive response
-before patching.  The new window is 30 ACTIVE_WORK minutes, starts at zero only
-after that response, and retains the existing 0/2 fixture cap and WC-02 scope.
+The first delivery `G6-ACC-WC02-WINDOW-20260928-001` was retained fail-closed:
+its PR trigger omitted `AUTHORITY_RECORD` and the Watcher recorded
+`REQUEST_BINDING_MISMATCH_AUTHORITY_RECORD`.  Do not alter that fixed request.
+Replacement `G6-ACC-WC02-WINDOW-20260928-002` carries the complete same binding;
+await its full matching positive response before patching.  It is the same
+decision `AUTH-G6-WC02-WINDOW-20260928-001`, not a new request to the human.
+The new window is 30 ACTIVE_WORK minutes, starts at zero only after that response,
+and retains the existing 0/2 fixture cap and WC-02 scope.
 
 The Watcher child may only record this window-review checkpoint (NO_REPORT on a
 positive result); it is not the approved source-writing actor and must not retry
