@@ -1,5 +1,19 @@
 # Current Work
 
+## Active maintenance — chat approval handoff (2026-09-28)
+
+Human selected approval completion in this chat and instructed 「対応してください。」.
+Apply WORKING_RULES' chat approval policy, deploy the bounded confirmation handling,
+and send existing G6 authority for Reviewer confirmation under a new report ID.
+Canonical decision/progress record: `docs/review-records/CHAT_APPROVAL_HANDOFF_2026-09-28.md`.
+No repeat human approval is needed solely for cross-chat visibility. Once the
+confirmation reply is applied, record only its allowed effect and the WC-01
+review result. If necessary, reconcile the older G5 authority wait through the
+same new-report confirmation path using its existing direct approval/acceptance
+evidence; do not request a fresh human approval or replay its old response.
+This maintenance authorizes reloading the existing local watcher implementation;
+it does not select WC-02, another Day, or authorize model execution.
+
 ## Active engineering work — G6 WC-01 (2026-09-28)
 
 - Human instruction: 「Reviewerからの返信を確認後、G6を開始してください。」

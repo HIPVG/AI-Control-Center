@@ -272,6 +272,34 @@ genuine human authority/product-direction boundary defined above.
 
 A human must not be used as a routine copy/paste relay between Codex and the reviewer.
 
+### Human approval completes in this chat
+
+The human's explicit, unambiguous message to Codex is the approval source. Codex
+records its exact text, decision ID, subject, effect/limits, channel, known message
+ID/time (UNKNOWN when unavailable), and source class RECORDED_DIRECT_CONVERSATION
+in a versioned repository record. GitHub carries that record for sharing/audit;
+the human does not have to repeat approval in GitHub or the Reviewer chat.
+This is trusted operational relay, not independent authentication of the original
+message. Lack of direct access to that chat alone is not missing authority.
+Reviewer checks scope, provenance and contradictions; asks the human only for a
+genuinely ambiguous subject, contradictory instruction, or new authority.
+Existing clear approvals remain valid when this transport policy changes.
+
+After HUMAN_REQUIRED, Codex sends one new confirmation report (new REPORT_ID),
+linking CONFIRMS_REPORT_ID, CONFIRMS_RESPONSE_ID, DECISION_ID, AUTHORITY_RECORD,
+and the original REVIEWED_COMMIT. Reuse this confirmation ID on transport retry;
+do not create a second decision or ask for approval again. One reply per report
+still applies: do not append a second decision to the old IN_REPLY_TO. A bare
+SUPERSEDES comment is retained as evidence but cannot itself replay execution.
+Reviewer echoes CONFIRMS_REPORT_ID, CONFIRMS_RESPONSE_ID, DECISION_ID and
+REVIEWED_COMMIT in its reply. Only exact matches and a positive RESULT, followed
+by a successful continuation, resolve the old HUMAN_REQUIRED entry as
+RESOLVED_BY_CONFIRMATION. Preserve its original reply and resolution provenance.
+NO_REPORT is valid when the approved action is only to record a checkpoint;
+HUMAN_REQUIRED/REJECT, mismatches or failed continuation cannot resolve it.
+This bookkeeping is not product acceptance or permission beyond the recorded
+decision. Confirmation reports can be queued while other reports remain open.
+
 ## Latest reviewer response and no duplicate approvals
 
 Subject to precedence rules, the latest **matching** reviewer response supersedes earlier

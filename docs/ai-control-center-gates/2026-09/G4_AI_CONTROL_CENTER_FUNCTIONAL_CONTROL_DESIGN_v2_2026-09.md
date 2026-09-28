@@ -209,7 +209,7 @@ G0〜G5の設計・計画をレビューするとき、PRコメントへの本�
 | source class | 条件 | レビュワーの扱い |
 | --- | --- | --- |
 | `DIRECT_EXTERNALLY_REFERENCED` | 人間が作成した外部参照を、レビュワーが直接読める | 引用、参照先、対象範囲を照合できる。 |
-| `RECORDED_DIRECT_CONVERSATION` | Codexが直接受けた人間メッセージを正確に引用してGitへ記録したが、レビュワーが原メッセージへ直接アクセスできない | 承認記録として読めるが、独立に原指示を確認済みとは表示しない。追加の人間参照が必要なら`HUMAN_REQUIRED`とする。 |
+| `RECORDED_DIRECT_CONVERSATION` | Codexが直接受けた人間メッセージを正確に引用してGitへ記録したが、レビュワーが原メッセージへ直接アクセスできない | 信頼する運用上の承認引継ぎとして利用する。独立認証済みとは表示しない。直接閲覧不能だけで同じ承認を再要求しない。対象不明・矛盾・新権限だけを人間へ戻す。 |
 | `UNAVAILABLE` | 引用又は出所を保存できない | 承認済みと主張せず、当該境界を越えない。 |
 
 本プロジェクトの既存G4承認「G4を承認します。G5を開始してください。」及び観測補遺承認は、
@@ -320,7 +320,13 @@ Reviewer応答 R1 → 対象・効果を明示した判断依頼 D1
 将来の受信adapterが取得する。Codex／配送担当は同じ経路に集約し、通常の`REPORT_TYPE:`付き
 確認報告をReview Bridge PR #1へ一件送る。Watcherはその一致応答を取得して継続へ渡す。
 再起動・二重取得でも同じ人間message/comment ID＋DECISION_ID＋版から二件の報告を作らない。
-別reportが未解決なら確認報告を待機させ、既存reportの解消後に送る。
+別reportが未解決でも確認報告を別IDとして仕掛へ保持できる。継続実行は一件ずつとする。
+R2は`CONFIRMS_REPORT_ID`、`CONFIRMS_RESPONSE_ID`、`DECISION_ID`、`AUTHORITY_RECORD`、
+旧対象と同じ`REVIEWED_COMMIT`を持つ。Reviewerは原文記録を読み、前四項のうち参照URLを除く三項と
+`REVIEWED_COMMIT`を返信へ一致記載する。肯定結果かつ継続成功後だけ、旧R1の人間判断待ちを
+`RESOLVED_BY_CONFIRMATION`にし、旧返信・新確認ID・確認返信IDを保持する。
+拒否、継続失敗、不一致では旧待機を保持する。同じ判断の再配送は再実行しない。
+同じ旧IDへの二件目返信や`SUPERSEDES`だけでは実行せず、新R2へ既存証跡を関連付ける。
 
 Reviewer応答は確認報告の`IN_REPLY_TO`、DECISION_ID、判断版、対象commit、判断種類・範囲が
 一致した場合だけ有効とする。状態ファイルのpending IDと応答本文のIN_REPLY_TOが異なる場合も

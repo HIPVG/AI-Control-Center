@@ -21,6 +21,7 @@ REPORT_TYPE_RE = re.compile(r"(?m)^REPORT_TYPE:\s*([^\s]+)\s*$")
 IN_REPLY_TO_RE = re.compile(r"(?m)^IN_REPLY_TO:\s*([^\s]+)\s*$")
 REPORT_TYPES = {"PROGRESS_UPDATE", "DECISION_REQUEST", "COMPLETION_REPORT"}
 POST_ACTION = "POST_REPORT"
+CONFIRMATION_FIELDS = ("CONFIRMS_REPORT_ID", "CONFIRMS_RESPONSE_ID", "DECISION_ID", "REVIEWED_COMMIT")
 
 
 def _utc_now() -> str:
@@ -102,8 +103,15 @@ class ReviewerBusWatcher:
 
         response_id = int(response["id"])
         response_body = str(response.get("body", ""))
+        confirmation_error = self._confirmation_error(report_id, response_body)
+        if confirmation_error:
+            self._update_report(report_id, state="CONFIRMATION_BLOCKED", confirmation_error=confirmation_error,
+                                rejected_response_comment_id=response_id)
+            self._set_state(last_error=confirmation_error)
+            return self.status()
         self._set_state(last_report_id=report_id, last_response_comment_id=response_id, pending_response_comment_id=response_id, pending_response_body=response_body, pending_response_report_id=report_id, outstanding_report_id=report_id, outstanding_report_comment_id=int(report["id"]), last_error=None)
         prompt = self._resume_prompt(report_id, response_body)
+        prompt += "\nORIGINAL_REPORT:\n" + str(report["body"])
         prompt += "\nREVIEW_WORK_IN_PROGRESS:\n" + json.dumps(self._work_in_progress(), ensure_ascii=False)
         recovery = self._state.get("last_binding_recovery", {})
         if recovery.get("target_report_id") == report_id:
@@ -229,7 +237,7 @@ class ReviewerBusWatcher:
             entry.setdefault("response_required", not bool(re.search(r"(?mi)^RESPONSE_REQUIRED:\s*no\s*$", str(report["body"]))))
             if rid in self._state.get("non_controlling_report_ids", []):
                 entry["state"] = "NON_CONTROLLING"
-            elif rid in self._state.get("processed_report_ids", []) and entry["state"] != "HUMAN_REQUIRED":
+            elif rid in self._state.get("processed_report_ids", []) and entry["state"] not in {"HUMAN_REQUIRED", "RESOLVED_BY_CONFIRMATION"}:
                 entry["state"] = "HUMAN_REQUIRED" if rid == self._state.get("last_report_id") and self._state.get("last_continuation_action") == "HUMAN_REQUIRED" else "APPLIED"
             elif entry.get("response_required") is False and entry["state"] != "HISTORICAL_NOT_REPLAYED":
                 acknowledgements = [item for item in comments if int(item["id"]) > entry["report_comment_id"]
@@ -244,7 +252,64 @@ class ReviewerBusWatcher:
                 if replies:
                     entry.update(state="RESPONSE_RECEIVED", response_comment_id=int(min(replies, key=lambda item: int(item["id"]))["id"]))
             registry[rid] = entry
+            if re.search(r"(?m)^CONFIRMS_REPORT_ID:", str(report["body"])):
+                entry["confirmation_requested"] = True
+                if not self._single_field(str(report["body"]), "CONFIRMS_REPORT_ID"):
+                    entry["confirmation_metadata_invalid"] = True
+            for field in (*CONFIRMATION_FIELDS, "AUTHORITY_RECORD"):
+                value = self._single_field(str(report["body"]), field)
+                if value:
+                    entry.setdefault(field.lower(), value)
         self._set_state(report_registry=registry)
+
+    @staticmethod
+    def _single_field(body: str, name: str) -> str | None:
+        values = re.findall(r"(?m)^" + re.escape(name) + r":[ \t]*([^\r\n]+)$", body)
+        return values[0].strip() if len(values) == 1 else None
+
+    def _confirmation_error(self, report_id: str, response_body: str) -> str | None:
+        registry = self._state.get("report_registry", {})
+        entry = registry.get(report_id, {})
+        target_id = entry.get("confirms_report_id")
+        if entry.get("confirmation_metadata_invalid") or (entry.get("confirmation_requested") and not target_id):
+            return "CONFIRMATION_REPORT_BINDING_INVALID"
+        if not target_id:
+            return None
+        target = registry.get(target_id, {})
+        if not entry.get("authority_record") or not entry.get("decision_id"):
+            return "CONFIRMATION_AUTHORITY_RECORD_MISSING"
+        # The old reply was handled, but the authority question remained open.
+        if target_id == report_id or target.get("state") != "HUMAN_REQUIRED":
+            return "CONFIRMATION_TARGET_NOT_WAITING"
+        if not target.get("reviewed_commit") or entry.get("reviewed_commit") != target.get("reviewed_commit"):
+            return "CONFIRMATION_COMMIT_MISMATCH"
+        if str(target.get("response_comment_id")) != entry.get("confirms_response_id"):
+            return "CONFIRMATION_PRIOR_RESPONSE_MISMATCH"
+        for field in CONFIRMATION_FIELDS:
+            if not entry.get(field.lower()) or self._single_field(response_body, field) != entry[field.lower()]:
+                return "CONFIRMATION_REPLY_BINDING_MISMATCH"
+        result = self._single_field(response_body, "RESULT")
+        if result not in {"CONTINUE", "DECISION", "ACCEPT_COMPLETE", "REJECT", "HUMAN_REQUIRED"}:
+            return "CONFIRMATION_RESULT_INVALID"
+        if not self._single_field(response_body, "NEXT_ACTION"):
+            return "CONFIRMATION_NEXT_ACTION_MISSING"
+        return None
+
+    def _resolve_confirmed_wait(self, report_id: str, response_id: int) -> None:
+        entry = self._state.get("report_registry", {}).get(report_id, {})
+        target_id = entry.get("confirms_report_id")
+        if not target_id or self._state.get("last_continuation_action") == "HUMAN_REQUIRED":
+            return
+        body = str(self._state.get("pending_response_body", ""))
+        if self._single_field(body, "RESULT") not in {"CONTINUE", "DECISION", "ACCEPT_COMPLETE"}:
+            return
+        if self._confirmation_error(report_id, body):
+            return
+        # Never replace the original response ID or delete its history.
+        self._update_report(target_id, state="RESOLVED_BY_CONFIRMATION",
+                            previous_state="HUMAN_REQUIRED", resolved_by_report_id=report_id,
+                            resolution_response_comment_id=response_id,
+                            resolution_decision_id=entry["decision_id"], resolved_at=_utc_now())
 
     @staticmethod
     def _response_target(body: str) -> str | None:
@@ -258,7 +323,7 @@ class ReviewerBusWatcher:
 
     def _work_in_progress(self) -> list[dict[str, object]]:
         return [{"report_id": rid, **entry} for rid, entry in self._state.get("report_registry", {}).items()
-                if entry.get("state") not in {"APPLIED", "ACKNOWLEDGED", "NON_CONTROLLING", "HISTORICAL_NOT_REPLAYED"}]
+                if entry.get("state") not in {"APPLIED", "ACKNOWLEDGED", "NON_CONTROLLING", "HISTORICAL_NOT_REPLAYED", "RESOLVED_BY_CONFIRMATION"}]
 
     def recover_outstanding_report(self, comments: list[dict[str, object]], *, expected_current: str, target_report_id: str, target_comment_id: int, authority: str, continuation_scope: str) -> None:
         """Explicit offline repair; never infer the target from a mismatched reply."""
@@ -407,6 +472,12 @@ class ReviewerBusWatcher:
             "This is a fresh continuation turn, not a resumed desktop/CLI thread. Reconstruct authoritative context from AGENTS.md, docs/WORKING_RULES.md, docs/CURRENT_WORK.md, relevant engineering history, persisted Day state, and the active plan/runbook before acting. Apply the complete reviewer response and use the minimum sufficient action. Do not access GitHub or publish a report yourself. End with exactly one JSON object: {\"action\":\"POST_REPORT\"|\"NO_REPORT\"|\"HUMAN_REQUIRED\",\"report_id\":\"...\",\"report_type\":\"PROGRESS_UPDATE\"|\"DECISION_REQUEST\"|\"COMPLETION_REPORT\",\"body\":\"...\"}. For POST_REPORT, body must be the complete report and report_id/report_type must match its fields. The watcher owns GitHub delivery.\n\n"
             "REVIEWER_RESPONSE:\n"
             f"{response_body.strip()}\n"
+            "Human approvals received directly in the Codex chat are valid operational authority when recorded "
+            "with exact text, subject and limits as RECORDED_DIRECT_CONVERSATION. GitHub is the shared audit copy. "
+            "Do not request the same approval solely because the Reviewer cannot view that chat. Read the "
+            "linked AUTHORITY_RECORD; missing records are a Codex delivery problem first. For a resolved human "
+            "wait use a new confirmation REPORT_ID, carrying CONFIRMS_REPORT_ID, CONFIRMS_RESPONSE_ID, DECISION_ID, "
+            "AUTHORITY_RECORD and the unchanged REVIEWED_COMMIT. Do not replay an old reply or broaden scope.\n"
         )
 
     @staticmethod
@@ -447,6 +518,7 @@ class ReviewerBusWatcher:
         return body
 
     def _mark_response_applied(self, response_id: int, report_id: str, **changes: object) -> None:
+        self._resolve_confirmed_wait(report_id, response_id)
         processed = list(self._state.get("processed_report_ids", []))
         if report_id not in processed:
             processed.append(report_id)
