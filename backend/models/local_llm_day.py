@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class LocalLLMDayState(str, Enum):
@@ -34,6 +34,74 @@ class LocalLLMWorkItemState(str, Enum):
     FAILED = "FAILED"
     DEFERRED = "DEFERRED"
     BLOCKED = "BLOCKED"
+
+
+class RunLimits(BaseModel):
+    """Requested limits are inputs, not evidence of execution authority."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    active_work_seconds: int = Field(gt=0)
+    max_attempts: int = Field(gt=0)
+    max_tokens: int | None = Field(default=None, gt=0)
+    max_cost: float = Field(ge=0, allow_inf_nan=False)
+    currency: str = Field(min_length=1)
+
+
+class RunIntent(BaseModel):
+    """Immutable Go identity; persistence alone never starts a Day."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    schema_version: Literal[1] = 1
+    run_id: str = Field(min_length=1, max_length=120)
+    selected_day: int = Field(ge=1, le=14)
+    go_at: datetime
+    contract_fingerprint: str = Field(min_length=8, max_length=128)
+    policy_fingerprint: str = Field(min_length=8, max_length=128)
+    config_fingerprint: str = Field(min_length=8, max_length=128)
+    git_fingerprint: str = Field(min_length=8, max_length=128)
+    requested_limits: RunLimits
+
+    @field_validator("go_at")
+    @classmethod
+    def require_timezone(cls, value: datetime) -> datetime:
+        if value.utcoffset() is None:
+            raise ValueError("Go time must include timezone")
+        return value
+
+
+class RunControl(BaseModel):
+    """Server-owned snapshot, not a liveness or completion certificate."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    schema_version: Literal[1] = 1
+    run_id: str = Field(min_length=1, max_length=120)
+    selected_day: int = Field(ge=1, le=14)
+    contract_fingerprint: str = Field(min_length=8, max_length=128)
+    current_state: LocalLLMDayState
+    state_history: tuple[LocalLLMDayState, ...] = ()
+    next_action: str = Field(min_length=1)
+    blocker: str | None = None
+    resume_target: Literal["PREFLIGHT"] | None = None
+    updated_at: datetime
+
+    @field_validator("updated_at")
+    @classmethod
+    def require_timezone(cls, value: datetime) -> datetime:
+        return RunIntent.require_timezone(value)
+
+
+class RunRecord(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    schema_version: Literal[1] = 1
+    intent: RunIntent
+    control: RunControl
+
+    @model_validator(mode="after")
+    def same_identity(self) -> "RunRecord":
+        for name in ("run_id", "selected_day", "contract_fingerprint"):
+            if getattr(self.intent, name) != getattr(self.control, name):
+                raise ValueError(f"Run identity mismatch: {name}")
+        return self
 
 
 class DayIssueClassification(str, Enum):
