@@ -2,6 +2,20 @@
 
 ## Current maintenance — file-response reader (2026-09-28)
 
+### Live deployment verified; completion-review checkpoint
+
+Human said "おけ。進めてください。" after the full matching file review
+FILE-WATCHER-REVIEW-20260928-001 (blob 3a1919ad241691cb8a751cab91b021e9a8be4fae)
+requested deployment of 5447427 and live/restart verification. The foreground
+chat completed these checks: the review was APPLIED by one live continuation;
+FILE-WATCHER-LIVE-ACK-20260928-001 became ACKNOWLEDGED without another continuation;
+both survived a restart without replay. Evidence is appended to the record below.
+Completion report FILE-WATCHER-DEPLOYMENT-20260928-001 requests acceptance of this
+transport maintenance only. On matching acceptance, read the full response and
+record only that bounded checkpoint with `{"action":"NO_REPORT"}`; no duplicate
+deployment/test/report, WC02, or next-stage start. Rejection must retain its concrete
+gap. Do not edit watcher state by hand. The separate WC02 authority wait remains.
+
 Human requested design and implementation of file replies in the existing Watcher.
 Scope/DoD: explicitly opted-in new reports, immutable request/response correlation,
 pending-file revalidation, informational ACK without execution, restart deduplication

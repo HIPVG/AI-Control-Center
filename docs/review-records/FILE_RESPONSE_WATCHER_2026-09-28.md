@@ -106,3 +106,66 @@ NEXT_ACTION; authority confirmations additionally echo existing binding fields.
 Request creation stays with the publisher; the reader does not synthesize an
 immutable request from a mutable comment. New continuations must not claim file
 mode without first publishing such a request; their default remains comment mode.
+
+## Live deployment and restart verification (2026-09-28)
+
+Authority: human "おけ。進めてください。" after full matching CONTINUE to
+FILE-WATCHER-REVIEW-20260928-001. Action class VALIDATION. The earlier
+NOT_VERIFIED statement describes the implementation checkpoint, not current status.
+Only the existing local app/Watcher was reloaded; no WC02 or host-write handoff.
+
+Process evidence: old Uvicorn PID 19400 was checked, with no pending continuation,
+then replaced at 19:15:17 JST by PID 13784. Local diagnostic launcher
+state/file-watcher-live-launch.py checks the two source files against git show
+544742769367d9d64fc1271ba0ebfb3671451af3 before importing the existing app unchanged.
+It logged the loaded module/backend method fingerprint; no runtime monkeypatch.
+Restart-deduplication check replaced PID 13784 with PID 7516 at 19:21:57 JST.
+Both load logs report the same baseline and hashes:
+
+| Evidence | SHA-256 |
+| --- | --- |
+| reviewer_bus.py, LF-normalized | 61a4a9498d47fcbf83c45f1866ebb02770acf97fe71863742cd110f5a509f600 |
+| reviewer_files.py, LF-normalized | 1913eeed4740b6008c4c68f0710af3be6426906036f523ce8bd43dd11bf95757 |
+| loaded _sync_file_responses code, marshal | cd603932d81b6c20658d894289d9369f1c97b9143e6090863b2151ea3ce138e7 |
+
+Local raw logs: state/file-watcher-live-{1,2}.{stdout,stderr}.log (not committed).
+Startup succeeded, binding 127.0.0.1:8000; poll_seconds=120.
+
+Immutable Bridge provenance (all paths relative to HIPVG/AI-Control-Center-Review-Bridge):
+
+| REPORT_ID | Request commit | Response observed head / blob |
+| --- | --- | --- |
+| FILE-WATCHER-REVIEW-20260928-001 | 9a0be015e7e3283b976ddd810d16f7826fd590d6 | f25976a60f01f6892acfcc25b133973da1419395 / 3a1919ad241691cb8a751cab91b021e9a8be4fae |
+| FILE-WATCHER-LIVE-ACK-20260928-001 | d380f33062aa4a0035851af1d22b3ffb5ff71306 | 8eb3b90d2ffc14f75d181139568cc5a5efebef3e / 7300f4bd45361bf94a856678d5d603e4b2685d45 |
+
+Exact request paths: poc/file-review-requests/<REPORT_ID>.md; response paths:
+poc/file-review-responses/<REPORT_ID>.md for the two IDs above. Stored response
+identity is git-file:<blob>:<response path>. Trigger comments 5867792668 and
+5867964685 respectively. The second immutable request/notification was a live
+test stimulus; foreground validation observed only local status afterwards,
+not PR response polling. Reviewer created its six-field ACK (NEXT_ACTION: none).
+
+Observed state transitions, not merely successful exit codes:
+
+- Existing positive review: WAITING_RESPONSE -> APPLYING at 19:15:22 JST ->
+  APPLIED at 2026-09-28T10:16:00.273770+00:00. Exactly one observed live
+  continuation finished at 10:16:00.267787+00:00, exit 0, action NO_REPORT.
+  Foreground ownership handoff prevented duplicate deployment by that continuation.
+- New optional ACK: NOT_REQUIRED at 19:17:22 JST -> ACKNOWLEDGED at 19:19:22 JST;
+  continuation timestamp stayed unchanged (zero additional starts for ACK).
+- HTTP registry and persisted state were structurally identical before restart.
+  After restart and poll 2026-09-28T10:22:00.813794+00:00, both states, identities,
+  applied timestamp and last continuation timestamp remained unchanged. Structural
+  equality and timezone-aware instant assertions passed; pending and last_error
+  were null, running/available true. No state file was manually rewritten.
+
+Two diagnostic comparisons initially failed on representation, not runtime state:
+JSON property order and PowerShell's UTC-to-JST/decimal formatting. Full records
+were inspected and comparison corrected to JSON structure and timezone-aware
+instants; these checks passed. The first guard stopped before process shutdown.
+Unchanged 51-test source evidence was reused, not rerun. Design contract unchanged.
+ARTIFACT_QUALITY_CHECK: PASS for this bounded transport deployment: provenance,
+state transitions, scope and replay check are traceable. This is not exactly-once
+proof under arbitrary crashes, OS-login startup proof, G6 completion, or product E2E.
+No Day/model/credential/paid actions, WC02 source edit or new host handoff occurred.
+Next: completion review of this maintenance only; WC02 remains HUMAN_REQUIRED.
