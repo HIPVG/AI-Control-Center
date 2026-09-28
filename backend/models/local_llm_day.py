@@ -252,6 +252,10 @@ class EvidenceRecord(BaseModel):
     """Immutable, validator-owned evidence retained independently of work."""
 
     record_id: str = Field(min_length=8, max_length=80)
+    # Legacy Day snapshots predate RunIntent.  New completion decisions require
+    # both bindings; optional defaults preserve read compatibility only.
+    run_id: str | None = Field(default=None, min_length=1, max_length=120)
+    criterion_id: str | None = Field(default=None, min_length=1, max_length=100)
     project_id: str = Field(min_length=1, max_length=80)
     day: int = Field(ge=1, le=14)
     contract_version: str = Field(min_length=1, max_length=80)
@@ -273,6 +277,24 @@ class EvidenceRecord(BaseModel):
     retained_artifact_reference: str | None = Field(default=None, max_length=500)
     source_hashes: dict[str, str] = Field(default_factory=dict)
     observation_fingerprint: str = ""
+
+
+class EvidenceResultInput(BaseModel):
+    """Strict provider output consumed by the server-owned Result Adapter."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    run_id: str = Field(min_length=1, max_length=120)
+    criterion_id: str = Field(min_length=1, max_length=100)
+    evidence_type: str = Field(min_length=1, max_length=100)
+    provider_id: str = Field(min_length=1, max_length=160)
+    provider_version: str = Field(min_length=1, max_length=80)
+    source_fingerprint: str = Field(min_length=8, max_length=128)
+    configuration_fingerprint: str = Field(min_length=8, max_length=128)
+    value: object
+    source_paths: list[str] = Field(default_factory=list, max_length=30)
+    source_revision: str | None = Field(default=None, max_length=200)
+    source_hashes: dict[str, str] = Field(default_factory=dict)
+    retained_artifact_reference: str | None = Field(default=None, max_length=500)
 
 
 class ActionAttempt(BaseModel):
