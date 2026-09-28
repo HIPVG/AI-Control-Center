@@ -27,7 +27,13 @@ from backend.control.local_ollama_repair import LocalOllamaRepairBuilder
 from backend.control.evidence_registry import REGISTRY, EvidenceRegistry
 from backend.control.day_action_registry import ExecutionMode, STRATEGIES, assert_coverage
 from backend.control.day_state_machine import ACTIVE, AUTHORITY, validate_transition
-from backend.control.day_git import checkpoint, fingerprint as git_fingerprint, unsafe_paths, GitSafetyError
+from backend.control.day_git import (
+    checkpoint,
+    day_admission,
+    fingerprint as git_fingerprint,
+    unsafe_paths,
+    GitSafetyError,
+)
 from backend.control.retained_evidence import RetainedEvidenceResolver
 from backend.control.solution_catalog import RepairEpisodeStore, SolutionCatalog, SolutionCatalogEntry
 from backend.control.external_review import ExternalReviewCoordinator
@@ -46,6 +52,7 @@ from backend.models.local_llm_day import (
     LocalLLMRepairCard,
     RepairEpisode,
     RepairProposalAttempt,
+    RunIntent,
     LocalLLMWorkItemState,
 )
 from backend.models.audit import AuditEventType
@@ -130,6 +137,37 @@ class LocalLLMDayProgram:
 
     def days(self) -> list[dict[str, object]]:
         return [{"day": contract.day, "objective": contract.objective} for contract in self._load_contracts().values()]
+
+    def admission(
+        self,
+        intent: RunIntent | None,
+        *,
+        effective_permission: bool | None,
+        external_prerequisite: bool | None,
+    ) -> dict[str, object]:
+        """Evaluate Go admission without selecting, starting, or mutating a Day."""
+        if intent is None:
+            return day_admission(
+                self.root, intent=None, expected_day=1, expected_contract_fingerprint="UNAVAILABLE",
+                effective_permission=effective_permission, external_prerequisite=external_prerequisite,
+            ).view()
+        contract = self._load_contracts().get(intent.selected_day)
+        if contract is None:
+            return {
+                "status": "BLOCKED",
+                "next_state": "HUMAN_ACTION_REQUIRED",
+                "reason_code": "DAY_NOT_CONFIGURED",
+                "next_action": "Select a configured Day before Go.",
+                "git_fingerprint": None,
+            }
+        return day_admission(
+            self.root,
+            intent=intent,
+            expected_day=contract.day,
+            expected_contract_fingerprint=self._contract_fingerprint(contract),
+            effective_permission=effective_permission,
+            external_prerequisite=external_prerequisite,
+        ).view()
 
     def day_one_read_only_diagnostic(self) -> dict[str, object]:
         """Collect inspectable Day 1 facts without running the regression suite."""

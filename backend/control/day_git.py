@@ -7,10 +7,28 @@ import os
 from pathlib import Path
 import subprocess
 from uuid import uuid4
+from dataclasses import asdict, dataclass
+from typing import Literal
+
+from backend.models.local_llm_day import RunIntent
 
 
 class GitSafetyError(RuntimeError):
     pass
+
+
+@dataclass(frozen=True)
+class DayAdmission:
+    """A read-only Go-preflight decision, never evidence that a Day ran."""
+
+    status: Literal["ADMISSIBLE", "BLOCKED"]
+    next_state: Literal["PREFLIGHT", "HUMAN_ACTION_REQUIRED", "EXTERNAL_ACTION_REQUIRED"]
+    reason_code: str | None
+    next_action: str
+    git_fingerprint: str | None = None
+
+    def view(self) -> dict[str, object]:
+        return asdict(self)
 
 
 def git(root: Path, *args: str, env=None, input=None) -> bytes:
@@ -19,6 +37,58 @@ def git(root: Path, *args: str, env=None, input=None) -> bytes:
     if result.returncode:
         raise GitSafetyError(f"git {args[0]} failed: {result.stderr.decode('utf-8', 'replace')[:500]}")
     return result.stdout
+
+
+def day_admission(
+    root: Path,
+    *,
+    intent: RunIntent | None,
+    expected_day: int,
+    expected_contract_fingerprint: str,
+    effective_permission: bool | None,
+    external_prerequisite: bool | None,
+) -> DayAdmission:
+    """Return the one deterministic admission decision before a Day may start.
+
+    A caller must supply a WC-01 RunIntent and server-observed prerequisite
+    results.  Unknown values fail closed; this function does not create a run,
+    mutate Git, probe credentials, or start a Day thread.
+    """
+    if intent is None:
+        return DayAdmission("BLOCKED", "HUMAN_ACTION_REQUIRED", "LIMITS_UNCONFIRMED",
+                            "Record one RunIntent with explicit time, attempt, and cost limits.")
+    if intent.selected_day != expected_day:
+        return DayAdmission("BLOCKED", "HUMAN_ACTION_REQUIRED", "RUN_DAY_MISMATCH",
+                            "Create a RunIntent for the selected Day only.")
+    if intent.contract_fingerprint != expected_contract_fingerprint:
+        return DayAdmission("BLOCKED", "HUMAN_ACTION_REQUIRED", "CONTRACT_FINGERPRINT_MISMATCH",
+                            "Re-read the same Day contract and create a new matching RunIntent.")
+    if (intent.requested_limits.active_work_seconds <= 0
+            or intent.requested_limits.max_attempts <= 0
+            or intent.requested_limits.max_cost != 0):
+        return DayAdmission("BLOCKED", "HUMAN_ACTION_REQUIRED", "LIMITS_UNCONFIRMED",
+                            "Provide confirmed zero-cost time and attempt limits.")
+    try:
+        if git(root, "status", "--porcelain=v1", "-z", "-uall"):
+            return DayAdmission("BLOCKED", "HUMAN_ACTION_REQUIRED", "DIRTY_GIT_BASELINE",
+                                "Preserve the dirty Git state and obtain a clean approved baseline.")
+        current_git_fingerprint = fingerprint(root)
+    except GitSafetyError:
+        return DayAdmission("BLOCKED", "HUMAN_ACTION_REQUIRED", "GIT_BASELINE_UNAVAILABLE",
+                            "Restore a readable Git baseline without resetting user work.")
+    if intent.git_fingerprint != current_git_fingerprint:
+        return DayAdmission("BLOCKED", "HUMAN_ACTION_REQUIRED", "GIT_FINGERPRINT_MISMATCH",
+                            "Create a new RunIntent from the unchanged Git baseline.", current_git_fingerprint)
+    if effective_permission is not True:
+        return DayAdmission("BLOCKED", "HUMAN_ACTION_REQUIRED", "EFFECTIVE_PERMISSION_UNKNOWN",
+                            "Confirm the execution actor's effective permission without changing credentials.",
+                            current_git_fingerprint)
+    if external_prerequisite is not True:
+        return DayAdmission("BLOCKED", "EXTERNAL_ACTION_REQUIRED", "EXTERNAL_PREREQUISITE_UNCONFIRMED",
+                            "Confirm the required external prerequisite before Go.", current_git_fingerprint)
+    return DayAdmission("ADMISSIBLE", "PREFLIGHT", None,
+                        "Create no Day work yet; Go may enter PREFLIGHT for this RunIntent.",
+                        current_git_fingerprint)
 
 
 def generated(path: str) -> bool:
