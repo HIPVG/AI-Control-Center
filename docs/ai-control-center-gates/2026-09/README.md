@@ -17,7 +17,7 @@ Review Bridge のコメント本文、製品実装の完了を意味しない。
 | G2 | `G2_AI_CONTROL_CENTER_REQUIREMENTS_DRAFT_2026-09.md` | `G2_REQUIREMENTS_TRACEABILITY_2026-09.md` | 要求・受入条件と将来証拠の対応 |
 | G3 | `G3_AI_CONTROL_CENTER_FEASIBILITY_2026-09.md` | `STANDARD_G3_REVISION_SUGGESTIONS_2026-09.md` | 役割、候補、代替、停止条件の選定。G4以前の詳細設計はしない |
 | G4 | `G4_AI_CONTROL_CENTER_FUNCTIONAL_CONTROL_DESIGN_v2_2026-09.md` | `G4_STANDARD_DESIGN_REVIEW_2026-09.md`、`G4_WALKTHROUGH_EXECUTION_PLAN_2026-09.md` | 機能・制御設計、観測補遺、固定commitによるレビュー基線運用。製品E2Eや受入を主張しない |
-| G5 | `G5_AI_CONTROL_CENTER_IMPLEMENTATION_PLAN_v2_2026-09.md` | `prompts/G5_IMPLEMENTATION_PLAN_PROMPT_v2_2026-09.md` | 実装前の最小作業カード。`WC-00`がレビュー基線を、`WC-07A`が継続観測を扱う。Reviewer確認待ちであり、G6・Day作業は未承認 |
+| G5 | `G5_AI_CONTROL_CENTER_IMPLEMENTATION_PLAN_v2_2026-09.md` | `prompts/G5_IMPLEMENTATION_PLAN_PROMPT_v2_2026-09.md` | 固定版4a2b7a2は受理済み。工程内継続の改訂は別レビュー。G6開始・継続の人間指示は `docs/review-records/G6_CONTINUITY_2026-09-28.md`、実施状況はCURRENT_WORKを参照。Day Goは別権限 |
 
 固定commitと各ファイルhash、承認根拠のsource classは
 `BASELINE_MANIFEST_2026-09.md`を正本とする。横断して読む記録は、`G0_G4_STANDARD_APPLICATION_2026-09.md`、

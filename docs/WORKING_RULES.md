@@ -91,6 +91,27 @@ action, or LocalLLM invocation.
 
 ## Default run window and active-work clock
 
+### Continuity inside an authorized engineering stage
+
+When the human authorizes a stage such as G6, execute the approved plan's cards
+serially in dependency order. A card is a bounded implementation/verification
+unit, not a fresh human-approval boundary. Record its evidence and apply required
+matching review before consuming it downstream. After CONTINUE, select the next
+eligible card within the same authorized stage without another human selection.
+Record the selected card, prerequisite evidence, next action and remaining budget
+in CURRENT_WORK and the engineering record. A card change or fresh continuation
+does not reset the stage/work-window budget or retry count.
+
+Keep the existing report cadence and pause after publication until matching review.
+Stop dependent work for failed/missing evidence; repair within existing limits.
+Escalate only unresolved authority, scope, input or exhausted-limit boundaries.
+At stage completion use COMPLETION_REPORT; starting another G, selecting/Go-ing
+a Day, models, services, credentials or spending still requires applicable authority.
+If an older report prescribed a card-only stop, preserve its history and use a
+new report to convey the later human instruction and revised plan. Never replay
+the old reply. Reviewers must state the concrete reason for a stop; recording a
+successful card alone is not a reason to terminate authorized stage work.
+
 Unless the human specifies otherwise, an autonomous work window is **30 minutes of
 ACTIVE_WORK**, not 30 minutes of wall-clock time.
 

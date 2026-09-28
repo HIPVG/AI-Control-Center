@@ -1,6 +1,34 @@
 # Current Work
 
-## Active maintenance — chat approval handoff (2026-09-28)
+## Active engineering work — G6 dependency-order continuation (2026-09-28)
+
+- Latest human instruction: 「では設計変更し、進めてください。」
+  Decision `AUTH-G6-CONTINUITY-20260928-001`, recorded in
+  `docs/review-records/G6_CONTINUITY_2026-09-28.md`.
+- Objective: implement the approved G5 cards serially within G6. G4 §14,
+  G5 §3.1 and WORKING_RULES define card selection and genuine stop boundaries.
+- Current checkpoint: continuity design is being submitted under
+  `G6-ACC-CONTINUITY-20260928-001`; await its matching response after publication.
+  On positive review, consume WC-01 evidence at bf34b6a and review 5865174825,
+  then begin WC-02 admission/preflight using isolated fixtures. Do not stop merely
+  after recording the design review. If prerequisites fail, repair within the card.
+- WC-02 DoD: contract/scope/Git/permission/budget/external-prerequisite admission
+  returns only permitted preflight or a recorded blocker; no Day execution.
+  Evidence must show valid admission and dirty Git, unknown permission, missing
+  limits and contract mismatch rejection. See G5 WC-02 for target files/limits.
+- On each card: record evidence, next eligible card and remaining work-window
+  time/retry limits; retain the 30-minute ACTIVE_WORK ceiling and two-attempt cap.
+  Review response resets only the progress counter, not the work-window budget.
+- Stage DoD: G5 implementation cards have traceable evidence and required review;
+  separately report VC-11 actor evidence and unavailable product-E2E inputs.
+  G6 completion requires its own completion review. G7/G8 and product Day/Go,
+  models, service operations, authentication and paid work remain separate.
+
+## Historical checkpoint — chat approval handoff (2026-09-28)
+
+The following card-only stopping instructions describe the earlier completed
+handoff. The later continuity decision above supersedes their WC-02 restriction;
+their original records and already-applied responses must not be replayed.
 
 Human selected approval completion in this chat and instructed 「対応してください。」.
 Apply WORKING_RULES' chat approval policy, deploy the bounded confirmation handling,
@@ -14,7 +42,7 @@ evidence; do not request a fresh human approval or replay its old response.
 This maintenance authorizes reloading the existing local watcher implementation;
 it does not select WC-02, another Day, or authorize model execution.
 
-## Active engineering work — G6 WC-01 (2026-09-28)
+## Historical checkpoint — G6 WC-01 (2026-09-28)
 
 - Human instruction: 「Reviewerからの返信を確認後、G6を開始してください。」
 - G5 exit: accepted only at `4a2b7a2269adae8318903179b10bb59ef424b145`,
