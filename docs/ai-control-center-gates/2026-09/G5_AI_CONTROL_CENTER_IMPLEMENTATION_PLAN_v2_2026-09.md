@@ -1,12 +1,13 @@
 # G5 — AI-Control-Center 実装計画・作業カード・検証計画 v2
 
 - 文書ID: `G5-ACC-PLAN-20260928-003`
-- 状態: `REVISED_REVIEW_PENDING`
+- 状態: `REVISED_REVIEW_PENDING`（v2.1のレビュー基線カードを追加。新しい固定commitで再提出するまで旧レビュー入力を置換しない）
 - 行為分類: `DIAGNOSIS`（実装前の作業計画化）
 - 計画・実装担当: CODEX
 - 人間の責任者・最終判断: 広瀬剛
 - レビュー／検証: ChatGPT（同一主体の兼務を独立検証とは表示しない）
-- 人間承認: 2026-09-28。G4 v2観測補遺および本改訂計画を広瀬剛が承認。G5のReviewer確認は待機中。
+- 人間承認: 2026-09-28。G4 v2観測補遺および本改訂計画を広瀬剛が承認。広瀬剛はG0〜G5成果物を専用ブランチの固定commitでレビュー可能にする運用設計も指示した。G5のReviewer確認は待機中。
+- 最新Reviewer応答: `IN_REPLY_TO: G5-ACC-REVIEW-20260928-003`、`RESULT: REJECT`。G4本文と人間承認の外部追跡可能性が`NOT EVALUABLE`だったためである。本v2.1は固定commit・正本区分・承認source classを追加するが、外部参照のない会話指示を独立検証済みとは主張しない。
 - 設計正本: `docs/ai-control-center-gates/2026-09/G4_AI_CONTROL_CENTER_FUNCTIONAL_CONTROL_DESIGN_v2_2026-09.md`
 - 旧計画: `docs/ai-control-center-gates/2026-09/superseded/G5_AI_CONTROL_CENTER_IMPLEMENTATION_PLAN_2026-09.md` は承認前設計に基づくため `SUPERSEDED_BY_G5_V2` として保全する。
 
@@ -24,7 +25,8 @@ G5の目的は、G4 v2で固定された機能・制御設計を、単独で実�
 | G1現状 | `BCD6C368F99FC071C84BC5D1C3B5E70DDCBCC80F575E6E0E7CAF813CF572F2D5` | 既存資産は条件付き再利用とし、保存値を稼働／受入根拠にしない。 |
 | G2要求 | `E2C85FF52F80D2DC9B54E101D823B2B639A0EFF8A5885144B43214FEC893B99E` | A01〜A06、NFR-02/03を受入・証拠境界へ対応付ける。 |
 | G3実現性 | `B260705BBD504F57D8DBB480168D586FC9CA16EE0CB48B5B709ECDF2A8B18BE8` | M01を主候補、M04を条件付き再評価、M05を停止とする。 |
-| G4 v2機能・制御設計 | `15670E5B65B02C94AD3EE9A98C918EC8393D401D3BA43DFD93B80B5040FDEC05` | 本計画の唯一の機能設計正本（観測補遺を含む）。 |
+| G4 v2機能・制御設計（v2.1補遺を含む） | `459E0FF886F1CC9CE86B5C69265325B3C70CA4251655D00550014AA3FD9586BF` | 本計画の唯一の機能設計正本。固定commit・対象path・hash・承認source classによるレビュー入力を追加する。 |
+| 初回ReviewArtifactBaseline | `644d9dd579a69130dad3649c4b5160528398ac00` | `docs/ai-control-center-gates/2026-09/README.md`で現行正本・補助・撤回済みを区分した最初の公開commit。レビュー対象はbranch名だけでなく固定commitとする。 |
 | 現行運用規則 | `62500493D49EA54259C395E1B147CD1DE6560E7FE2995F1321941894514B5F9B` | 実施、報告、停止、Reviewer Bridgeの規範。 |
 | 標準 | `HIPVG/ai_work_operating_standard@13065155999b799fdd2766630696d523fc53beaf` | G5カード必須項目、工程境界を適用する。 |
 
@@ -34,22 +36,36 @@ G5の目的は、G4 v2で固定された機能・制御設計を、単独で実�
 
 | 順序 | カード | G4 v2との対応 | G0〜G3/G2への対応 |
 | --- | --- | --- | --- |
-| 1 | WC-01 Run contract | 4節のRunIntent/RunControl | P02/P03、A01、NFR-03 |
-| 2 | WC-02 admission/preflight | 3・5.1・6節 | P02/P07、A01、NFR-02、M05 |
-| 3 | WC-03 Day catalog | 3・4・8節 | Day 1〜14の安全な入場、G1の条件付き再利用 |
-| 4 | WC-04 selection/Go UI | 5.1節 | P01/P02、A01 |
-| 5 | WC-05 Evidence/completion | 3・4・5.2節 | P03/P04、A02 |
-| 6 | WC-06 repair/recovery | 5.2・5.3・6節 | P04/P05、A03、M05 |
-| 7 | WC-07 review control | 4・5.3・5.4・6節 | P01/P05、A04、NFR-03、M01/M04/M05 |
-| 8 | WC-07A continuation observability | 4・5.4・6節 | A04、NFR-03、G3 SC-05 |
-| 9 | WC-08 telemetry | 4・5.4節 | P06/P08、A06 |
-| 10 | WC-09 read API | 3・4・5.4節 | P06、A05、NFR-03 |
-| 11 | WC-10 dashboard | 5.4・5.5節 | P01/P06/P08、A05/A06 |
-| 12 | VC-11 actor/E2E gate | 8・9・10節 | A04の実actor確認と、将来の選択Day受入の明確な`INPUT_BLOCKED`境界 |
+| 1 | WC-00 reviewable artifact baseline | 12節 | G0〜G5の正本、承認、レビュー対象の版固定 |
+| 2 | WC-01 Run contract | 4節のRunIntent/RunControl | P02/P03、A01、NFR-03 |
+| 3 | WC-02 admission/preflight | 3・5.1・6節 | P02/P07、A01、NFR-02、M05 |
+| 4 | WC-03 Day catalog | 3・4・8節 | Day 1〜14の安全な入場、G1の条件付き再利用 |
+| 5 | WC-04 selection/Go UI | 5.1節 | P01/P02、A01 |
+| 6 | WC-05 Evidence/completion | 3・4・5.2節 | P03/P04、A02 |
+| 7 | WC-06 repair/recovery | 5.2・5.3・6節 | P04/P05、A03、M05 |
+| 8 | WC-07 review control | 4・5.3・5.4・6節 | P01/P05、A04、NFR-03、M01/M04/M05 |
+| 9 | WC-07A continuation observability | 4・5.4・6・12節 | A04、NFR-03、G3 SC-05 |
+| 10 | WC-08 telemetry | 4・5.4節 | P06/P08、A06 |
+| 11 | WC-09 read API | 3・4・5.4節 | P06、A05、NFR-03 |
+| 12 | WC-10 dashboard | 5.4・5.5節 | P01/P06/P08、A05/A06 |
+| 13 | VC-11 actor/E2E gate | 8・9・10・12節 | A04の実actor確認と、将来の選択Day受入の明確な`INPUT_BLOCKED`境界 |
 
 この順序は主経路（admission→Go→preflight→Evidence→修正／レビュー→表示）を先に置く。可観測性は主経路の事実を表す後段とし、先行して製品能力を装わない。M04（durable outbox/reconciler）は、WC-07でM01が実actorの一意送達・一意継続を満たせないと確定した場合にだけ、M05で停止してG3へ戻す。予防的なM04実装カードは置かない。
 
 ## 4. 作業カード
+
+### WC-00 — レビュー可能な成果物基線
+
+| 項目 | 内容 |
+| --- | --- |
+| 担当／入力版 | CODEX。G4 v2.1 12節、`docs/WORKING_RULES.md`の単一outstanding規則、G0〜G5の現行正本。 |
+| 目的 | G0〜G5のレビュー対象を、専用`agent/*` branch上の一つのimmutable commit、index、対象path、file hash、正本／補助／`SUPERSEDED`区分、承認根拠に固定する。 |
+| 対象 | `docs/ai-control-center-gates/<baseline>/`、baseline index、ReviewArtifactBaseline、ReviewAuthorityRecord、Review Bridge報告のcommit binding。 |
+| 非目的 | `main`変更、既存文書の削除、Day／モデル実行、製品機能追加、Watcher配送方式変更、承認原指示の捏造。 |
+| 前提／許可操作 | 文書更新前に専用branchを作成し、対象ファイルだけをcommit/pushする。提出時はoutstanding reportが0で、reportごとに固定commitを一つだけ指定する。 |
+| 禁止／費用 | branch名だけの指定、未commit内容のレビュー、レビュー中commitの差替え、旧`REPORT_ID`の再利用、他者の未関連変更のcommit。費用0円。 |
+| 結果・受領証跡／検証 | Git remoteからindexと全必須pathを読め、indexの分類とfile hashがcommit内容に一致し、report/replyが同じcommitを明記すること。direct external referenceを持たない人間指示は`RECORDED_DIRECT_CONVERSATION`と表示する。 |
+| 停止・判断／後始末・次状態 | commit、対象path、hash、承認根拠のいずれかを固定できなければ`WC-00_STOPPED`としてG4又は人間判断へ戻す。旧baselineは保全し、新baselineだけを`WC-00_VALIDATED`又は`REVIEW_PENDING`へ進める。 |
 
 ### WC-01 — RunIntent・RunControlの契約
 
@@ -211,6 +227,7 @@ G5の目的は、G4 v2で固定された機能・制御設計を、単独で実�
 
 | カード | 層 | 合格証拠 | 合格が意味しないこと |
 | --- | --- | --- | --- |
+| WC-00 | Git公開・読取 | index、固定commit、対象path/hash、正本区分、report/replyの同一commit binding | 人間原指示の独立検証、G5受理、製品実装 |
 | WC-01 | model/JSON | run一意性、current/history分離 | UI又はDay実行の成功 |
 | WC-02 | deterministic fixture | preflight許可／拒否と停止理由 | 実権限・実Dayの受入 |
 | WC-03 | catalog fixture | Dayごとのadmission／blocker | Day 1〜14の実行 |
@@ -229,6 +246,6 @@ G5の目的は、G4 v2で固定された機能・制御設計を、単独で実�
 
 ## 6. G5出口と後続境界
 
-G5の出口は、G0 P01〜P08、G1の再利用条件、G2 A01〜A06/NFR、G3 M01/M04/M05、G4 v2の各機能責務と異常経路が、少なくとも一枚のカード又は明示的な`INPUT_BLOCKED`へ対応し、全カードに入力、目的、対象、非目的、前提、許可上限、禁止、費用、受領証跡、検証、停止／判断、後始末、次状態があることである。特にA04については、WC-07が相関とガード、WC-07Aが継続中／結果／後続配送の観測、VC-11が実actor証跡を分担する。
+G5の出口は、G0 P01〜P08、G1の再利用条件、G2 A01〜A06/NFR、G3 M01/M04/M05、G4 v2の各機能責務と異常経路が、少なくとも一枚のカード又は明示的な`INPUT_BLOCKED`へ対応し、全カードに入力、目的、対象、非目的、前提、許可上限、禁止、費用、受領証跡、検証、停止／判断、後始末、次状態があることである。`WC-00`は、各レビューが固定commit・対象path・hash・正本区分に結び付くこと、及び外部参照不能な人間指示を独立検証済みと主張しないことを保証する。特にA04については、WC-07が相関とガード、WC-07Aが継続中／結果／後続配送の観測、VC-11が実actor証跡を分担する。
 
 本書はその自己点検を満たすため`ARTIFACT_QUALITY_CHECK: SELF_CHECK_PASS`とする。ただしG4 v2観測補遺を反映した現在は`REVISED_REVIEW_PENDING`であり、ChatGPTのレビュー受理までG5完了、G6開始、Day作業、製品受入を宣言しない。G5の受理後も、G6では広瀬剛が一枚を選ぶまで自動着手しない。

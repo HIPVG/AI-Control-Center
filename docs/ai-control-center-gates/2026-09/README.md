@@ -16,10 +16,11 @@ Review Bridge のコメント本文、製品実装の完了を意味しない。
 | G1 | `G1_AI_CONTROL_CENTER_CURRENT_STATE_2026-09.md` | — | 読み取り調査・再利用判定。稼働や製品受入の証明ではない |
 | G2 | `G2_AI_CONTROL_CENTER_REQUIREMENTS_DRAFT_2026-09.md` | `G2_REQUIREMENTS_TRACEABILITY_2026-09.md` | 要求・受入条件と将来証拠の対応 |
 | G3 | `G3_AI_CONTROL_CENTER_FEASIBILITY_2026-09.md` | `STANDARD_G3_REVISION_SUGGESTIONS_2026-09.md` | 役割、候補、代替、停止条件の選定。G4以前の詳細設計はしない |
-| G4 | `G4_AI_CONTROL_CENTER_FUNCTIONAL_CONTROL_DESIGN_v2_2026-09.md` | `G4_STANDARD_DESIGN_REVIEW_2026-09.md`、`G4_WALKTHROUGH_EXECUTION_PLAN_2026-09.md` | 機能・制御設計と観測補遺。製品E2Eや受入を主張しない |
-| G5 | `G5_AI_CONTROL_CENTER_IMPLEMENTATION_PLAN_v2_2026-09.md` | `prompts/G5_IMPLEMENTATION_PLAN_PROMPT_v2_2026-09.md` | 実装前の最小作業カード。Reviewer確認待ちであり、G6・Day作業は未承認 |
+| G4 | `G4_AI_CONTROL_CENTER_FUNCTIONAL_CONTROL_DESIGN_v2_2026-09.md` | `G4_STANDARD_DESIGN_REVIEW_2026-09.md`、`G4_WALKTHROUGH_EXECUTION_PLAN_2026-09.md` | 機能・制御設計、観測補遺、固定commitによるレビュー基線運用。製品E2Eや受入を主張しない |
+| G5 | `G5_AI_CONTROL_CENTER_IMPLEMENTATION_PLAN_v2_2026-09.md` | `prompts/G5_IMPLEMENTATION_PLAN_PROMPT_v2_2026-09.md` | 実装前の最小作業カード。`WC-00`がレビュー基線を、`WC-07A`が継続観測を扱う。Reviewer確認待ちであり、G6・Day作業は未承認 |
 
-横断して読む記録は、`G0_G4_STANDARD_APPLICATION_2026-09.md`、
+固定commitと各ファイルhash、承認根拠のsource classは
+`BASELINE_MANIFEST_2026-09.md`を正本とする。横断して読む記録は、`G0_G4_STANDARD_APPLICATION_2026-09.md`、
 `G0_G4_STANDARD_APPLICATION_REPORT_CORRECTION_2026-09.md`、および
 `G0_G4_EVALUATION_KIT_2026-09.md` である。前二者は標準適用・報告訂正の記録、
 後者は外部評価の読み方であり、個別工程の正本を置き換えない。
@@ -35,10 +36,10 @@ Review Bridge のコメント本文、製品実装の完了を意味しない。
 
 ## レビューと更新の運用
 
-1. レビュワーは Review Bridge の依頼本文ではなく、指定されたブランチ名・コミットSHA・本ディレクトリ内の対象ファイルを読む。
-2. レビュー報告には `REVIEWED_BRANCH`、`REVIEWED_COMMIT`、対象パス、成果物SHA-256を記録する。`IN_REPLY_TO` と単一の未解決 `REPORT_ID` の規則は `docs/WORKING_RULES.md` に従う。
+1. ブランチは作業・公開経路であり、レビュー対象はブランチ名だけではない。レビュワーは Review Bridge の依頼本文で指定されたブランチ名、**固定コミットSHA**、本ディレクトリ内の対象ファイル、各成果物SHA-256を読む。
+2. レビュー報告には `REVIEWED_BRANCH`、`REVIEWED_COMMIT`、baseline ID、対象パス、成果物SHA-256、承認根拠のsource classを記録する。外部参照のない直接会話は`RECORDED_DIRECT_CONVERSATION`として示し、独立検証済みとは表示しない。`IN_REPLY_TO` と単一の未解決 `REPORT_ID` の規則は `docs/WORKING_RULES.md` に従う。
 3. 以後の未コミット成果物は、既存の作業や実行ログと混ぜず、目的別の `agent/*` ブランチで明示的にコミットする。`main` は人間が明示承認するまで読み取り専用である。
-4. レビュー済み基線を変更する場合は、新しいコミットを固定し、変更対象のG・変更理由・前版との差分をレビュワーへ示す。古い成果物や証拠を削除して置換しない。
+4. レビュー済み又はレビュー中の基線を変更する場合は、既存reportを後から書き換えず、新しいコミットを固定して`SUPERSEDES <old baseline>`として扱う。matching responseで旧reportを解消後、変更対象のG・変更理由・前版との差分を持つ新しい`REPORT_ID`で再提出する。古い成果物や証拠を削除して置換しない。
 
 ## この公開の非目的
 

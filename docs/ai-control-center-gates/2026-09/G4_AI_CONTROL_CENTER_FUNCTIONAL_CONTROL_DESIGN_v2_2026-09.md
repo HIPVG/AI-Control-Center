@@ -1,7 +1,7 @@
 # G4 再実施 — AI-Control-Center 機能・制御設計 v2
 
 - 文書ID: `G4-ACC-FUNCTIONAL-DESIGN-20260928-001`
-- 状態: `COMPLETE`（人間承認済みv2基線および観測補遺。Reviewer確認はG5と併せて待機中）
+- 状態: `COMPLETE`（人間承認済みv2基線および観測補遺。v2.1のレビュー基線運用補遺はReviewer確認待ち）
 - 行為分類: `DIAGNOSIS`
 - 設計担当: CODEX
 - 人間の責任者・最終判断: 広瀬剛
@@ -174,3 +174,74 @@ M01（FastAPI/Python、JSON、Evidence、Review Bridge/Watcher、Codex、Repair 
 補遺はReview Controlの観測粒度だけを補う。Dayの状態遷移、G0の目的、M01/M04/M05の選定、G6実装権限、Day Go、費用、認証保存方式を変更しない。実装はG5の`WC-07A`、実actor検証は`VC-11`で扱う。
 
 2026-09-28に広瀬剛は本補遺および対応するG5改訂を承認した。この人間承認は設計・計画基線の承認であり、G6実装、テスト、Day Go、製品受入を許可しない。G5 Reviewer確認は別途待機する。
+
+## 12. v2.1補遺 — レビュー可能な成果物基線
+
+### 12.1 目的と適用範囲
+
+G0〜G5の設計・計画をレビューするとき、PRコメントへの本文貼付だけでは、対象版、後続変更、
+正本と撤回版、及び承認根拠を一意に照合できない。したがって、レビュー入力を
+`ReviewArtifactBaseline`としてGit上の固定コミットに束ねる。ブランチは作業・公開の経路であり、
+レビュー対象そのものではない。レビュー対象は必ず一つのrepository、branch、commit SHA、
+対象パス、内容hashの組である。
+
+本補遺はG0〜G5の文書・プロンプト・承認記録をレビュー可能にする運用設計である。Day state、
+製品のGo、Evidence判定、Watcherの配送方式、認証保存、G6実装、費用、製品受入を変更しない。
+
+### 12.2 `ReviewArtifactBaseline` の記録と状態
+
+| 記録 | 必須内容 | 禁止・意味 |
+| --- | --- | --- |
+| ReviewArtifactBaseline | baseline ID、repository、branch、immutable commit SHA、作成時刻、対象G、対象パス、各ファイルSHA-256、正本／補助／`SUPERSEDED`区分、index path | branch名だけ、作業ツリー状態だけ、PR本文だけをレビュー対象にしない。 |
+| ReviewAuthorityRecord | authority ID、判断者、判断本文の正確な引用、取得時刻、対象範囲、source class、外部参照の有無 | Codexの要約を人間原指示そのものと偽らない。外部参照がなければ独立検証済みと表示しない。 |
+| ReviewRequestBinding | REPORT_ID、baseline ID、reviewed commit、対象パス／hash、提出comment ID、返信comment ID、`IN_REPLY_TO`、結論 | 一件のoutstanding reportに複数commitを混在させない。 |
+
+`ReviewArtifactBaseline`の状態は`DRAFT`→`PUBLISHED`→`FROZEN_FOR_REVIEW`→
+`RESPONSE_RECEIVED`→`APPLIED`又は`SUPERSEDED`とする。`FROZEN_FOR_REVIEW`のcommitは
+書き換えず、レビュー中に設計・計画を更新した場合は、新commitを別baselineとして
+`SUPERSEDES <old baseline>`にする。旧応答は旧commitだけに適用し、新baselineは旧reportの
+書換えや再利用で受理させない。
+
+### 12.3 承認根拠の表現と検証限界
+
+人間の直接指示には次のsource classを付ける。
+
+| source class | 条件 | レビュワーの扱い |
+| --- | --- | --- |
+| `DIRECT_EXTERNALLY_REFERENCED` | 人間が作成した外部参照を、レビュワーが直接読める | 引用、参照先、対象範囲を照合できる。 |
+| `RECORDED_DIRECT_CONVERSATION` | Codexが直接受けた人間メッセージを正確に引用してGitへ記録したが、レビュワーが原メッセージへ直接アクセスできない | 承認記録として読めるが、独立に原指示を確認済みとは表示しない。追加の人間参照が必要なら`HUMAN_REQUIRED`とする。 |
+| `UNAVAILABLE` | 引用又は出所を保存できない | 承認済みと主張せず、当該境界を越えない。 |
+
+本プロジェクトの既存G4承認「G4を承認します。G5を開始してください。」及び観測補遺承認は、
+現時点では`RECORDED_DIRECT_CONVERSATION`としてG4本文に保存する。外部から直接追跡できる
+原指示がないことを隠さない。これはG5計画化を超える権限を生じさせない。
+
+### 12.4 レビュー配送・更新の経路
+
+```text
+agent/* branchで限定編集
+  → required files + index + hashes をcommit
+  → push
+  → ReviewArtifactBaseline=PUBLISHED
+  → reportに baseline ID / branch / immutable commit / paths / hashes を固定
+  → FROZEN_FOR_REVIEW（1 outstanding report）
+  → matching response
+  → APPLIED、又は新commitをSUPERSEDEDとして別REPORT_IDで再提出
+```
+
+Review Bridgeには短い参照と相関情報を送る。成果物の全本文を通常の報告に複製しない。
+レビュー中に新commitが必要になった場合、既存reportの本文、ID、commitを後から変更しない。
+matching responseを読んでoutstandingを解消してから、新しい`REPORT_ID`で新baselineを提出する。
+Watcherは`ReviewRequestBinding`のcommit SHAとresponseの`IN_REPLY_TO`を保存し、継続envelopeが
+異なるcommitの作業を指す場合は`CONTINUATION_FAILED`として停止する。
+
+### 12.5 初回適用と後続検証
+
+初回の公開基線は、`docs/ai-control-center-gates/2026-09/`のindex、現行正本、補助記録、
+プロンプト、`superseded/`を含む。後続のG6以降で実装する必要があるのは、製品データモデルを
+増やすことではなく、Review Controlがreportごとの固定commitと対象範囲を読取り表示・照合できる
+ことである。その実施・fixture検証はG5の`WC-00`と`WC-07A`に分ける。
+
+`ARTIFACT_QUALITY_CHECK: SELF_CHECK_PASS`は、本補遺が固定commit、正本区分、承認根拠の限界、
+report相関、更新時の再提出規則を定義することだけを示す。実actorがcommit bindingを検証した証拠、
+人間原指示の外部参照、又は製品受入を示さない。
