@@ -22,6 +22,18 @@ function setup() {
   return { context, nodes, model: context.ReviewerStatus, render: context.renderReviewerBus };
 }
 const stamp = '2026-09-28T10:29:12.196690+00:00';
+test('recovery escalation persists visibly with owner action and deadline', () => {
+  const { model, render, nodes } = setup();
+  const status = snapshot('WAITING_RESPONSE');
+  status.report_registry.F1.transport_recovery = { phase: 'ESCALATED',
+    next_action: '配送担当: 証拠を確認', deadline_at: stamp,
+    replacement_report_id: 'R2', escalation_reason: 'RECOVERY_DEADLINE_EXCEEDED' };
+  const row = model.rows(status)[0];
+  assert.equal(row.active, true);
+  assert.match(row.label, /要対応.*配送担当.*期限:.*R2.*RECOVERY_DEADLINE_EXCEEDED/);
+  render(status);
+  assert.match(nodes.get('#reviewer-bus-pending').children[0].children[0].textContent, /要対応/);
+});
 function snapshot(state) {
   return { running: true, available: true, last_poll_at: new Date().toISOString(), poll_seconds: 120,
     report_registry: { F1: { state, updated_at: stamp, report_comment_id: 42, response_transport: 'github_file',

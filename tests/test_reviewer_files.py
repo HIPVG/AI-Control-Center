@@ -194,6 +194,9 @@ def test_wrong_head_repo_and_traversal_rejected(tmp_path, monkeypatch):
     b = Bus(tmp_path, monkeypatch)
     b.head["head"]["repo"]["full_name"] = "other/repo"
     assert b.watcher().run_once()["last_error"] == "GITHUB_FILE_HEAD_INVALID"
+    # Quarantined requests retain their first rejection. Test traversal on a
+    # separate request/store instead of mutating that rejected report in place.
+    b = Bus(tmp_path / "traversal", monkeypatch)
     b.comments[0]["body"] = b.comments[0]["body"].replace("requests/F1.md", "requests/../F1.md")
     assert b.watcher().run_once()["report_registry"]["F1"]["file_error"] == "INVALID_REQUEST_PATH"
     assert not b.prompts

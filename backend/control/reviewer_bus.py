@@ -14,6 +14,7 @@ from time import monotonic, sleep
 from typing import Callable
 
 from backend.control.reviewer_files import FileReplyError, GitHubFileReader, binding
+from backend.control.reviewer_recovery import TransportRecovery
 
 REVIEW_REPO = "HIPVG/AI-Control-Center-Review-Bridge"
 REVIEW_PR = 1
@@ -78,7 +79,10 @@ class ReviewerBusWatcher:
 
     def run_once(self) -> dict[str, object]:
         with self._cycle_lock:
-            return self._run_once()
+            self._cycle_comments = None
+            self._run_once()
+            TransportRecovery(self, REVIEW_REPO, REVIEW_PR).tick(self._cycle_comments)
+            return self.status()
 
     def _run_once(self) -> dict[str, object]:
         comments, error = self._fetch_comments()
@@ -87,6 +91,7 @@ class ReviewerBusWatcher:
             self._set_state(last_error=error)
             return self.status()
 
+        self._cycle_comments = comments
         self._sync_report_registry(comments)
         if not self._validate_pending_file_state():
             return self.status()
@@ -209,9 +214,11 @@ class ReviewerBusWatcher:
             expected = self._state.get("pending_response_report_id")
         registry = self._state.get("report_registry")
         if registry is not None:
+            recovery = TransportRecovery(self, REVIEW_REPO, REVIEW_PR)
+            reports = [item for item in reports if not recovery.blocks_continuation(self._extract(REPORT_ID_RE, str(item["body"])))]
             if self._state.get("pending_response_comment_id") or self._state.get("pending_response_file"):
                 return next((item for item in reversed(reports) if self._extract(REPORT_ID_RE, str(item["body"])) == expected), None)
-            eligible = [item for item in reports if registry.get(self._extract(REPORT_ID_RE, str(item["body"])), {}).get("state")
+            eligible = [item for item in reports if not registry.get(self._extract(REPORT_ID_RE, str(item["body"])), {}).get("transport_recovery") and registry.get(self._extract(REPORT_ID_RE, str(item["body"])), {}).get("state")
                         in {"QUEUED", "WAITING_RESPONSE", "RESPONSE_RECEIVED", "CONTINUATION_FAILED"}]
             ready = [item for item in eligible if registry[self._extract(REPORT_ID_RE, str(item["body"]))]["state"] == "RESPONSE_RECEIVED"]
             candidates = ready or eligible
@@ -303,6 +310,7 @@ class ReviewerBusWatcher:
             if value.get("response_file") == pending and value.get("response_transport") == "github_file":
                 self._update_report(key, state="FILE_RESPONSE_INVALIDATED",
                                     invalidated_file_response=evidence, file_error="PENDING_FILE_STATE_MISMATCH")
+                TransportRecovery(self, REVIEW_REPO, REVIEW_PR).reject(key, "PENDING_FILE_STATE_MISMATCH")
         return False
 
     def _sync_file_responses(self, comments):
@@ -312,7 +320,7 @@ class ReviewerBusWatcher:
         terminal = {"APPLIED", "ACKNOWLEDGED", "HUMAN_REQUIRED", "RESOLVED_BY_CONFIRMATION",
                     "NON_CONTROLLING", "HISTORICAL_NOT_REPLAYED", "FILE_RESPONSE_INVALIDATED"}
         for rid, entry in list(self._state.get("report_registry", {}).items()):
-            if entry.get("response_transport") != "github_file" or entry["state"] in terminal:
+            if entry.get("response_transport") != "github_file" or entry["state"] in terminal or entry.get("transport_recovery"):
                 continue
             pending = self._state.get("pending_response_file")
             pending_for_report = pending and self._state.get("pending_response_report_id") == rid
@@ -357,6 +365,8 @@ class ReviewerBusWatcher:
                 else:
                     self._update_report(rid, file_error=reason)
                 self._set_state(last_error=reason, last_file_response_error=evidence)
+                if reason != "GITHUB_FILE_FETCH_FAILED":
+                    TransportRecovery(self, REVIEW_REPO, REVIEW_PR).reject(rid, reason)
         return responses
 
     @staticmethod

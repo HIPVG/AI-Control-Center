@@ -297,6 +297,14 @@ G5出口の追加条件: G4 13節の四つの承認対象、曖昧返答の保�
 
 ## 6. G5出口と後続境界
 
+G4 §15.1の拒否後復旧をWC-07/07Aの限定追加として実装する。対象はreviewer_bus.py、
+reviewer_recovery.py、既存read-only dashboard投影と焦点テスト。入力は固定依頼と拒否台帳、
+出力は新IDへの再送・読戻し・一致応答適用の証跡、又は永続的なESCALATED通知である。
+検証対応: test_reviewer_recovery.pyで欠落修復、旧応答未適用、新ID一回適用、再起動重複防止、
+送信結果不明、2回上限、10分期限、変更値拒否、既存代替追跡、再帰防止を確認する。
+test_reviewer_status.cjsで要対応・担当行為・期限・理由を表示する。fixtureは外部投稿をmockし、
+実配置／実配送は別証跡とする。Day、WC-02本体、G6終了又は新権限の自動承認には拡大しない。
+
 2026-09-28限定追加: G4 §15のファイル応答取得をWC-07のReview Controlへ接続する。
 対象はreviewer_bus.py、読み取り専用reviewer_files.pyと対象テスト。既存の台帳・継続起動・
 envelope検証を再利用し、ID/commit/path不一致、保留改変／削除、再起動重複、ACK非起動、

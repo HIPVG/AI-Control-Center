@@ -22,12 +22,15 @@ globalThis.ReviewerStatus = (() => {
         responseUrl = `${base}/pull/1#issuecomment-${entry.response_comment_id}`;
       }
       const error = entry.file_error || entry.invalidation_reason || null;
-      return { id, state: entry.state || "UNKNOWN", label: labels[entry.state] || `未分類: ${entry.state || "UNKNOWN"}`,
-        active: Boolean(error) || !terminal.has(entry.state), error,
+      const recovery = entry.transport_recovery;
+      const recoveryLabel = recovery ? ` ／ 配送復旧: ${recovery.phase}${recovery.phase === "ESCALATED" ? "・要対応" : ""} ／ ${recovery.next_action || ""} ／ 期限: ${time(recovery.deadline_at)}${recovery.replacement_report_id ? ` ／ 代替: ${recovery.replacement_report_id}` : ""}${recovery.escalation_reason ? ` ／ 理由: ${recovery.escalation_reason}` : ""}` : "";
+      return { id, state: entry.state || "UNKNOWN", label: (recovery ? "拒否応答・未適用" : labels[entry.state] || `未分類: ${entry.state || "UNKNOWN"}`) + recoveryLabel,
+        active: recovery ? recovery.phase !== "RESOLVED" : Boolean(error) || !terminal.has(entry.state), error,
         timestamp: entry.updated_at || entry.applied_at || null, appliedAt: entry.applied_at || null,
         transport: entry.response_transport === "github_file" ? "ファイル" : "コメント",
         reportUrl: Number.isSafeInteger(entry.report_comment_id) && entry.report_comment_id > 0 ? `${base}/pull/1#issuecomment-${entry.report_comment_id}` : null,
-        responseUrl, responseId: entry.response_file_id || entry.response_comment_id || null };
+        responseUrl, responseId: entry.response_file_id || entry.response_comment_id || null,
+        recoveryLabel };
     }).sort((a, b) => instant(b.timestamp) - instant(a.timestamp) || a.id.localeCompare(b.id));
   }
   function health(status, now = Date.now()) {

@@ -1,5 +1,15 @@
 # Current Work
 
+## Current maintenance — rejection recovery (2026-09-28)
+
+Human explicitly requested implementation and design update of the missing
+post-rejection path. Scope: G4 §15.1 deterministic transport recovery, bounded
+create-only replacement request/trigger, readback, response/application tracking,
+persistent dashboard escalation. No WC-02 source execution in this maintenance.
+Record: docs/review-records/REVIEWER_REJECTION_RECOVERY_2026-09-28.md.
+On the matching review of this maintenance, record the checkpoint with NO_REPORT;
+deployment/restart and live recovery proof are distinct from fixture results.
+
 ## Current G6 checkpoint — WC-02 new work-window review (2026-09-28)
 
 The matching foreground route review has been applied, but the former 30-minute

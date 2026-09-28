@@ -294,6 +294,17 @@ Informational ACKNOWLEDGED files never launch Codex. A file-mode report cannot
 consume a comment reply. Existing reports and PoCs are not migrated implicitly.
 See G4 v2 section 15 and docs/review-records/FILE_RESPONSE_WATCHER_2026-09-28.md.
 
+File-correlation rejection starts the G4 section 15.1 bounded transport recovery,
+not a normal reviewer continuation. Preserve the old rejected request and response.
+Only a missing trigger AUTHORITY_RECORD that can be reconstructed from the fixed
+request may be repaired automatically, using a new stable ID and create-only file.
+Check for an existing explicit replacement first. Track POST readback, matching
+replacement response and application separately. Limit file-create attempts to two
+and recovery to ten wall-clock minutes; never blindly retry an ambiguous POST.
+Unrecoverable or expired episodes persist as ESCALATED with owner, reason, deadline
+and next action on the dashboard. This user-authorized transport repair does not
+authorize product execution, service operations, credentials or paid work.
+
 After a report is successfully published to operational PR #1:
 
 1. Codex ends its current turn at the appropriate safe checkpoint;
