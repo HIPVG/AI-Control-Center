@@ -26,3 +26,15 @@ run models, change credentials, spend money, or alter Git history.
 This does not retire currently active transport recovery, pending replacement
 delivery, or any future report. A later implementation decision needs its own
 explicit authority and review evidence.
+
+## Correction — retain the current WC-02 implementation review
+
+After the retirement, the human clarified that the newest report must remain
+actionable: 「もちろん」 in response to restoring
+`G6-ACC-WC02-IMPLEMENTATION-20260928-001`. The earlier retirement list was too
+broad. Remove only that ID from `NON_CONTROLLING` and restore its persisted state
+to `HUMAN_REQUIRED`; retain its existing reviewer file-response provenance and
+the complete human-required outcome. This restoration is not approval, does not
+consume the review, and does not start WC-02 or any later card.
+
+Correction decision: `AUTH-REVIEWER-WAIT-RESTORE-20260928-001`.
