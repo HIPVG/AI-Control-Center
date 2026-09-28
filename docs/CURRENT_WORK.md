@@ -1,21 +1,25 @@
 # Current Work
 
-## Current G6 checkpoint — WC-02 foreground route review (2026-09-28)
+## Current G6 checkpoint — WC-02 new work-window review (2026-09-28)
 
-Human approved the proposed existing foreground edit/test route with
-「はい、そうしてください。」. Exact authority, targets, actor map, limits and
-happy/failure/rollback/evidence plan:
-docs/review-records/G6_WC02_FOREGROUND_AUTHORITY_2026-09-28.md.
-Decision AUTH-G6-WC02-FOREGROUND-20260928-001; new review request
-G6-ACC-WC02-FOREGROUND-20260928-001. Await full matching route review before patching.
-The Watcher child must only record this route-review checkpoint (NO_REPORT on
-positive review); it is NOT the approved source-writing actor and must not retry
-the failed WC-02 patch. Foreground chat owns implementation after review, within
-existing G5 WC-02 scope, residual budget and two-fixture-attempt cap. No services,
-Day/model work or new host writer. No repeat human approval for this same decision.
-Old diagnosis lacks a commit binding; retain its state without invented confirmation
-or hand editing. Its separate registry bookkeeping is not product implementation.
-Maintenance replies below remain limited to their own IDs and cannot start WC-02.
+The matching foreground route review has been applied, but the former 30-minute
+G6 window had only about five active minutes remaining before WC-02 source or
+fixture work.  Human now explicitly approved one new window with
+「新しい作業枠を承認します。」.  Record and exact limits:
+docs/review-records/G6_WC02_BUDGET_AUTHORITY_2026-09-28.md.
+Decision `AUTH-G6-WC02-WINDOW-20260928-001`; submit
+`G6-ACC-WC02-WINDOW-20260928-001` and await its full matching positive response
+before patching.  The new window is 30 ACTIVE_WORK minutes, starts at zero only
+after that response, and retains the existing 0/2 fixture cap and WC-02 scope.
+
+The Watcher child may only record this window-review checkpoint (NO_REPORT on a
+positive result); it is not the approved source-writing actor and must not retry
+the failed WC-02 patch.  Foreground chat owns the minimal implementation and
+fresh-process fixtures after review.  No service reload, Day/model work, new host
+writer, or broader card begins.  The old budget HUMAN_REQUIRED entry lacks
+`REVIEWED_COMMIT`; retain it as unbound historical bookkeeping without inventing
+confirmation or hand-editing state.  Maintenance replies below remain limited to
+their own IDs and cannot start WC-02.
 
 ## Current maintenance — reviewer progress visibility (2026-09-28)
 
