@@ -1,5 +1,6 @@
 import json
 import subprocess
+import pytest
 from pathlib import Path
 
 from backend.control.reviewer_bus import ReviewerBusWatcher
@@ -247,3 +248,99 @@ def test_loop_keeps_cadence_after_long_continuation(tmp_path: Path, monkeypatch)
     watcher.run_once = lambda: {}
     watcher._loop()
     assert watcher._stop.waits == [0.0]
+
+
+def test_offline_binding_recovery_survives_restart_and_applies_only_target_once(tmp_path):
+    comments = [_comment(10, "REPORT_ID: TARGET\nREPORT_TYPE: PROGRESS_UPDATE"),
+                _comment(20, "REPORT_ID: ANCILLARY\nREPORT_TYPE: PROGRESS_UPDATE"),
+                _comment(30, "IN_REPLY_TO: TARGET\nRESULT: HUMAN_REQUIRED"),
+                _comment(31, "IN_REPLY_TO: ANCILLARY\nRESULT: CONTINUE")]
+    calls = []
+    def runner(argv, **kwargs):
+        calls.append(argv)
+        if argv[0] == "gh":
+            assert "--method" not in argv
+            return subprocess.CompletedProcess(argv, 0, _comments_output(comments), "")
+        assert "REPORT_ID: TARGET" in argv[-1]
+        assert "Receipt only; no product work." in argv[-1]
+        return subprocess.CompletedProcess(argv, 0, '{"action":"HUMAN_REQUIRED"}', "")
+
+    watcher = ReviewerBusWatcher(tmp_path, command_runner=runner)
+    old_error = {"response_comment_id": 3, "actual_in_reply_to": "OLD"}
+    watcher._set_state(outstanding_report_id="ANCILLARY", outstanding_report_comment_id=20,
+                       last_error="REVIEW_RESPONSE_CORRELATION_MISMATCH", last_invalidated_response=old_error)
+    watcher.recover_outstanding_report(comments, expected_current="ANCILLARY", target_report_id="TARGET",
+        target_comment_id=10, authority="Explicit human repair request", continuation_scope="Receipt only; no product work.")
+    restarted = ReviewerBusWatcher(tmp_path, command_runner=runner)
+    restarted._resolve_executable = lambda value: value
+    assert restarted.status()["last_binding_recovery"]["previous_invalidated_response"] == old_error
+    assert restarted.status()["outstanding_report_id"] == "TARGET"
+    assert restarted.status().get("last_applied_response_comment_id") is None
+    first = restarted.run_once()
+    second = restarted.run_once()
+    assert first["last_applied_response_comment_id"] == 30
+    assert first["last_continuation_action"] == "HUMAN_REQUIRED"
+    assert second["outstanding_report_id"] is None
+    assert second["processed_report_ids"] == ["TARGET"]
+    assert second["non_controlling_report_ids"] == ["ANCILLARY"]
+    assert len([c for c in calls if c[0] == "codex"]) == 1
+    assert len(second["binding_recovery_history"]) == 1
+
+
+@pytest.mark.parametrize("current,target_comment,processed,error", [
+    ("CHANGED", 10, [], "RECOVERY_CURRENT_TARGET_CHANGED"),
+    ("ANCILLARY", 999, [], "RECOVERY_TARGET_NOT_CONFIRMED"),
+    ("ANCILLARY", 10, ["TARGET"], "RECOVERY_TARGET_ALREADY_APPLIED"),
+])
+def test_binding_recovery_refuses_changed_missing_or_applied_target(tmp_path, monkeypatch, current, target_comment, processed, error):
+    watcher = _watcher(tmp_path, lambda *a, **kw: pytest.fail("No external effects allowed"), monkeypatch)
+    watcher._state.update(outstanding_report_id=current, processed_report_ids=processed)
+    before = watcher.status()
+    comments = [_comment(10, "REPORT_ID: TARGET\nREPORT_TYPE: PROGRESS_UPDATE"),
+                _comment(20, "REPORT_ID: ANCILLARY\nREPORT_TYPE: PROGRESS_UPDATE")]
+    with pytest.raises(ValueError, match=error):
+        watcher.recover_outstanding_report(comments, expected_current="ANCILLARY", target_report_id="TARGET",
+            target_comment_id=target_comment, authority="human", continuation_scope="receipt only")
+    assert watcher.status() == before
+
+
+def test_registry_keeps_continuous_requests_handles_out_of_order_and_no_reply_ack(tmp_path, monkeypatch):
+    comments = [_comment(10, "REPORT_ID: 0001\nREPORT_TYPE: PROGRESS_UPDATE")]
+    prompts = []
+    def runner(argv, **kwargs):
+        if argv[0] == "gh":
+            assert "--method" not in argv
+            return subprocess.CompletedProcess(argv, 0, _comments_output(comments), "")
+        prompts.append(argv[-1])
+        return subprocess.CompletedProcess(argv, 0, '{"action":"NO_REPORT"}', "")
+    watcher = _watcher(tmp_path, runner, monkeypatch)
+    watcher.run_once()
+    comments.extend([_comment(20, "REPORT_ID: 0002\nREPORT_TYPE: PROGRESS_UPDATE\nRESPONSE_REQUIRED: no"),
+                     _comment(30, "REPORT_ID: 0003\nREPORT_TYPE: PROGRESS_UPDATE")])
+    watcher.run_once()
+    assert set(watcher.status()["report_registry"]) == {"0001", "0002", "0003"}
+    assert watcher.status()["report_registry"]["0002"]["state"] == "NOT_REQUIRED"
+    comments.extend([_comment(40, "IN_REPLY_TO: 0003\nRESULT: CONTINUE"),
+                     _comment(41, "IN_REPLY_TO: 0002\nRESULT: ACKNOWLEDGED")])
+    third = watcher.run_once()
+    assert third["report_registry"]["0003"]["state"] == "APPLIED"
+    assert third["report_registry"]["0002"]["state"] == "ACKNOWLEDGED"
+    assert [item["report_id"] for item in watcher._work_in_progress()] == ["0001"]
+    # A delayed listing of an older reply ID must still be applied by report identity.
+    comments.append(_comment(35, "IN_REPLY_TO: 0001\nRESULT: CONTINUE"))
+    watcher.run_once()
+    watcher.run_once()
+    assert len(prompts) == 2
+    assert "REPORT_ID: 0003" in prompts[0] and "REPORT_ID: 0001" in prompts[1]
+    assert watcher._work_in_progress() == []
+    assert set(watcher.status()["report_registry"]) == {"0001", "0002", "0003"}
+
+
+def test_reply_with_multiple_targets_does_not_launch_continuation(tmp_path, monkeypatch):
+    comments = [_comment(10, "REPORT_ID: R1\nREPORT_TYPE: PROGRESS_UPDATE"),
+                _comment(11, "IN_REPLY_TO: R1\nIN_REPLY_TO: R2\nRESULT: CONTINUE")]
+    def runner(argv, **kwargs):
+        assert argv[0] == "gh" and "--method" not in argv
+        return subprocess.CompletedProcess(argv, 0, _comments_output(comments), "")
+    result = _watcher(tmp_path, runner, monkeypatch).run_once()
+    assert result.get("last_applied_response_comment_id") is None

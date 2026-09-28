@@ -31,7 +31,7 @@ Follow `docs/WORKING_RULES.md` exactly. In particular:
 - Use the validated event-driven reviewer bus at
   `HIPVG/AI-Control-Center-Review-Bridge` PR #1. Normal reviewer transport does not
   use the ChatGPT composer.
-- Keep exactly one reviewer report outstanding. Every report has a unique
+- Keep all unfinished reviewer reports in the persistent registry and run only one Codex continuation at a time. Every report has a unique
   `REPORT_ID`; apply only a response whose `IN_REPLY_TO` exactly matches it.
 - A local deterministic Control Center watcher checks PR #1 about every 2 minutes for the matching reviewer response and starts a fresh bounded Codex continuation turn in the AI-Control-Center working directory. The watcher does not use `resume --last`; continuity is reconstructed from canonical files, persisted state, engineering history, and the active plan/runbook. The 2-minute cadence is transport/fetch cadence, not report cadence.
 - The watcher must isolate Codex runtime state with the Control Center-managed `CODEX_SQLITE_HOME`, not the desktop Codex state database.

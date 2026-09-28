@@ -248,7 +248,7 @@ G5の目的は、G4 v2で固定された機能・制御設計を、単独で実�
 | WC-04 | UI/API stub | 選択の無副作用、Go→PREFLIGHT | 実Day Go |
 | WC-05 | validator fixture | typed Evidenceのみでcriterion達成 | 全Evidence型・実Dayの証明 |
 | WC-06 | guarded-repair fixture | 二回上限、停止、同一Day復帰先 | 実修正成功率 |
-| WC-07 | reviewer-control fixture | 一件制限、不一致／期限の拒否 | 実actor配送 |
+| WC-07 | reviewer-control fixture | 仕掛の永続保持、継続の一件制限、不一致／期限の拒否、順不同返信・返信不要確認 | 実actor配送 |
 | WC-07A | reviewer continuation fixture | 受信中／適用中／適用済み／失敗、envelope、後続IDの区別 | 実actor配送又は認証の実利用 |
 | WC-07B | human decision fixture | H01〜H08、対象別効果、一致応答前のClose拒否 | 実人間の認証、実actor配送、G出口承認 |
 | WC-08 | model/JSON | relay／介入／unknown／出所の保存 | 実測値の取得 |

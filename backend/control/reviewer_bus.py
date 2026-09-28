@@ -40,6 +40,7 @@ class ReviewerBusWatcher:
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._lock = threading.Lock()
+        self._cycle_lock = threading.Lock()
         self._state = self._load_state()
 
     def available(self) -> bool:
@@ -73,12 +74,17 @@ class ReviewerBusWatcher:
             return dict(self._state)
 
     def run_once(self) -> dict[str, object]:
+        with self._cycle_lock:
+            return self._run_once()
+
+    def _run_once(self) -> dict[str, object]:
         comments, error = self._fetch_comments()
         self._set_state(last_poll_at=_utc_now())
         if error:
             self._set_state(last_error=error)
             return self.status()
 
+        self._sync_report_registry(comments)
         report = self._current_report(comments)
         if report is None:
             self._set_state(last_error=None)
@@ -97,16 +103,25 @@ class ReviewerBusWatcher:
         response_id = int(response["id"])
         response_body = str(response.get("body", ""))
         self._set_state(last_report_id=report_id, last_response_comment_id=response_id, pending_response_comment_id=response_id, pending_response_body=response_body, pending_response_report_id=report_id, outstanding_report_id=report_id, outstanding_report_comment_id=int(report["id"]), last_error=None)
-        completed = self._continue_codex(self._resume_prompt(report_id, response_body))
+        prompt = self._resume_prompt(report_id, response_body)
+        prompt += "\nREVIEW_WORK_IN_PROGRESS:\n" + json.dumps(self._work_in_progress(), ensure_ascii=False)
+        recovery = self._state.get("last_binding_recovery", {})
+        if recovery.get("target_report_id") == report_id:
+            prompt += "\nCURRENT HUMAN AUTHORIZED RECOVERY SCOPE:\n" + str(recovery["continuation_scope"])
+        self._update_report(report_id, state="APPLYING", response_comment_id=response_id)
+        completed = self._continue_codex(prompt)
         self._set_state(last_continuation_at=_utc_now(), last_codex_exit_code=completed.returncode)
         if completed.returncode != 0:
+            self._update_report(report_id, state="CONTINUATION_FAILED")
             self._set_state(last_error="CODEX_CONTINUATION_FAILED")
             return self.status()
 
         envelope = self._extract_envelope(completed.stdout)
         if envelope is None:
+            self._update_report(report_id, state="CONTINUATION_FAILED")
             self._set_state(last_error="CODEX_CONTINUATION_OUTPUT_INVALID")
             return self.status()
+        self._set_state(last_continuation_action=envelope.get("action"))
         if envelope.get("action") != POST_ACTION:
             if envelope.get("action") in {"NO_REPORT", "HUMAN_REQUIRED"}:
                 self._mark_response_applied(response_id, report_id)
@@ -118,12 +133,19 @@ class ReviewerBusWatcher:
         if report_body is None:
             self._set_state(last_error="CODEX_CONTINUATION_OUTPUT_INVALID")
             return self.status()
+        pending_list = [entry for entry in self._work_in_progress() if entry["report_id"] != report_id]
+        pending_list.append({"report_id": str(envelope["report_id"]), "state": "WAITING_RESPONSE",
+                             "response_required": not bool(re.search(r"(?mi)^RESPONSE_REQUIRED:\s*no\s*$", report_body))})
+        report_body = re.sub(r"(?m)^REVIEW_WORK_IN_PROGRESS:.*\n?", "", report_body)
+        report_body += "\nREVIEW_WORK_IN_PROGRESS: " + json.dumps(pending_list, ensure_ascii=False)
         posted_id = self._post_comment(report_body)
         if posted_id is None:
             self._set_state(last_error="GITHUB_REPORT_DELIVERY_FAILED")
             return self.status()
 
         new_report_id = str(envelope["report_id"])
+        self._update_report(new_report_id, state="WAITING_RESPONSE", report_comment_id=posted_id,
+                            report_type=envelope["report_type"], predecessor_report_id=report_id)
         self._mark_response_applied(response_id, report_id, outstanding_report_id=new_report_id, outstanding_report_comment_id=posted_id, last_report_id=new_report_id, last_delivery_comment_id=posted_id, last_delivery_at=_utc_now())
         return self.status()
 
@@ -156,24 +178,134 @@ class ReviewerBusWatcher:
         return comments, None
 
     def _current_report(self, comments: list[dict[str, object]]) -> dict[str, object] | None:
-        reports = [item for item in comments if self._extract(REPORT_ID_RE, str(item.get("body", ""))) and self._extract(REPORT_TYPE_RE, str(item.get("body", "")))]
+        excluded = set(self._state.get("non_controlling_report_ids", []))
+        reports = [item for item in comments if self._extract(REPORT_ID_RE, str(item.get("body", ""))) not in excluded and self._extract(REPORT_ID_RE, str(item.get("body", ""))) and self._extract(REPORT_TYPE_RE, str(item.get("body", "")))]
         if not reports:
             return None
         expected = self._state.get("outstanding_report_id")
         if not isinstance(expected, str):
             expected = self._state.get("pending_response_report_id")
+        registry = self._state.get("report_registry")
+        if registry is not None:
+            if self._state.get("pending_response_comment_id"):
+                return next((item for item in reversed(reports) if self._extract(REPORT_ID_RE, str(item["body"])) == expected), None)
+            eligible = [item for item in reports if registry.get(self._extract(REPORT_ID_RE, str(item["body"])), {}).get("state")
+                        in {"QUEUED", "WAITING_RESPONSE", "RESPONSE_RECEIVED", "CONTINUATION_FAILED"}]
+            ready = [item for item in eligible if registry[self._extract(REPORT_ID_RE, str(item["body"]))]["state"] == "RESPONSE_RECEIVED"]
+            candidates = ready or eligible
+            return min(candidates, key=lambda item: int(item["id"])) if candidates else None
         if isinstance(expected, str):
             return next((item for item in reversed(reports) if self._extract(REPORT_ID_RE, str(item["body"])) == expected), None)
-        return max(reports, key=lambda item: int(item["id"]))
+        latest = max(reports, key=lambda item: int(item["id"]))
+        if self._extract(REPORT_ID_RE, str(latest["body"])) in self._state.get("processed_report_ids", []):
+            return None
+        return latest
+
+    def _sync_report_registry(self, comments: list[dict[str, object]]) -> None:
+        """Keep every request; a new comment must never displace existing work."""
+        reports = [item for item in comments if self._extract(REPORT_ID_RE, str(item["body"]))
+                   and self._extract(REPORT_TYPE_RE, str(item["body"])) in REPORT_TYPES]
+        if not reports:
+            return
+        registry = dict(self._state.get("report_registry", {}))
+        first_load = "report_registry" not in self._state
+        anchor = self._state.get("outstanding_report_id") or self._state.get("pending_response_report_id")
+        if not anchor:
+            anchor = self._extract(REPORT_ID_RE, str(max(reports, key=lambda item: int(item["id"]))["body"]))
+        anchor_comment = next((int(item["id"]) for item in reports if self._extract(REPORT_ID_RE, str(item["body"])) == anchor), 0)
+        for report in reports:
+            rid = self._extract(REPORT_ID_RE, str(report["body"]))
+            entry = dict(registry.get(rid, {}))
+            if not entry:
+                state = "HISTORICAL_NOT_REPLAYED" if first_load and int(report["id"]) < anchor_comment else "QUEUED"
+                if rid == anchor:
+                    state = "WAITING_RESPONSE"
+                reply_required = not re.search(r"(?mi)^RESPONSE_REQUIRED:\s*no\s*$", str(report["body"]))
+                entry = {"report_comment_id": int(report["id"]), "report_type": self._extract(REPORT_TYPE_RE, str(report["body"])), "state": state, "response_required": reply_required}
+                for field in ("REVIEWED_COMMIT", "BASELINE_ID"):
+                    value = self._extract(re.compile(r"(?m)^" + field + r":\s*([^\s]+)\s*$"), str(report["body"]))
+                    if value:
+                        entry[field.lower()] = value
+            entry.setdefault("response_required", not bool(re.search(r"(?mi)^RESPONSE_REQUIRED:\s*no\s*$", str(report["body"]))))
+            if rid in self._state.get("non_controlling_report_ids", []):
+                entry["state"] = "NON_CONTROLLING"
+            elif rid in self._state.get("processed_report_ids", []) and entry["state"] != "HUMAN_REQUIRED":
+                entry["state"] = "HUMAN_REQUIRED" if rid == self._state.get("last_report_id") and self._state.get("last_continuation_action") == "HUMAN_REQUIRED" else "APPLIED"
+            elif entry.get("response_required") is False and entry["state"] != "HISTORICAL_NOT_REPLAYED":
+                acknowledgements = [item for item in comments if int(item["id"]) > entry["report_comment_id"]
+                                    and self._response_target(str(item["body"])) == rid
+                                    and re.search(r"(?m)^RESULT:\s*ACKNOWLEDGED\s*$", str(item["body"]))]
+                entry["state"] = "ACKNOWLEDGED" if acknowledgements else "NOT_REQUIRED"
+                if acknowledgements:
+                    entry["response_comment_id"] = int(min(acknowledgements, key=lambda item: int(item["id"]))["id"])
+            elif entry["state"] in {"QUEUED", "WAITING_RESPONSE", "RESPONSE_RECEIVED"}:
+                replies = [item for item in comments if int(item["id"]) > entry["report_comment_id"]
+                           and self._response_target(str(item["body"])) == rid]
+                if replies:
+                    entry.update(state="RESPONSE_RECEIVED", response_comment_id=int(min(replies, key=lambda item: int(item["id"]))["id"]))
+            registry[rid] = entry
+        self._set_state(report_registry=registry)
+
+    @staticmethod
+    def _response_target(body: str) -> str | None:
+        targets = IN_REPLY_TO_RE.findall(body)
+        return targets[0].strip() if len(targets) == 1 else None
+
+    def _update_report(self, report_id: str, **changes: object) -> None:
+        registry = dict(self._state.get("report_registry", {}))
+        registry[report_id] = {**registry.get(report_id, {}), **changes, "updated_at": _utc_now()}
+        self._set_state(report_registry=registry)
+
+    def _work_in_progress(self) -> list[dict[str, object]]:
+        return [{"report_id": rid, **entry} for rid, entry in self._state.get("report_registry", {}).items()
+                if entry.get("state") not in {"APPLIED", "ACKNOWLEDGED", "NON_CONTROLLING", "HISTORICAL_NOT_REPLAYED"}]
+
+    def recover_outstanding_report(self, comments: list[dict[str, object]], *, expected_current: str, target_report_id: str, target_comment_id: int, authority: str, continuation_scope: str) -> None:
+        """Explicit offline repair; never infer the target from a mismatched reply."""
+        if self._thread and self._thread.is_alive():
+            raise ValueError("WATCHER_MUST_BE_STOPPED")
+        if self._state.get("outstanding_report_id") != expected_current or expected_current == target_report_id:
+            raise ValueError("RECOVERY_CURRENT_TARGET_CHANGED")
+        if self._state.get("pending_response_comment_id"):
+            raise ValueError("RECOVERY_PENDING_RESPONSE_MUST_BE_INVALIDATED_FIRST")
+        if not authority.strip() or not continuation_scope.strip():
+            raise ValueError("RECOVERY_AUTHORITY_AND_SCOPE_REQUIRED")
+        if target_report_id in self._state.get("processed_report_ids", []):
+            raise ValueError("RECOVERY_TARGET_ALREADY_APPLIED")
+        target = next((item for item in comments if item["id"] == target_comment_id), None)
+        if not target or self._extract(REPORT_ID_RE, str(target["body"])) != target_report_id or self._extract(REPORT_TYPE_RE, str(target["body"])) not in REPORT_TYPES:
+            raise ValueError("RECOVERY_TARGET_NOT_CONFIRMED")
+        if not any(self._extract(REPORT_ID_RE, str(item["body"])) == expected_current for item in comments):
+            raise ValueError("RECOVERY_PREVIOUS_REPORT_NOT_CONFIRMED")
+        record = {
+            "previous_report_id": expected_current,
+            "previous_report_comment_id": self._state.get("outstanding_report_comment_id"),
+            "previous_last_error": self._state.get("last_error"),
+            "previous_invalidated_response": self._state.get("last_invalidated_response"),
+            "target_report_id": target_report_id, "target_comment_id": target_comment_id,
+            "authority": authority, "continuation_scope": continuation_scope,
+            "recovered_at": _utc_now(),
+        }
+        history = list(self._state.get("binding_recovery_history", [])) + [record]
+        excluded = list(self._state.get("non_controlling_report_ids", []))
+        if expected_current not in excluded:
+            excluded.append(expected_current)
+        self._set_state(outstanding_report_id=target_report_id, outstanding_report_comment_id=target_comment_id,
+                        last_binding_recovery=record, binding_recovery_history=history,
+                        non_controlling_report_ids=excluded)
+        self._sync_report_registry(comments)
+        self._update_report(target_report_id, state="WAITING_RESPONSE")
 
     def _pending_or_matching_response(self, comments: list[dict[str, object]], report: dict[str, object], report_id: str) -> tuple[dict[str, object] | None, bool]:
         pending_id = int(self._state.get("pending_response_comment_id", 0) or 0)
         if pending_id:
             pending = next((item for item in comments if int(item["id"]) == pending_id), None)
             pending_report_id = self._state.get("pending_response_report_id")
-            actual_in_reply_to = self._extract(IN_REPLY_TO_RE, str(pending.get("body", ""))) if pending else None
+            actual_in_reply_to = self._response_target(str(pending.get("body", ""))) if pending else None
             state_outstanding = self._state.get("outstanding_report_id")
             reasons: list[str] = []
+            if report_id in self._state.get("processed_report_ids", []):
+                reasons.append("PENDING_RESPONSE_ALREADY_APPLIED")
             if pending is None:
                 reasons.append("PENDING_RESPONSE_COMMENT_NOT_FOUND")
             if not isinstance(pending_report_id, str) or pending_report_id != report_id:
@@ -194,12 +326,12 @@ class ReviewerBusWatcher:
                 return None, True
             return pending, False
         report_comment_id = int(report["id"])
-        last_applied = int(self._state.get("last_applied_response_comment_id", 0) or 0)
-        matching = [item for item in comments if int(item["id"]) > report_comment_id and int(item["id"]) > last_applied and self._extract(IN_REPLY_TO_RE, str(item.get("body", ""))) == report_id]
+        applied = set(self._state.get("processed_report_ids", []))
+        matching = [item for item in comments if int(item["id"]) > report_comment_id and report_id not in applied and self._response_target(str(item.get("body", ""))) == report_id]
         return (min(matching, key=lambda item: int(item["id"])), False) if matching else (None, False)
 
     def _record_unmatched_response(self, comments: list[dict[str, object]], report: dict[str, object], expected: str) -> None:
-        known_reports = set(self._state.get("processed_report_ids", []))
+        known_reports = set(self._state.get("processed_report_ids", [])) | set(self._state.get("report_registry", {}))
         for item in comments:
             response_id = int(item["id"])
             received = self._extract(IN_REPLY_TO_RE, str(item.get("body", "")))
@@ -320,6 +452,8 @@ class ReviewerBusWatcher:
             processed.append(report_id)
         changes.setdefault("outstanding_report_id", None)
         changes.setdefault("outstanding_report_comment_id", None)
+        self._update_report(report_id, state="HUMAN_REQUIRED" if self._state.get("last_continuation_action") == "HUMAN_REQUIRED" else "APPLIED",
+                            response_comment_id=response_id, applied_at=_utc_now())
         self._set_state(last_applied_response_comment_id=response_id, processed_report_ids=processed, pending_response_comment_id=None, pending_response_body=None, pending_response_report_id=None, last_error=None, **changes)
 
     def _load_state(self) -> dict[str, object]:

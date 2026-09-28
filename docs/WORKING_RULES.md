@@ -124,7 +124,7 @@ A deterministic local transport/fetch loop may run about every **2 minutes**. It
 is to:
 
 - deliver a pending report to the operational reviewer bus when one exists;
-- fetch a matching reviewer response for the single outstanding `REPORT_ID`;
+- fetch matching reviewer responses for unfinished registry entries, one continuation at a time;
 - apply that response and resume the approved plan.
 
 The 2-minute cadence is **not** a progress-report cadence. Do not emit a report every
@@ -195,7 +195,7 @@ manual relay after start.
 For every reviewer-facing report:
 
 1. create a unique stable `REPORT_ID`;
-2. ensure no other reviewer report is outstanding;
+2. preserve every unfinished report in the report registry; only one Codex continuation may run at a time;
 3. publish one top-level comment to operational PR #1 containing `REPORT_TYPE:`;
 4. record the comment/report identifier and publication time;
 5. after successful publication, end the current Codex turn at the safe checkpoint; do not poll the PR from inside Codex;
@@ -209,7 +209,21 @@ A past composer/draft failure is historical evidence, not a fallback design.
 
 ### Correlation and deduplication
 
-Only one reviewer report may be outstanding at a time.
+Multiple requests may remain outstanding in the persistent report registry. Each
+request keeps its own REPORT_ID, fixed baseline, response-required flag, response,
+and handling state. A newer report never implicitly replaces an older one.
+Only one Codex continuation runs at a time; matching responses are handled by
+request identity, so a delayed reply is not discarded by a global comment watermark.
+
+Reports carry `REVIEW_WORK_IN_PROGRESS` containing unfinished requests only.
+Applied requests and acknowledged informational requests stay in local history,
+not in that outbound list. `RESPONSE_REQUIRED: no` means optional receipt confirmation
+only: the reviewer may return `RESULT: ACKNOWLEDGED` under that same `IN_REPLY_TO`;
+the watcher records it without starting Codex or granting approval. Human-decision
+waits remain visible. The list is context, not authorization or an instruction to
+reapply completed responses. Reviewers reply in separate comments, one ID per reply;
+multi-ID replies cannot trigger continuation. New revisions use new IDs and keep
+the old commit binding; they do not retroactively change or approve an old request.
 
 Every reviewer response must contain:
 

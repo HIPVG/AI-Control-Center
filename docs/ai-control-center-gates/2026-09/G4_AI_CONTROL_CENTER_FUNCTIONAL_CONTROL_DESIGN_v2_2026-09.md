@@ -224,18 +224,32 @@ agent/* branchで限定編集
   → push
   → ReviewArtifactBaseline=PUBLISHED
   → reportに baseline ID / branch / immutable commit / paths / hashes を固定
-  → FROZEN_FOR_REVIEW（1 outstanding report）
+  → FROZEN_FOR_REVIEW（reportごとの仕掛。継続実行は同時に一件）
   → matching response
   → APPLIED、又は新commitをSUPERSEDEDとして別REPORT_IDで再提出
 ```
 
 Review Bridgeには短い参照と相関情報を送る。成果物の全本文を通常の報告に複製しない。
 レビュー中に新commitが必要になった場合、既存reportの本文、ID、commitを後から変更しない。
-matching responseを読んでoutstandingを解消してから、新しい`REPORT_ID`で新baselineを提出する。
+新しい`REPORT_ID`で新baselineを提出し、旧reportの未処理状態・対象commitを仕掛台帳に保持する。
 Watcherは`ReviewRequestBinding`のcommit SHAとresponseの`IN_REPLY_TO`を保存し、継続envelopeが
 異なるcommitの作業を指す場合は`CONTINUATION_FAILED`として停止する。
 
 ### 12.5 初回適用と後続検証
+
+2026-09-28の人間指示による仕掛管理補正: `state/reviewer-bus-watcher.json` の
+`report_registry`をREPORT_ID単位の永続台帳とする。待機対象を最新コメントで上書きしない。
+`QUEUED / WAITING_RESPONSE / RESPONSE_RECEIVED / APPLYING / CONTINUATION_FAILED /
+APPLIED / HUMAN_REQUIRED`をID、提出／返信comment ID、対象commit・baseline（提供時）と保持する。
+返信不要は`RESPONSE_REQUIRED: no`で明示し、`NOT_REQUIRED`から
+`RESULT: ACKNOWLEDGED`の一致返信で`ACKNOWLEDGED`へ進む。Codex継続・承認は発生しない。
+依頼に添える`REVIEW_WORK_IN_PROGRESS`は未完了だけを含み、完了履歴は台帳に残す。
+Reviewerの返信は個別IDごとに一コメント。複数IN_REPLY_TOを含む返信は適用しない。
+台帳中の複数返信を取得しても継続は逐次実行し、別件の返信待ちは受信済み案件を消さない。
+旧状態の移行では以前の案件を推測再実行せず`HISTORICAL_NOT_REPLAYED`で保管し、
+明示的な対象復旧は`recover_reviewer_binding`で前状態・根拠・対象を記録する。
+補助報告を待機対象から外した場合は`NON_CONTROLLING`とし、適用済みと偽らない。
+この補正はレビュー輸送の契約だけを変更し、G5 CloseやDay Goを与えない。
 
 初回の公開基線は、`docs/ai-control-center-gates/2026-09/`のindex、現行正本、補助記録、
 プロンプト、`superseded/`を含む。後続のG6以降で実装する必要があるのは、製品データモデルを
