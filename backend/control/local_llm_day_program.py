@@ -84,6 +84,14 @@ class LocalLLMDayProgram:
         "Controller cannot safely continue: ValueError: "
         "'AUTHORITY_BLOCKER_REPLACED_BY_REGISTERED_RETRY' is not a valid AuditEventType"
     )
+    CATALOG_PREFLIGHT_INPUTS = (
+        "selected_day",
+        "contract_fingerprint",
+        "git_fingerprint",
+        "effective_permission",
+        "requested_limits",
+        "external_prerequisite",
+    )
 
     def __init__(
         self,
@@ -136,7 +144,125 @@ class LocalLLMDayProgram:
             self._save()
 
     def days(self) -> list[dict[str, object]]:
-        return [{"day": contract.day, "objective": contract.objective} for contract in self._load_contracts().values()]
+        """Return per-Day read-only admission metadata without selecting or starting work."""
+        try:
+            document = yaml.safe_load(self.PROGRAM_PATH.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, yaml.YAMLError):
+            return [self._blocked_catalog_day(day, "PROGRAM_CONFIG_UNAVAILABLE",
+                                              "Restore the readable Day program configuration.")
+                    for day in range(1, 15)]
+        if not isinstance(document, dict):
+            return [self._blocked_catalog_day(day, "PROGRAM_CONFIG_INVALID",
+                                              "Repair the Day program configuration without inferring contracts.")
+                    for day in range(1, 15)]
+        sources = document.get("authoritative_sources")
+        shared_constraints = document.get("shared_constraints")
+        definitions = document.get("days")
+        if (not isinstance(sources, list) or not all(isinstance(value, str) and value for value in sources)
+                or not isinstance(shared_constraints, list)
+                or not all(isinstance(value, str) and value for value in shared_constraints)
+                or not isinstance(definitions, list)):
+            return [self._blocked_catalog_day(day, "PROGRAM_CONFIG_INVALID",
+                                              "Repair the Day program configuration without inferring contracts.")
+                    for day in range(1, 15)]
+        normalized_sources = [value.replace("\\", "/") for value in sources]
+        by_day: dict[int, list[dict[str, object]]] = {day: [] for day in range(1, 15)}
+        for definition in definitions:
+            if isinstance(definition, dict) and isinstance(definition.get("day"), int):
+                day = definition["day"]
+                if day in by_day:
+                    by_day[day].append(definition)
+        catalog: list[dict[str, object]] = []
+        for day in range(1, 15):
+            if len(by_day[day]) != 1:
+                reason = "DAY_NOT_CONFIGURED" if not by_day[day] else "DUPLICATE_DAY_DEFINITION"
+                catalog.append(self._blocked_catalog_day(
+                    day, reason, "Provide exactly one complete authoritative definition for this Day."))
+                continue
+            definition = by_day[day][0]
+            raw_criteria = definition.get("completion_criteria")
+            try:
+                if not isinstance(raw_criteria, list):
+                    raise ValueError("completion_criteria")
+                criteria = [DayCriterion(
+                    criterion_id=f"d{day}-{entry['id']}",
+                    statement=entry["statement"],
+                    required_evidence=entry["evidence"],
+                ) for entry in raw_criteria if isinstance(entry, dict)]
+                if len(criteria) != len(raw_criteria):
+                    raise ValueError("completion_criteria")
+                contract = LocalLLMDayContract(
+                    day=day,
+                    title=definition["title"],
+                    version=str(document.get("version", "v1")),
+                    objective=definition["objective"],
+                    completion_criteria=criteria,
+                    constraints=shared_constraints,
+                    authoritative_sources=normalized_sources,
+                    remaining_gaps=[criterion.criterion_id for criterion in criteria],
+                )
+            except (KeyError, TypeError, ValueError):
+                catalog.append(self._blocked_catalog_day(
+                    day, "DAY_DEFINITION_INVALID",
+                    "Repair only this Day's contract definition; do not infer missing fields."))
+                continue
+            required_evidence = sorted({evidence for criterion in criteria
+                                        for evidence in criterion.required_evidence})
+            unregistered = sorted(set(required_evidence) - self.evidence_registry.names)
+            source_scope = [{"path": path, "present": (self.root / path).is_file()}
+                            for path in contract.authoritative_sources]
+            missing_sources = [item["path"] for item in source_scope if not item["present"]]
+            if unregistered:
+                admission = {
+                    "status": "BLOCKED", "next_state": "INPUT_BLOCKED",
+                    "reason_code": "EVIDENCE_TYPE_UNREGISTERED",
+                    "next_action": "Register the declared Evidence types before Go.",
+                }
+            elif missing_sources:
+                admission = {
+                    "status": "BLOCKED", "next_state": "INPUT_BLOCKED",
+                    "reason_code": "AUTHORITATIVE_SOURCE_MISSING",
+                    "next_action": "Restore the listed authoritative sources without synthesizing content.",
+                }
+            else:
+                admission = {
+                    "status": "ADMISSIBLE", "next_state": "PREFLIGHT",
+                    "reason_code": None,
+                    "next_action": "Supply a matching RunIntent and evaluate deterministic preflight before Go.",
+                }
+            catalog.append({
+                "day": day,
+                "title": contract.title,
+                "objective": contract.objective,
+                "contract_version": contract.version,
+                "contract_fingerprint": self._contract_fingerprint(contract),
+                "required_evidence": required_evidence,
+                "source_scope": source_scope,
+                "preflight_inputs": list(self.CATALOG_PREFLIGHT_INPUTS),
+                "admission": admission,
+                "execution_started": False,
+            })
+        return catalog
+
+    @classmethod
+    def _blocked_catalog_day(cls, day: int, reason_code: str, next_action: str) -> dict[str, object]:
+        return {
+            "day": day,
+            "title": None,
+            "objective": None,
+            "contract_version": None,
+            "contract_fingerprint": None,
+            "required_evidence": [],
+            "source_scope": [],
+            "preflight_inputs": list(cls.CATALOG_PREFLIGHT_INPUTS),
+            "admission": {
+                "status": "BLOCKED",
+                "next_state": "INPUT_BLOCKED",
+                "reason_code": reason_code,
+                "next_action": next_action,
+            },
+            "execution_started": False,
+        }
 
     def admission(
         self,
