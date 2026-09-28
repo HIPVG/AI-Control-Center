@@ -46,6 +46,16 @@ uses the same decision and limits with a new immutable request and an identical
 complete binding in its trigger.  This is a delivery correction, not a new human
 decision or a reset of the work window.
 
+### Clock correction
+
+`0/30` means `EXECUTION_WINDOW_ACTIVE_WORK`: the explicit gate for this window is
+the matching Reviewer response, so no WC-02 source or fixture activity has begun.
+It does not mean that no work occurred after approval.  Authority recording,
+fixed-request preparation and the `001` delivery correction are
+`TRANSPORT_ACTIVE_WORK` and must be reported separately.  The prior report omitted
+that distinction; future file-mode delivery must pass the deterministic
+request/trigger binding preflight before publication.
+
 ## Planned evidence and stop
 
 Before implementation, re-read the accepted foreground-route response and this

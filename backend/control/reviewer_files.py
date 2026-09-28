@@ -41,6 +41,22 @@ def binding(body):
     return values
 
 
+def validate_trigger_binding(request_body, trigger_body):
+    """Reject a file-mode trigger that does not repeat its request binding.
+
+    The immutable request may omit REQUEST_COMMIT because that value is the commit
+    which introduces the request itself.  Every other control field must match the
+    top-level PR trigger before it is published.
+    """
+    trigger = binding(trigger_body)
+    request = {key: field(request_body, key) for key in FIELDS}
+    for key in FIELDS:
+        expected = trigger[key] if key == "REQUEST_COMMIT" and request[key] is None else request[key]
+        if expected != trigger[key]:
+            raise FileReplyError("REQUEST_BINDING_MISMATCH_" + key)
+    return trigger
+
+
 class GitHubFileReader:
     def __init__(self, watcher, repo, pr):
         self.watcher, self.repo, self.pr = watcher, repo, pr

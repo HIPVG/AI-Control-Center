@@ -7,7 +7,7 @@ import subprocess
 import pytest
 
 from backend.control.reviewer_bus import ReviewerBusWatcher, REVIEW_REPO
-from backend.control.reviewer_files import BRANCH
+from backend.control.reviewer_files import BRANCH, FileReplyError, validate_trigger_binding
 
 REQUEST = "a" * 40
 HEAD = "b" * 40
@@ -24,6 +24,15 @@ def reply(rid="F1", result="CONTINUE"):
     return (f"IN_REPLY_TO: {rid}\nRESULT: {result}\nREQUEST_COMMIT: {REQUEST}\n"
             f"REQUEST_PATH: poc/file-review-requests/{rid}.md\n"
             "RESPONSE_KIND: GIT_FILE\nNEXT_ACTION: Record only\n")
+
+
+def test_trigger_preflight_requires_authority_record_to_match_request():
+    request = (packet() + "REVIEWED_COMMIT: " + REQUEST + "\n"
+               "DECISION_ID: D1\nAUTHORITY_RECORD: fixed-record\n")
+    trigger = request + f"REQUEST_COMMIT: {REQUEST}\n"
+    assert validate_trigger_binding(request, trigger)["AUTHORITY_RECORD"] == "fixed-record"
+    with pytest.raises(FileReplyError, match="REQUEST_BINDING_MISMATCH_AUTHORITY_RECORD"):
+        validate_trigger_binding(request, trigger.replace("AUTHORITY_RECORD: fixed-record\n", ""))
 
 
 class Bus:

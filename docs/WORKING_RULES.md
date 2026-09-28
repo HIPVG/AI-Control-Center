@@ -139,6 +139,14 @@ matching reviewer response was applied.
 A `DECISION_REQUEST` or `COMPLETION_REPORT` is event-driven and is delivered
 immediately when its condition occurs; it never waits for the 10-minute progress timer.
 
+When an explicit authority record makes an execution window conditional on a
+matching Reviewer response, distinguish the two clocks in the report and history:
+`TRANSPORT_ACTIVE_WORK` covers authority recording, fixed-request preparation and
+delivery correction before that gate; `EXECUTION_WINDOW_ACTIVE_WORK` begins only
+when the stated gate is passed.  Never label all work as zero merely because source
+implementation has not begun.  State both values and the gate status.  This does
+not make transport work invisible or authorize source work before the gate.
+
 ### Two-minute response/transport cadence
 
 A deterministic local transport/fetch loop may run about every **2 minutes**. Its job
@@ -221,6 +229,13 @@ For every reviewer-facing report:
 4. record the comment/report identifier and publication time;
 5. after successful publication, end the current Codex turn at the safe checkpoint; do not poll the PR from inside Codex;
 6. the deterministic Control Center reviewer-bus watcher owns response polling and resumes the most recent Codex exec session when the matching response arrives.
+
+For a `github_file` report, before step 3 run
+`python scripts/validate_reviewer_file_trigger.py <immutable-request> <trigger>`
+after the request commit is known.  It must return `VALID` and the same REPORT_ID.
+The trigger and immutable request must repeat every binding field, including
+`AUTHORITY_RECORD`; otherwise do not publish.  A failed preflight requires a new
+REPORT_ID and preserves the failed request as evidence.
 
 The operational path does **not** use the ChatGPT composer. Do not automate the
 composer, inspect drafts/placeholders, or attempt direct browser message injection as
