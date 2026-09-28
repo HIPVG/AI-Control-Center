@@ -32,3 +32,11 @@ No Day selection/Go, model invocation, service operation, credential change,
 external product operation, paid work, destructive Git action, WC-03, or wider
 policy/config/UI change is authorized. Stop after the one focused fixture result
 and deliver the fixed commit for review.
+
+## Standard and design consistency check
+
+- Standard checked: `HIPVG/ai_work_operating_standard@13065155999b799fdd2766630696d523fc53beaf` (2026-09-28). Section 5.0 routes a defect through observed failure/cause hypothesis, a minimum repair plan, G6 implementation, G7 verification, and G8 acceptance. Section 2 requires deterministic limit checks and returns the affected result to unverified on correction.
+- Observed failure: the fixed WC-02 implementation commit `12176209ffe27c6ae5cf18c85865fb238c801986` checks requested limits for positivity but does not reject values over 1800 seconds or two attempts. The Reviewer response file for `G6-ACC-WC02-IMPLEMENTATION-20260928-001` identifies this gap; its 16 focused passes do not cover these two upper-bound rejects, and the second test outcome remains unobserved.
+- Design mapping: G4 v2 section 3 assigns deterministic time/attempt/cost preflight to the machine checker; section 6 requires the server-owned limit check to stop new action on an exceeded bound. G5 v2 section 3.1 fixes 30 active minutes, two target validation attempts, and zero cost; WC-02 requires deterministic time/attempt/cost preflight and forbids overlimit admission.
+- Judgment: this is a failure to implement the existing G4/G5 contract, not a new functional contract or state transition. Do not revise those design baselines solely to restate the defect. This record and CURRENT_WORK carry the authorized correction and its traceability. Keep WC-02 unverified until the bounded fixture and matching review; neither the historical 16 passes nor this human decision establishes G7/G8 acceptance.
+- Provenance limit: this chat records the human's limited ratification of the named foreground route. It is an operational authority record, not independent forensic proof of which process wrote every byte of the earlier commit. If that historical actor identity remains decision-critical, preserve it as unknown rather than inventing evidence.
