@@ -54,6 +54,32 @@
         <div class="meter" aria-label="Day progress"><i id="progress-meter"></i></div>
         <p id="progress">0%</p>
       </section>
+      <section class="result" id="run-status-panel" aria-live="polite">
+        <p class="eyebrow">Run status — read only</p>
+        <h2 id="run-status-state">UNSELECTED</h2>
+        <p id="run-status-freshness">Loading the WC-09 read-only projection…</p>
+        <dl>
+          <dt>Selected Day</dt><dd id="run-selected-day">No Day selected</dd>
+          <dt>Run ID</dt><dd id="run-id">No current run</dd>
+          <dt>Admission</dt><dd id="run-admission">Not evaluated</dd>
+          <dt>Runtime observation</dt><dd id="run-liveness">Not applicable</dd>
+          <dt>Next action</dt><dd id="run-next-action">Not available</dd>
+          <dt>Stop / blocker</dt><dd id="run-blocker">None recorded</dd>
+          <dt>Unmet criteria</dt><dd><ul id="run-unmet"></ul></dd>
+          <dt>Review</dt><dd id="run-review">No current review</dd>
+          <dt>Approval subject</dt><dd id="run-approval-subject">No human decision</dd>
+          <dt>Approval permits</dt><dd id="run-approval-effect">No authorized effect</dd>
+          <dt>Human response</dt><dd id="run-human-response">No human response</dd>
+          <dt>Reviewer confirmation</dt><dd id="run-reviewer-confirmation">No Reviewer confirmation</dd>
+          <dt>Manual relay</dt><dd id="run-relay">Not recorded</dd>
+          <dt>Interventions</dt><dd><ul id="run-interventions"></ul></dd>
+          <dt>Attempts</dt><dd id="run-attempts">Not recorded</dd>
+          <dt>Tokens</dt><dd id="run-tokens">Not recorded</dd>
+          <dt>Cost</dt><dd id="run-cost">Not recorded</dd>
+        </dl>
+        <h3>Historical runs — never current</h3>
+        <ul id="run-history"></ul>
+      </section>
       <section class="workboard" aria-live="polite">
         <p class="eyebrow">Day work board</p>
         <ol id="day-work-items"></ol>
@@ -86,6 +112,7 @@
       </section>
     </main>
     <script src="/static/reviewer-status.js?v=20260928"></script>
-    <script src="/static/app.js?v=20260928-review-progress"></script>
+    <script src="/static/run-status.js?v=20260929-wc10"></script>
+    <script src="/static/app.js?v=20260929-wc10"></script>
   </body>
 </html>

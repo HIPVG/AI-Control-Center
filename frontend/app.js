@@ -28,6 +28,26 @@ const reviewerBusCompleted = document.querySelector("#reviewer-bus-completed");
 const reviewerBusCounts = document.querySelector("#reviewer-bus-counts");
 const reviewerBusChecked = document.querySelector("#reviewer-bus-checked");
 const selectionStatus = document.querySelector("#selection-status");
+const runStatusState = document.querySelector("#run-status-state");
+const runStatusFreshness = document.querySelector("#run-status-freshness");
+const runSelectedDay = document.querySelector("#run-selected-day");
+const runId = document.querySelector("#run-id");
+const runAdmission = document.querySelector("#run-admission");
+const runLiveness = document.querySelector("#run-liveness");
+const runNextAction = document.querySelector("#run-next-action");
+const runBlocker = document.querySelector("#run-blocker");
+const runUnmet = document.querySelector("#run-unmet");
+const runReview = document.querySelector("#run-review");
+const runApprovalSubject = document.querySelector("#run-approval-subject");
+const runApprovalEffect = document.querySelector("#run-approval-effect");
+const runHumanResponse = document.querySelector("#run-human-response");
+const runReviewerConfirmation = document.querySelector("#run-reviewer-confirmation");
+const runRelay = document.querySelector("#run-relay");
+const runInterventions = document.querySelector("#run-interventions");
+const runAttempts = document.querySelector("#run-attempts");
+const runTokens = document.querySelector("#run-tokens");
+const runCost = document.querySelector("#run-cost");
+const runHistory = document.querySelector("#run-history");
 let gitCandidate = null;
 let activeRequest = null;
 let lastSnapshot = {};
@@ -52,6 +72,45 @@ function renderRunIndicator(snapshot) {
 }
 
 function putText(node, value) { node.textContent = String(value ?? "–"); }
+
+function renderTextList(node, values) {
+  node.replaceChildren();
+  for (const value of values) {
+    const row = document.createElement("li");
+    row.textContent = value;
+    node.append(row);
+  }
+}
+
+function renderRunStatus(payload) {
+  const view = RunStatus.project(payload);
+  putText(runStatusState, view.currentState);
+  putText(runStatusFreshness, view.freshness);
+  putText(runSelectedDay, view.selectedDay);
+  putText(runId, view.runId);
+  putText(runAdmission, view.admission);
+  putText(runLiveness, view.liveness);
+  putText(runNextAction, view.nextAction);
+  putText(runBlocker, view.blocker);
+  renderTextList(runUnmet, view.unmet);
+  putText(runReview, view.review);
+  putText(runApprovalSubject, view.approvalSubject);
+  putText(runApprovalEffect, view.approvalEffect);
+  putText(runHumanResponse, view.humanResponse);
+  putText(runReviewerConfirmation, view.reviewerConfirmation);
+  putText(runRelay, view.relay);
+  renderTextList(runInterventions, view.interventions);
+  putText(runAttempts, view.attempts);
+  putText(runTokens, view.tokens);
+  putText(runCost, view.cost);
+  renderTextList(runHistory, view.history);
+}
+
+async function refreshRunStatus() {
+  const response = await fetch("/api/local-llm/runs", { cache: "no-store" });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  renderRunStatus(await response.json());
+}
 
 function renderEvidence(node, values) {
   node.replaceChildren();
@@ -284,6 +343,7 @@ gitPush.addEventListener("click", async () => {
   await loadGitPushCandidate();
 });
 
-Promise.all([loadDays(), refresh(), loadGitPushCandidate(), refreshReviewerBus()]).catch((error) => putText(activity, `Unable to load Day Runner: ${error.name}.`));
+Promise.all([loadDays(), refresh(), loadGitPushCandidate(), refreshReviewerBus(), refreshRunStatus()]).catch((error) => putText(activity, `Unable to load Day Runner: ${error.name}.`));
 window.setInterval(() => refresh().catch(() => {}), 1000);
 window.setInterval(() => refreshReviewerBus().catch(() => {}), 1000);
+window.setInterval(() => refreshRunStatus().catch(() => {}), 2000);
