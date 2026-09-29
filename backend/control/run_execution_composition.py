@@ -16,7 +16,7 @@ from backend.control.human_decision import DecisionRequest, HumanDecisionControl
 from backend.control.local_llm_day_program import LocalLLMDayProgram
 from backend.control.repair_recovery import RepairRecoveryController
 from backend.control.review_continuation import ReviewContinuationControl
-from backend.control.review_control import ReviewControl
+from backend.control.review_control import ReviewControl, ReviewControlState
 from backend.control.run_store import RunStore
 from backend.models.local_llm_day import EvidenceRecord, LocalLLMDayState, RunControl, RunRecord
 
@@ -63,6 +63,8 @@ class RunExecutionComposition:
                 return self._rejected(record, "CONTRACT_FINGERPRINT_MISMATCH")
             if snapshot.state == LocalLLMDayState.COMPLETE and not self._completion_ready(record):
                 return self._rejected(record, "VALIDATOR_EVIDENCE_INCOMPLETE")
+            if snapshot.state == LocalLLMDayState.COMPLETE and self._required_review_pending(record):
+                return self._rejected(record, "REQUIRED_REVIEW_UNVERIFIED")
             blocker = snapshot.authority_blocker.reason_code if snapshot.authority_blocker else snapshot.stop_reason
             updated = self._advance(
                 record,
@@ -79,7 +81,10 @@ class RunExecutionComposition:
         """Validate provider results and retain only records bound to this run."""
         with self._lock:
             record = self._record(run_id)
-            contract = self.program.snapshot.contract
+            snapshot = self.program.snapshot
+            if snapshot.run_id != run_id:
+                return self._rejected(record, "DAY_SNAPSHOT_RUN_ID_MISMATCH")
+            contract = snapshot.contract
             if contract is None or contract.day != record.intent.selected_day:
                 return self._rejected(record, "DAY_CONTRACT_MISMATCH")
             if self.program._contract_fingerprint(contract) != record.intent.contract_fingerprint:
@@ -315,6 +320,12 @@ class RunExecutionComposition:
             record_id in evidence and evidence[record_id].run_id == record.intent.run_id
             and evidence[record_id].validator_result for record_id in required_ids
         )
+
+    def _required_review_pending(self, record: RunRecord) -> bool:
+        if record.control.blocker == "REVIEW_RESPONSE_REQUIRED":
+            return True
+        review = self._reviews.get(record.intent.run_id)
+        return review is not None and review.state != ReviewControlState.VERIFIED
 
     def _advance(
         self, record: RunRecord, state: LocalLLMDayState, next_action: str,

@@ -81,6 +81,13 @@ def _value(evidence_type):
         "provenance_test": {
             "exit_code": 0, "commands": ["pytest focused"], "passed": 1, "failed": 0,
         },
+        "deterministic_tests": {
+            "exit_code": 0, "commands": ["pytest temporal"], "passed": 1, "failed": 0,
+        },
+        "architecture_check": {
+            "checked_documents": ["docs/architecture.md"],
+            "assertions": ["deterministic state owner"],
+        },
     }[evidence_type]
 
 
@@ -112,6 +119,26 @@ def test_evidence_is_retained_only_for_exact_run_criterion_and_config(tmp_path):
     assert all(item.run_id == intent.run_id for item in program.snapshot.evidence_store.values())
 
 
+def test_evidence_rejects_mismatched_snapshot_run_without_mutation(tmp_path):
+    composition, program, store, contract, intent = _fixture(tmp_path)
+    criterion = contract.completion_criteria[0]
+    valid = [
+        _evidence(intent, criterion, name, _value(name))
+        for name in criterion.required_evidence
+    ]
+    program.snapshot.run_id = "run-other"
+    before_record = store.get(intent.run_id)
+    before_snapshot = program.snapshot.model_copy(deep=True)
+
+    result = composition.evaluate_criterion(
+        intent.run_id, criterion_id=criterion.criterion_id, results=valid
+    )
+
+    assert result["reason_code"] == "DAY_SNAPSHOT_RUN_ID_MISMATCH"
+    assert store.get(intent.run_id) == before_record
+    assert program.snapshot == before_snapshot
+
+
 def test_complete_day_state_cannot_project_without_all_validator_evidence(tmp_path):
     composition, program, store, _contract, intent = _fixture(tmp_path)
     program.snapshot.state = LocalLLMDayState.COMPLETE
@@ -120,6 +147,31 @@ def test_complete_day_state_cannot_project_without_all_validator_evidence(tmp_pa
     result = composition.project_day_state(intent.run_id)
 
     assert result["reason_code"] == "VALIDATOR_EVIDENCE_INCOMPLETE"
+    assert store.get(intent.run_id) == before
+
+
+def test_complete_day_state_rejects_unverified_required_review_without_mutation(tmp_path):
+    composition, program, store, contract, intent = _fixture(tmp_path)
+    for criterion in contract.completion_criteria:
+        accepted = composition.evaluate_criterion(
+            intent.run_id,
+            criterion_id=criterion.criterion_id,
+            results=[
+                _evidence(intent, criterion, name, _value(name))
+                for name in criterion.required_evidence
+            ],
+        )
+        assert accepted["criterion_satisfied"] is True
+    composition.request_review(intent.run_id, "REPORT-COMPLETION", at=NOW)
+    program.snapshot.state = LocalLLMDayState.COMPLETE
+    before = store.get(intent.run_id)
+    restarted = RunExecutionComposition(
+        program, JsonRunStore(store.directory), clock=lambda: NOW + timedelta(seconds=20)
+    )
+
+    result = restarted.project_day_state(intent.run_id)
+
+    assert result["reason_code"] == "REQUIRED_REVIEW_UNVERIFIED"
     assert store.get(intent.run_id) == before
 
 
