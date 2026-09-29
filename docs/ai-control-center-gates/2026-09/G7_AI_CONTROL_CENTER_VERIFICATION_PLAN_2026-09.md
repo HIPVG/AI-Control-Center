@@ -1,6 +1,6 @@
 # G7 — AI-Control-Center 検証計画
 
-- 状態: `REVISED_PLAN_REVIEW_PENDING`
+- 状態: `ACCEPTED`; verification result review pending
 - 作成日: 2026-09-29
 - 実装基線: `a30ed2303a85ff00ebbb5b0721bea4fe5c66ad0f`
 - G6受理記録: `docs/review-records/G6_STAGE_COMPLETION_ACCEPTANCE_2026-09-29.md`
@@ -146,4 +146,11 @@ G7検証結果又は工程受入ではない。
   適用不能／未評価条件が不足していた。
 - 本改訂はその完全性判定だけを追加する。実装、固定試験集合、実E2E範囲、権限、
   上限は変更しない。計画再受理まで試験を開始しない。
+- `G7-VERIFICATION-PLAN-20260929-002` / reviewed commit
+  `3b267223d507aefe113df671a9331be5c1fc0a13`: `ACCEPT`。GV-00の完全性判定、
+  fixture／actual actor／product E2Eの境界、固定試験、停止・差戻しを計画として
+  受理した。これは検証結果の合格ではない。
+- GV-00/GV-01は `G7-GV00-GV01-COMPLETION-20260929-001`、GV-02は
+  `G7-GV02-COMPLETION-20260929-001` で各限定範囲を受理済み。GV-03結果は
+  `docs/review-records/G7_STAGE_VERIFICATION_RESULT_2026-09-29.md` に記録する。
 
