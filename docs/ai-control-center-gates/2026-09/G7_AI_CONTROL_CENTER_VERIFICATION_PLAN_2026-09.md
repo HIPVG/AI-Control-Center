@@ -1,6 +1,6 @@
 # G7 — AI-Control-Center 検証計画
 
-- 状態: `CONDITIONAL_PASS_ACCEPTED`; human G7 exit decision pending
+- 状態: `MUST_CLOSURE_RETURN_REVIEW_PENDING`
 - 作成日: 2026-09-29
 - 実装基線: `a30ed2303a85ff00ebbb5b0721bea4fe5c66ad0f`
 - G6受理記録: `docs/review-records/G6_STAGE_COMPLETION_ACCEPTANCE_2026-09-29.md`
@@ -153,4 +153,16 @@ G7検証結果又は工程受入ではない。
 - GV-00/GV-01は `G7-GV00-GV01-COMPLETION-20260929-001`、GV-02は
   `G7-GV02-COMPLETION-20260929-001` で各限定範囲を受理済み。GV-03結果は
   `docs/review-records/G7_STAGE_VERIFICATION_RESULT_2026-09-29.md` に記録する。
+
+## 8. 未評価Mustの追加検証
+
+`G7-STAGE-RESULT-20260929-001` はfixtureと歴史的actorに限る
+`CONDITIONAL_PASS`として受理された。その後、広瀬剛は当該結果を中間記録として
+保持し、未評価MustをG7内で解消する追加検証を承認した
+（`AUTH-G7-MUST-CLOSURE-20260929-001`）。
+
+追加検証はlive操作より先に製品経路の連続性を確認する。Goから同一RunIntentで
+実行、Evidence、修正／レビュー、telemetry、dashboard読戻しへ到達できない場合、
+live Dayで代用せずG6へ差し戻す。静的結果は
+`docs/review-records/G7_MUST_CLOSURE_STATIC_VALIDATION_2026-09-29.md` に記録する。
 
