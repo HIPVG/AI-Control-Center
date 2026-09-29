@@ -1703,7 +1703,9 @@ def test_production_api_resumes_same_day_after_authority_resolution(tmp_path, mo
     client = TestClient(app.app)
     day = 14 if authority == "human" else 1
     expected = "HUMAN_ACTION_REQUIRED" if authority == "human" else "EXTERNAL_ACTION_REQUIRED"
-    client.post(f"/api/local-llm/day/{day}/start")
+    # This fixture exercises the controller's authority-resume behavior directly.
+    # The public legacy start route is guarded by the RI-00 run coordinator.
+    engine.start_local_llm_day(day)
     engine.local_llm_day_program.join(30)
     before = client.get("/api/local-llm/day/status").json()
     assert before["state"] == expected, before

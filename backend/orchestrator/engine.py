@@ -29,6 +29,8 @@ from backend.control.git_completion import GitCompletionService
 from backend.control.local_runtime import ApprovedLocalRuntimeService
 from backend.control.week1_program import Week1Program
 from backend.control.local_llm_day_program import LocalLLMDayProgram
+from backend.control.run_composition import RunCoordinator, RunPreflightFacts
+from backend.control.run_store import JsonRunStore, RunStore
 from backend.control.day_action_executor import DayActionExecutor
 from backend.control.solution_catalog import JsonSolutionCatalogStore, RepairEpisodeStore, SolutionCatalog
 from backend.control.external_review import ExternalReviewCoordinator, load_external_review_config
@@ -94,6 +96,9 @@ class ControlCenterEngine:
         worktree_root: Path | None = None,
         plan_registry: Any | None = None,
         local_runtime_service: ApprovedLocalRuntimeService | None = None,
+        local_llm_run_store: RunStore | None = None,
+        local_llm_preflight_resolver: Callable[[int], RunPreflightFacts] | None = None,
+        local_llm_run_executor: Callable[[str, int], dict[str, object]] | None = None,
     ) -> None:
         self.store = state_store
         self.state_manager = StateManager()
@@ -165,6 +170,13 @@ class ControlCenterEngine:
                 config=load_external_review_config(project_root / "config" / "external-review.json"),
             ),
             approved_day_one_snapshot_paths=frozenset({"conftest.py"}),
+        )
+        self.local_llm_run_coordinator = RunCoordinator(
+            self.local_llm_day_program,
+            local_llm_run_store or JsonRunStore(project_root / "state" / "runs"),
+            preflight_resolver=(local_llm_preflight_resolver
+                                or (lambda _day: RunPreflightFacts())),
+            executor=(local_llm_run_executor or self._execute_composed_local_llm_day),
         )
         self.day_action_executor = DayActionExecutor(self)
 
@@ -753,7 +765,13 @@ class ControlCenterEngine:
         return self.local_llm_day_program.start(day)
 
     def prepare_local_llm_day_go(self, day: int) -> dict[str, object]:
-        return self.local_llm_day_program.prepare_go(day)
+        return self.local_llm_run_coordinator.go(day)
+
+    def legacy_start_local_llm_day(self, day: int) -> dict[str, object]:
+        return self.local_llm_run_coordinator.legacy_start(day)
+
+    def _execute_composed_local_llm_day(self, run_id: str, day: int) -> dict[str, object]:
+        return {"run_id": run_id, "day_result": self.local_llm_day_program.start(day)}
 
     def resume_local_llm_day(self) -> dict[str, object]:
         return self.local_llm_day_program.resume()

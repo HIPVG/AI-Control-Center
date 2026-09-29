@@ -50,6 +50,8 @@ change G4 state semantics, or execute a real Day.
 
 ### G6-RI-00 — durable run spine and guarded Go
 
+Status: `IMPLEMENTED_AND_FOCUSED_VALIDATION_PASSED`; fixed review pending.
+
 | Field | Plan |
 |---|---|
 | Purpose | Compose the existing RunIntent/admission/RunRecord contracts into one server-owned Go transaction. |

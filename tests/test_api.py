@@ -108,6 +108,24 @@ def test_go_api_accepts_selection_only_and_never_starts_a_day(client, monkeypatc
     assert client.post("/api/local-llm/day/6/select").status_code == 404
 
 
+def test_legacy_start_uses_the_same_guarded_go_boundary(client, monkeypatch):
+    observed = {}
+
+    def guarded(day):
+        observed["day"] = day
+        return {"source": "legacy_direct_start", "execution_started": False,
+                "error_code": "EFFECTIVE_PERMISSION_UNKNOWN"}
+
+    monkeypatch.setattr(control_app.engine, "legacy_start_local_llm_day", guarded)
+
+    response = client.post("/api/local-llm/day/6/start")
+
+    assert response.status_code == 200
+    assert observed == {"day": 6}
+    assert response.json()["source"] == "legacy_direct_start"
+    assert response.json()["execution_started"] is False
+
+
 def test_goal_endpoint_accepts_only_the_bounded_goal_field(client):
     rejected = client.post("/api/goals", json={"goal": "Run the trusted LocalLLM experiment", "command": "unsafe"})
     assert rejected.status_code == 422

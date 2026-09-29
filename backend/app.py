@@ -131,7 +131,7 @@ def smoke_local_llm_day(day: int) -> dict:
 
 @app.post("/api/local-llm/day/{day}/start")
 def start_local_llm_day(day: int) -> dict:
-    return engine.start_local_llm_day(day)
+    return engine.legacy_start_local_llm_day(day)
 
 
 @app.post("/api/local-llm/day/go")
