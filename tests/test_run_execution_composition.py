@@ -23,6 +23,7 @@ def _fixture(tmp_path):
     program = LocalLLMDayProgram(FIXTURE_ROOT)
     contract = program._load_contracts()[6]
     program.snapshot = LocalLLMDaySnapshot(
+        run_id="run-ri01",
         selected_day=6,
         state=LocalLLMDayState.PREFLIGHT,
         contract=contract,
@@ -120,6 +121,41 @@ def test_complete_day_state_cannot_project_without_all_validator_evidence(tmp_pa
 
     assert result["reason_code"] == "VALIDATOR_EVIDENCE_INCOMPLETE"
     assert store.get(intent.run_id) == before
+
+
+def test_day_projection_rejects_noncurrent_and_mismatched_snapshot_run_without_mutation(tmp_path):
+    composition, program, store, contract, intent = _fixture(tmp_path)
+    newer_intent = intent.model_copy(update={
+        "run_id": "run-ri01-newer",
+        "go_at": intent.go_at + timedelta(seconds=1),
+    })
+    newer = RunRecord(
+        intent=newer_intent,
+        control=RunControl(
+            run_id=newer_intent.run_id,
+            selected_day=newer_intent.selected_day,
+            contract_fingerprint=newer_intent.contract_fingerprint,
+            current_state=LocalLLMDayState.PREFLIGHT,
+            next_action="Current same-Day run.",
+            updated_at=NOW + timedelta(seconds=1),
+        ),
+    )
+    store.create(newer)
+    old_before = store.get(intent.run_id)
+    current_before = store.get(newer_intent.run_id)
+
+    historical = composition.project_day_state(intent.run_id)
+
+    assert historical["reason_code"] == "RUN_NOT_CURRENT"
+    assert store.get(intent.run_id) == old_before
+    assert store.get(newer_intent.run_id) == current_before
+
+    program.snapshot.run_id = intent.run_id
+    mismatch = composition.project_day_state(newer_intent.run_id)
+
+    assert mismatch["reason_code"] == "DAY_SNAPSHOT_RUN_ID_MISMATCH"
+    assert store.get(intent.run_id) == old_before
+    assert store.get(newer_intent.run_id) == current_before
 
 
 def test_repair_attempts_persist_same_run_and_exhaustion_does_not_mutate_again(tmp_path):

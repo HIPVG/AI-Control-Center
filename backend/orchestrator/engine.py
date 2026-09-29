@@ -771,7 +771,10 @@ class ControlCenterEngine:
         return self.local_llm_run_coordinator.legacy_start(day)
 
     def _execute_composed_local_llm_day(self, run_id: str, day: int) -> dict[str, object]:
-        return {"run_id": run_id, "day_result": self.local_llm_day_program.start(day)}
+        return {
+            "run_id": run_id,
+            "day_result": self.local_llm_day_program.start(day, run_id=run_id),
+        }
 
     def resume_local_llm_day(self) -> dict[str, object]:
         return self.local_llm_day_program.resume()

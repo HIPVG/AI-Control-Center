@@ -65,7 +65,7 @@ Status: `ACCEPTED`; pack `G6-RI00-COMPLETION-20260929-001`, implementation commi
 
 ### G6-RI-01 — execution result, Evidence, recovery and review adapters
 
-Status: `IMPLEMENTED_AND_FOCUSED_VALIDATION_PASSED`; fixed review pending.
+Status: `REJECTION_REPAIRED_AND_FOCUSED_VALIDATION_PASSED`; revised fixed review pending.
 
 | Field | Plan |
 |---|---|

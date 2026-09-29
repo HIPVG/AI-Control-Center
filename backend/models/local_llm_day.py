@@ -461,6 +461,9 @@ class RepairEpisode(BaseModel):
 
 
 class LocalLLMDaySnapshot(BaseModel):
+    # Optional for backward-compatible loading of snapshots written before RI-01.
+    # A composed product run must set this before any Day effect is projected.
+    run_id: str | None = Field(default=None, min_length=1, max_length=120)
     selected_day: int | None = Field(default=None, ge=1, le=14)
     state: LocalLLMDayState = LocalLLMDayState.IDLE
     objective: str | None = None

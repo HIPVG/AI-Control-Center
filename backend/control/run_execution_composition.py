@@ -48,7 +48,12 @@ class RunExecutionComposition:
         """Copy the existing Day controller state into RunControl after identity checks."""
         with self._lock:
             record = self._record(run_id)
+            current = self.store.current()
+            if current is None or current.intent.run_id != run_id:
+                return self._rejected(record, "RUN_NOT_CURRENT")
             snapshot = self.program.snapshot
+            if snapshot.run_id != run_id:
+                return self._rejected(record, "DAY_SNAPSHOT_RUN_ID_MISMATCH")
             if snapshot.selected_day != record.intent.selected_day:
                 return self._rejected(record, "DAY_IDENTITY_MISMATCH")
             if snapshot.contract is None:

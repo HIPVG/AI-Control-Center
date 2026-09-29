@@ -583,23 +583,28 @@ class LocalLLMDayProgram:
             self._save()
             return self.view()
 
-    def start(self, day: int) -> dict[str, object]:
+    def start(self, day: int, *, run_id: str | None = None) -> dict[str, object]:
         contracts = self._load_contracts()
         contract = contracts.get(day)
         if contract is None:
             return {"error_code": "DAY_NOT_CONFIGURED", **self.view()}
         with self._lock:
+            if run_id is not None and self.snapshot.run_id not in {None, run_id}:
+                return {"error_code": "RUN_IDENTITY_MISMATCH", **self.view()}
             if self.snapshot.state in self.ACTIVE_STATES:
                 return {"error_code": "DAY_ALREADY_RUNNING", **self.view()}
             if self.snapshot.state == LocalLLMDayState.COMPLETE and day != self.snapshot.selected_day:
-                self.snapshot = LocalLLMDaySnapshot()
+                self.snapshot = LocalLLMDaySnapshot(run_id=run_id)
             if self.snapshot.state != LocalLLMDayState.IDLE:
                 return {"error_code": "DAY_START_NOT_PERMITTED", **self.view()}
             # Only same-version, validated same-Day evidence may survive Resume.
             if (self.snapshot.selected_day != day or self.snapshot.contract is None
                     or self.snapshot.contract.version != contract.version):
-                self.snapshot = LocalLLMDaySnapshot(selected_day=day, objective=contract.objective, contract=contract)
+                self.snapshot = LocalLLMDaySnapshot(
+                    run_id=run_id, selected_day=day, objective=contract.objective, contract=contract
+                )
             else:
+                self.snapshot.run_id = run_id
                 self.snapshot.contract = self._restore_contract(contract, self.snapshot.contract)
                 self.snapshot.work_items = self._valid_work_items(self.snapshot.work_items, contract)
             self._stop.clear()
