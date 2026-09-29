@@ -1,0 +1,105 @@
+{
+  "evidence_id": "G6-VC11-WATCHER-ACTOR-TRACE-20260929-001",
+  "created_at": "2026-09-29T02:50:14Z",
+  "extraction": {
+    "mode": "read_only",
+    "database_query": "thread_turns and thread_items selected by exact thread_id and turn_id; watcher entries selected by exact report IDs",
+    "source_files": [
+      {
+        "path": "state/codex-sqlite/thread_history_1.sqlite",
+        "size_bytes": 41615360,
+        "sha256": "90b66298c10617d027f4ec644b47c7a663b0357758c0be826a64f703f45fb259"
+      },
+      {
+        "path": "state/codex-sqlite/thread_history_1.sqlite-wal",
+        "size_bytes": 4152992,
+        "sha256": "fa7cf85e1deb2e783f110e4f50673c8936b66ab22b287ec336df365bf5d5a7f3"
+      },
+      {
+        "path": "state/reviewer-bus-watcher.json",
+        "size_bytes": 52858,
+        "sha256": "89e44f236817b17a0e39db71536345e306461f3c2168d52a07c4c7590200bb5b"
+      }
+    ]
+  },
+  "continuation_turn": {
+    "thread_id": "01a0e6db-9df2-7861-8bac-92ff3e2c05b5",
+    "turn_id": "01a0e6db-9ee5-79a2-8983-957342a718ba",
+    "rollout_ordinal": 1,
+    "status": "completed",
+    "error_json": null,
+    "started_at_epoch_seconds": 1790579547,
+    "completed_at_epoch_seconds": 1790579631,
+    "duration_ms": 83616,
+    "first_user_item_id": "01a0e6db-a608-7630-affa-8aa7e8294e14",
+    "final_agent_item_id": "msg_08a3144d368d9e71016aba13accef087d081a95520eeee6d85",
+    "first_user_item": {
+      "rollout_ordinal": 9,
+      "created_at_epoch_ms": 1790579549725,
+      "item_type": "userMessage",
+      "raw_json_size_bytes": 8779,
+      "raw_json_sha256": "2f6bda4984a142b36cab30e14433c0b2b711f76cf0196d8fdca085b5a2b64cd4",
+      "bound_response": {
+        "report_id": "G6-ACC-WC01-CONFIRM-20260928-002",
+        "result": "CONTINUE",
+        "confirms_report_id": "G6-ACC-WC01-20260928-001",
+        "confirms_response_id": "5864898586",
+        "decision_id": "AUTH-G6-START-20260928-001",
+        "reviewed_commit": "bf34b6a4d167cd007be2103c80ca8f0dd93b9531",
+        "response_comment_id": 5865174825
+      }
+    },
+    "final_agent_item": {
+      "rollout_ordinal": 65,
+      "created_at_epoch_ms": 1790579628341,
+      "item_type": "agentMessage",
+      "raw_json_size_bytes": 479,
+      "raw_json_sha256": "c54ef0a6758263290b063c2be5bb77ff0ce11d1d4a0623b5fac6450846b9674f",
+      "phase": "final_answer",
+      "envelope": {
+        "action": "NO_REPORT",
+        "report_id": "G6-ACC-WC01-CONFIRM-20260928-002",
+        "report_type": "PROGRESS_UPDATE",
+        "body": "Recorded the matching CONTINUE review result for WC-01 at bf34b6a4d167cd007be2103c80ca8f0dd93b9531. Stopped at WC-01; no WC-02, G7/G8, Day/Go, model, or service operation started."
+      }
+    }
+  },
+  "watcher_registry": {
+    "confirmation_entry": {
+      "canonical_json_sha256": "6db29756da79cb50ede96d5416442ccc2722e4a7cf7ffee96b38b66368d9739c",
+      "report_id": "G6-ACC-WC01-CONFIRM-20260928-002",
+      "report_comment_id": 5865122824,
+      "response_comment_id": 5865174825,
+      "confirms_report_id": "G6-ACC-WC01-20260928-001",
+      "confirms_response_id": "5864898586",
+      "decision_id": "AUTH-G6-START-20260928-001",
+      "reviewed_commit": "bf34b6a4d167cd007be2103c80ca8f0dd93b9531",
+      "state": "APPLIED",
+      "applied_at": "2026-09-28T07:13:52.662587+00:00"
+    },
+    "resolved_original_entry": {
+      "canonical_json_sha256": "5967419abf8ae72e13fce54edb5e652e411f96d093616b35d6c4f5651460d21e",
+      "report_id": "G6-ACC-WC01-20260928-001",
+      "previous_state": "HUMAN_REQUIRED",
+      "state": "RESOLVED_BY_CONFIRMATION",
+      "report_comment_id": 5864590391,
+      "response_comment_id": 5864898586,
+      "resolved_by_report_id": "G6-ACC-WC01-CONFIRM-20260928-002",
+      "resolution_response_comment_id": 5865174825,
+      "resolution_decision_id": "AUTH-G6-START-20260928-001",
+      "reviewed_commit": "bf34b6a4d167cd007be2103c80ca8f0dd93b9531",
+      "resolved_at": "2026-09-28T07:13:52.660541+00:00"
+    }
+  },
+  "correlation": {
+    "same_confirmation_report_id": true,
+    "same_response_comment_id": true,
+    "same_decision_id": true,
+    "same_reviewed_commit": true,
+    "turn_completed_without_error": true,
+    "final_envelope_is_no_report": true,
+    "watcher_applied_after_final_envelope": true,
+    "elapsed_ms_final_envelope_to_registry_apply": 4321,
+    "new_delivery_or_restart_performed_for_this_evidence": false
+  }
+}
