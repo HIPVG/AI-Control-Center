@@ -2,13 +2,15 @@
 
 ## 1. Identity, cause and boundary
 
-- Status: `PLAN_REVIEW_PENDING`
+- Status: `PLAN_ACCEPTED`; human implementation authority pending
+- Plan acceptance: `G6-RUNTIME-COMPOSITION-PLAN-20260929-001`
+- Reviewed plan commit: `12b93f7f2ff5d017ec38bd9fe5b14ed21a115c40`
 - Return source: accepted `G7-MUST-CLOSURE-20260929-001`
 - Return evidence: `b94b93bf1ad7accdf8a83fd4e40edd242529c787`
 - Implementation baseline: `a30ed2303a85ff00ebbb5b0721bea4fe5c66ad0f`
 - Design baseline: `G4_AI_CONTROL_CENTER_FUNCTIONAL_CONTROL_DESIGN_v2_2026-09.md`
 - Existing implementation plan: `G5_AI_CONTROL_CENTER_IMPLEMENTATION_PLAN_v2_2026-09.md`
-- Action class after plan acceptance: `IMPLEMENTATION`
+- Action class after separate human implementation authority: `IMPLEMENTATION`
 
 G7 confirmed an implementation-composition gap, not a new requirement or control
 design gap. G4 already requires one run identity from Go through admission, execution,
