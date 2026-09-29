@@ -1,6 +1,6 @@
 # G7 — AI-Control-Center 検証計画
 
-- 状態: `PLAN_REVIEW_PENDING`
+- 状態: `REVISED_PLAN_REVIEW_PENDING`
 - 作成日: 2026-09-29
 - 実装基線: `a30ed2303a85ff00ebbb5b0721bea4fe5c66ad0f`
 - G6受理記録: `docs/review-records/G6_STAGE_COMPLETION_ACCEPTANCE_2026-09-29.md`
@@ -53,6 +53,19 @@ Reviewer待ちはACTIVE_WORKから除く。tokenは実測可能なときだけ�
   実装担当がG7開始後に受入期待値を変更していない。
 - 証拠: commit/path/hash、差分一覧、除外・mock/stub一覧、対応表。
 - 停止: 基線、試験来歴又は要求対応が一意でなければ後続試験を実行しない。
+
+次の完全性項目を、GV-01の実行前に個別判定する。`PASS`にできない場合は
+`NOT_APPLICABLE`へ丸めず、下表の条件どおり`NOT_EVALUABLE`又は`FAIL`にする。
+
+| 完全性項目 | 確認方法と保存証拠 | `NOT_APPLICABLE`／`NOT_EVALUABLE`／`FAIL`の条件 |
+|---|---|---|
+| 固定入力と本番生成経路 | 各fixtureについて、入力を作る関数、製品entrypoint、validator／state遷移までの呼出経路をコード参照で対応付ける。製品entrypointと同じ関数列を通るものだけ、その境界の経路証拠とする。 | 固定入力が製品adapterを迂回する場合、そのfixtureは下位contractだけの証拠であり製品経路は`NOT_EVALUABLE`。同じ経路と主張しながら相違があれば`FAIL`。対象に本番生成経路が存在しない純粋モデル単体試験だけ`NOT_APPLICABLE`。 |
+| 判定器への答えの漏洩・特定事例固定化 | fixture、期待値、validator、production入力、prompt／context（存在する場合）の差分を読み、期待する最終判定又はcase固有の正答がproduction入力へ埋め込まれていないことを確認する。異なる有効値と拒否値を使うassertion、型・ID・状態条件による判定を証拠化する。 | AI／promptを使わない決定的検査のprompt漏洩だけは`NOT_APPLICABLE`だが、期待値固定化の確認は省略しない。生成入力又は判定対象に正答が漏れている、あるいは一般条件でなく一事例だけを認識するなら`FAIL`。production入力を確認できなければ`NOT_EVALUABLE`。 |
+| 出力・token・実行時間の保持 | 各固定コマンドについて、完全なcommand、開始・終了時刻、wall duration、exit code、stdout/stderr、warning、失敗caseを結果記録へ保存する。tokenは計測主体・出所・値を分離する。 | モデルを呼ばないGV-01ではtokenだけ`NOT_APPLICABLE (no model invocation)`と記録し、0とは記録しない。出力又は時間を採取できなければ当該結果は`NOT_EVALUABLE`。失敗を省略又は成功へ書換えた場合は`FAIL`。 |
+| 切断・失敗の保持 | review continuation、delivery failure、期限切れ、無効envelope等の固定caseについて、原因、途中状態、終端状態、時刻、後続効果不在をassertionと保存出力から照合する。新しい実配送や切断は起こさない。 | 固定caseがない境界は`NOT_EVALUABLE`。既存の模擬切断はfixture証拠としてのみ表示する。失敗後に成功状態へ丸める、又は失敗出力・理由が失われる場合は`FAIL`。実外部切断の再現は現在のGV-00/GV-01では`NOT_APPLICABLE`ではなく`NOT_EVALUABLE`。 |
+
+GV-00結果には各行の判定、対象path／test名、根拠、証拠所在を残す。これらの確認を
+完了できないこと自体は試験実行の成功へ変換せず、影響するGV-01又はGV-02を停止する。
 
 ### GV-01 — 決定的な焦点・関連回帰・失敗注入
 
@@ -124,4 +137,13 @@ G0〜G6と標準G7に整合するかを判断する。計画が受理される�
 
 `ARTIFACT_QUALITY_CHECK: SELF_CHECK_PASS`。これは計画内容の自己点検であり、
 G7検証結果又は工程受入ではない。
+
+## 7. 計画レビュー履歴
+
+- `G7-VERIFICATION-PLAN-20260929-001` / reviewed commit
+  `142c97c1c5cb6012dd6aa79c0aaa98ede5fdc142`: `REJECT`。GV-00に、本番生成経路、
+  答えの漏洩、出力・token・実行時間・切断・失敗の保持について、確認方法と
+  適用不能／未評価条件が不足していた。
+- 本改訂はその完全性判定だけを追加する。実装、固定試験集合、実E2E範囲、権限、
+  上限は変更しない。計画再受理まで試験を開始しない。
 
