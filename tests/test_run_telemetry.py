@@ -91,6 +91,13 @@ def test_manual_relay_count_must_match_reasoned_intervention_records():
         telemetry(manual_relay_count=known(0, "count", "review registry"))
 
 
+def test_duplicate_intervention_id_in_the_same_run_is_rejected():
+    intervention = telemetry().interventions[0]
+    with pytest.raises(ValidationError, match="Duplicate telemetry intervention ID"):
+        telemetry(interventions=(intervention, intervention),
+                  manual_relay_count=known(2, "count", "review registry"))
+
+
 @pytest.mark.parametrize("metric", [
     dict(value=None, unit="tokens", source=None, observed_at=NOW),
     dict(value=7, unit="tokens", source=None, observed_at=NOW),
