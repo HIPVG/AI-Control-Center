@@ -12,6 +12,7 @@ from backend.control.run_read_model import (
     ReviewProjection,
     RunReadModel,
     RuntimeObservation,
+    empty_run_read_model,
 )
 from backend.models.local_llm_day import (
     LocalLLMDayState,
@@ -58,7 +59,12 @@ def telemetry():
                         cost=metric(0.0, "JPY", "fixture authority"), captured_at=NOW)
 
 
-def test_api_is_get_only_and_unselected_is_explicit():
+def test_api_is_get_only_and_unselected_is_explicit(monkeypatch):
+    monkeypatch.setattr(
+        control_app.engine,
+        "local_llm_run_read_model",
+        lambda: empty_run_read_model(at=NOW).read(),
+    )
     client = TestClient(control_app.app)
     body = client.get("/api/local-llm/runs").json()
     assert body["read_only"] is True
@@ -77,7 +83,7 @@ def test_preflight_projection_keeps_run_time_source_and_unmet_criterion(monkeypa
                                       observed_at=NOW, source="Evidence evaluator"),),
         projected_at=NOW, source="fixture aggregation",
     )
-    monkeypatch.setattr(control_app, "run_read_model", read_model)
+    monkeypatch.setattr(control_app.engine, "local_llm_run_read_model", read_model.read)
     model = TestClient(control_app.app).get("/api/local-llm/runs").json()
     assert model["current"]["run_id"] == "run-001"
     assert model["current"]["state"] == "PREFLIGHT"

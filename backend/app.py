@@ -11,14 +11,12 @@ from backend.control.daily_operation import DailyOperationService
 from backend.control.reviewer_bus import ReviewerBusWatcher
 from backend.models.goal import GoalSubmission
 from backend.models.local_llm_day import DayGoRequest
-from backend.control.run_read_model import empty_run_read_model
 
 ROOT = Path(__file__).resolve().parent.parent
 engine = ControlCenterEngine(JsonStateStore(ROOT / "state" / "control-center.json"), ROOT / "config" / "budget.yaml")
 daily_operation = DailyOperationService(ROOT)
 reviewer_bus = ReviewerBusWatcher(ROOT, codex_executable=engine.runtime.codex.executable)
 started_at = datetime.now(timezone.utc)
-run_read_model = empty_run_read_model(at=started_at)
 
 app = FastAPI(title="AI Control Center", version="0.1.0")
 app.mount("/static", StaticFiles(directory=ROOT / "frontend"), name="static")
@@ -121,7 +119,7 @@ def local_llm_day_status() -> dict:
 
 @app.get("/api/local-llm/runs")
 def local_llm_run_read_model() -> dict:
-    return run_read_model.read()
+    return engine.local_llm_run_read_model()
 
 
 @app.post("/api/local-llm/day/{day}/smoke")

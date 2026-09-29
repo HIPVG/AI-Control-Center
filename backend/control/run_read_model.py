@@ -74,6 +74,7 @@ class RunReadModel(BaseModel):
     telemetry: RunTelemetry | None = None
     human_decision: HumanDecisionProjection | None = None
     runtime_observation: RuntimeObservation | None = None
+    projection_errors: tuple[str, ...] = ()
     projected_at: datetime
     source: str = Field(min_length=1)
 
@@ -123,6 +124,7 @@ class RunReadModel(BaseModel):
             "read_only": True,
             "projected_at": self.projected_at.isoformat(),
             "projection_source": self.source,
+            "projection_errors": list(self.projection_errors),
             "selected": current is not None,
             "current": current_view,
             "history": [{
@@ -141,5 +143,11 @@ class RunReadModel(BaseModel):
         }
 
 
-def empty_run_read_model(*, at: datetime) -> RunReadModel:
-    return RunReadModel(projected_at=at, source="No current RunRecord selected")
+def empty_run_read_model(
+    *, at: datetime, projection_errors: tuple[str, ...] = ()
+) -> RunReadModel:
+    return RunReadModel(
+        projected_at=at,
+        source="No current RunRecord selected",
+        projection_errors=projection_errors,
+    )

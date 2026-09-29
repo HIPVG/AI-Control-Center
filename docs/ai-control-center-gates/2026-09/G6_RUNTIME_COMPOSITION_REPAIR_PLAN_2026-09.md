@@ -65,7 +65,8 @@ Status: `ACCEPTED`; pack `G6-RI00-COMPLETION-20260929-001`, implementation commi
 
 ### G6-RI-01 — execution result, Evidence, recovery and review adapters
 
-Status: `REJECTION_REPAIRED_AND_FOCUSED_VALIDATION_PASSED`; revised fixed review pending.
+Status: `ACCEPTED`; pack `G6-RI01-COMPLETION-20260929-002`, implementation commit
+`964438152118d6877b95826ff6359f8131c51d00`.
 
 | Field | Plan |
 |---|---|
@@ -77,6 +78,8 @@ Status: `REJECTION_REPAIRED_AND_FOCUSED_VALIDATION_PASSED`; revised fixed review
 | Stop | A required adapter that can only be achieved by weakening Evidence or review correlation returns to G4; otherwise implementation defects remain in this card. |
 
 ### G6-RI-02 — telemetry and live read-model composition
+
+Status: `IMPLEMENTED_AND_FOCUSED_VALIDATION_PASSED`; fixed review pending.
 
 | Field | Plan |
 |---|---|
