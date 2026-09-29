@@ -33,6 +33,7 @@ from backend.control.run_composition import RunCoordinator, RunPreflightFacts
 from backend.control.run_store import JsonRunStore, RunStore
 from backend.control.run_telemetry_store import JsonRunTelemetryStore, RunTelemetryStore
 from backend.control.run_projection_composition import build_run_read_model
+from backend.control.run_product_composition import RunProductComposition
 from backend.control.day_action_executor import DayActionExecutor
 from backend.control.solution_catalog import JsonSolutionCatalogStore, RepairEpisodeStore, SolutionCatalog
 from backend.control.external_review import ExternalReviewCoordinator, load_external_review_config
@@ -178,6 +179,11 @@ class ControlCenterEngine:
         self.local_llm_telemetry_store = (
             local_llm_telemetry_store
             or JsonRunTelemetryStore(project_root / "state" / "run-telemetry")
+        )
+        self.local_llm_run_product = RunProductComposition(
+            self.local_llm_day_program,
+            self.local_llm_run_store,
+            self.local_llm_telemetry_store,
         )
         self.local_llm_run_coordinator = RunCoordinator(
             self.local_llm_day_program,
@@ -767,6 +773,9 @@ class ControlCenterEngine:
         return self.local_llm_day_program.view()
 
     def local_llm_run_read_model(self) -> dict[str, object]:
+        # Resolve the current injected stores at read time.  This preserves the
+        # established test/host dependency boundary while production uses the
+        # same objects owned by ``local_llm_run_product``.
         return build_run_read_model(
             run_store=self.local_llm_run_store,
             telemetry_store=self.local_llm_telemetry_store,
