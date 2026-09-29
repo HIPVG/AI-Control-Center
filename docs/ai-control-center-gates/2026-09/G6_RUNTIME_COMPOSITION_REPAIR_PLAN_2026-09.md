@@ -50,7 +50,8 @@ change G4 state semantics, or execute a real Day.
 
 ### G6-RI-00 — durable run spine and guarded Go
 
-Status: `IMPLEMENTED_AND_FOCUSED_VALIDATION_PASSED`; fixed review pending.
+Status: `ACCEPTED`; pack `G6-RI00-COMPLETION-20260929-001`, implementation commit
+`dcbc29870f5725ccc62f3f7e74293cac1b2bdac0`.
 
 | Field | Plan |
 |---|---|
@@ -63,6 +64,8 @@ Status: `IMPLEMENTED_AND_FOCUSED_VALIDATION_PASSED`; fixed review pending.
 | Stop | If the existing Day controller cannot be bound without changing G4 semantics, stop and return to G4 with the exact contradiction. |
 
 ### G6-RI-01 — execution result, Evidence, recovery and review adapters
+
+Status: `IMPLEMENTED_AND_FOCUSED_VALIDATION_PASSED`; fixed review pending.
 
 | Field | Plan |
 |---|---|
