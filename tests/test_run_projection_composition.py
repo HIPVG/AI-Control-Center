@@ -219,6 +219,68 @@ def test_corrupt_run_or_version_history_never_becomes_current(tmp_path):
     assert body["projection_errors"] == ["RUN_VERSION_HISTORY_UNREADABLE"]
 
 
+def test_semantically_mismatched_version_history_never_becomes_current(tmp_path):
+    controller = program(tmp_path, run_id="run-current")
+    fingerprint = controller._contract_fingerprint(controller.snapshot.contract)
+    runs = JsonRunStore(tmp_path / "runs")
+    current = record("run-current", go_at=NOW, fingerprint=fingerprint)
+    runs.create(current)
+    history = runs._history_directory("run-current")
+    history.mkdir(parents=True)
+    # This is valid RunRecord JSON, but it belongs to another immutable run.
+    (history / "other-run.json").write_text(
+        record(
+            "run-other",
+            go_at=NOW - timedelta(minutes=1),
+            fingerprint=fingerprint,
+        ).model_dump_json(indent=2),
+        encoding="utf-8",
+    )
+
+    body = build_run_read_model(
+        run_store=runs,
+        telemetry_store=JsonRunTelemetryStore(tmp_path / "telemetry"),
+        program=controller,
+        at=NOW,
+    ).read()
+
+    assert body["selected"] is False
+    assert body["current"] is None
+    assert body["admission"] is None
+    assert body["projection_errors"] == ["RUN_VERSION_HISTORY_UNREADABLE"]
+
+
+def test_version_history_with_changed_immutable_intent_never_becomes_current(tmp_path):
+    controller = program(tmp_path, run_id="run-current")
+    fingerprint = controller._contract_fingerprint(controller.snapshot.contract)
+    runs = JsonRunStore(tmp_path / "runs")
+    runs.create(record("run-current", go_at=NOW, fingerprint=fingerprint))
+    history = runs._history_directory("run-current")
+    history.mkdir(parents=True)
+    # The run ID matches, but go_at and contract identity belong to a different
+    # immutable RunIntent, so this valid JSON is not a version of current.
+    (history / "changed-intent.json").write_text(
+        record(
+            "run-current",
+            go_at=NOW - timedelta(minutes=1),
+            fingerprint="other-contract-v1",
+        ).model_dump_json(indent=2),
+        encoding="utf-8",
+    )
+
+    body = build_run_read_model(
+        run_store=runs,
+        telemetry_store=JsonRunTelemetryStore(tmp_path / "telemetry"),
+        program=controller,
+        at=NOW,
+    ).read()
+
+    assert body["selected"] is False
+    assert body["current"] is None
+    assert body["admission"] is None
+    assert body["projection_errors"] == ["RUN_VERSION_HISTORY_UNREADABLE"]
+
+
 def test_optional_projection_for_another_run_is_rejected_not_applied(tmp_path):
     controller = program(tmp_path, run_id="run-current")
     fingerprint = controller._contract_fingerprint(controller.snapshot.contract)

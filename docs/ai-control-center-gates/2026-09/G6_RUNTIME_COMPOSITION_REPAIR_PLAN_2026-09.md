@@ -79,7 +79,7 @@ Status: `ACCEPTED`; pack `G6-RI01-COMPLETION-20260929-002`, implementation commi
 
 ### G6-RI-02 — telemetry and live read-model composition
 
-Status: `IMPLEMENTED_AND_FOCUSED_VALIDATION_PASSED`; fixed review pending.
+Status: `REJECTION_REPAIRED_AND_FOCUSED_VALIDATION_PASSED`; revised fixed review pending.
 
 | Field | Plan |
 |---|---|

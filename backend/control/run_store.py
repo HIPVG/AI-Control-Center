@@ -99,11 +99,22 @@ class JsonRunStore:
 
     def versions(self, run_id: str) -> tuple[RunRecord, ...]:
         history_directory = self._history_directory(run_id)
-        versions = [] if not history_directory.exists() else [
-            RunRecord.model_validate_json(path.read_text(encoding="utf-8"))
-            for path in history_directory.glob("*.json")
-        ]
         current = self.get(run_id)
-        if current is not None:
-            versions.append(current)
+        history_paths = [] if not history_directory.exists() else list(
+            history_directory.glob("*.json")
+        )
+        if current is None:
+            if history_paths:
+                raise ValueError("Run version history has no current record")
+            return ()
+
+        versions = []
+        for path in history_paths:
+            version = RunRecord.model_validate_json(path.read_text(encoding="utf-8"))
+            if version.intent.run_id != run_id:
+                raise ValueError("Stored run version ID does not match lookup")
+            if version.intent != current.intent:
+                raise ValueError("Stored run version intent does not match current run")
+            versions.append(version)
+        versions.append(current)
         return tuple(sorted(versions, key=lambda item: item.control.updated_at))
