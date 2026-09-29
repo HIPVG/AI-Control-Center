@@ -83,6 +83,9 @@ test("interventions, unknown metrics and history expose source without becoming 
   });
   assert.match(view.tokens, /Unknown — not observed/);
   assert.match(view.interventions[0], /I1.*bounded retry.*repair history/);
+  assert.equal(view.relay, "0 count — source: review registry");
+  assert.equal(view.cost, "0 JPY — source: fixture authority");
+  assert.equal(view.attempts, "1 attempts — source: repair history / limit 2 attempts — source: RunIntent");
   assert.match(view.history[0], /^Historical only/);
   assert.doesNotMatch(view.history[0], /run-10/);
 });
