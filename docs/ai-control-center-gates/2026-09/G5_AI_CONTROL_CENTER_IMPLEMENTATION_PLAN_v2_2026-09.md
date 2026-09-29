@@ -315,3 +315,16 @@ envelope検証を再利用し、ID/commit/path不一致、保留改変／削除�
 G5の出口は、G0 P01〜P08、G1の再利用条件、G2 A01〜A06/NFR、G3 M01/M04/M05、G4 v2の各機能責務と異常経路が、少なくとも一枚のカード又は明示的な`INPUT_BLOCKED`へ対応し、全カードに入力、目的、対象、非目的、前提、許可上限、禁止、費用、受領証跡、検証、停止／判断、後始末、次状態があることである。`WC-00`は、各レビューが固定commit・対象path・hash・正本区分に結び付くこと、及び外部参照不能な人間指示を独立検証済みと主張しないことを保証する。特にA04については、WC-07が相関とガード、WC-07Aが継続中／結果／後続配送の観測、VC-11が実actor証跡を分担する。
 
 本書は文書自己点検として`ARTIFACT_QUALITY_CHECK: SELF_CHECK_PASS`とする。G5の受理済み固定版は4a2b7a2であり、後続改訂の受理へ拡張しない。今回の工程内継続改訂は`REVISED_REVIEW_PENDING`として新IDで提出する。一致する肯定返信後、既存G6開始権限と3.1節によりWC-02へ進む。カードごとの追加人間承認は不要である。G6全体完了、次工程開始、Day作業又は製品受入をこの計画の自己点検から宣言しない。
+
+## 7. G7差戻し補遺 — runtime composition
+
+`G7-MUST-CLOSURE-20260929-001` は、個別カードのfixture合格を保持したまま、
+Goから実行・Evidence・repair/review・telemetry・dashboardまでの同一run製品経路が
+未接続であるとしてG7をG6へ`RETURN`した。これはG4の機能又は状態契約の変更ではなく、
+本計画が個別カード後のruntime compositionを実装カードにしなかった不足である。
+
+差戻し実装は
+`G6_RUNTIME_COMPOSITION_REPAIR_PLAN_2026-09.md` のG6-RI-00〜RI-03だけを対象とする。
+既存WC-01〜WC-10とVC-11を再実施せず、その受理済み契約を入力として接続する。
+同計画の受理と別の人間実装権限までは実装、試験、service/browser、Day/Go、モデル、
+Watcher、認証、費用又はG8を開始しない。

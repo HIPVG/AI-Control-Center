@@ -1,6 +1,6 @@
 # G7 — AI-Control-Center 検証計画
 
-- 状態: `MUST_CLOSURE_RETURN_REVIEW_PENDING`
+- 状態: `RETURN_ACCEPTED`; G6 runtime-composition plan review pending
 - 作成日: 2026-09-29
 - 実装基線: `a30ed2303a85ff00ebbb5b0721bea4fe5c66ad0f`
 - G6受理記録: `docs/review-records/G6_STAGE_COMPLETION_ACCEPTANCE_2026-09-29.md`
