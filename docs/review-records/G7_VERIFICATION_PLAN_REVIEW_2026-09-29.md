@@ -14,3 +14,17 @@
 The revision changes only the G7 plan's completeness criteria. It does not modify
 implementation, tests, G6 evidence, live services, Day state or external actors.
 
+## Accepted revision 002
+
+- Pack: `G7-VERIFICATION-PLAN-20260929-002`
+- Reviewed commit: `3b267223d507aefe113df671a9331be5c1fc0a13`
+- Result: `ACCEPT`
+- Decision boundary: plan acceptance only; not a passing G7 result
+- Authorized next action: execute GV-00, then only if it passes execute the fixed
+  GV-01 Python and Node command sets within 30 ACTIVE_WORK minutes, at most two
+  attempts per command and 0 JPY.
+- Still excluded: GV-02 live service/browser, new delivery, Day, model and product
+  E2E.
+
+The complete response reported no unresolved gap inside the plan-review scope.
+
