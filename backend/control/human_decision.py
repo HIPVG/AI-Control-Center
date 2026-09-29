@@ -139,6 +139,9 @@ class HumanDecisionControl:
             return self._result(record_id, "REJECTED", "CONFIRMATION_NOT_PENDING")
         payload = record["confirmation_payload"]
         assert isinstance(payload, dict)
+        response_id = response.get("RESPONSE_ID")
+        if not isinstance(response_id, str) or not response_id.strip():
+            return self._result(record_id, "REJECTED", "CONFIRMATION_RESPONSE_ID_MISSING")
         expected = {
             "IN_REPLY_TO": payload["REPORT_ID"],
             "CONFIRMS_REPORT_ID": payload["CONFIRMS_REPORT_ID"],
@@ -160,7 +163,7 @@ class HumanDecisionControl:
             return self._result(record_id, "REJECTED", "CONFIRMATION_EFFECT_NOT_VERIFIED")
         record["state"] = DecisionState.REVIEW_CONFIRMED
         record["reason_code"] = None
-        record["confirmation_response_id"] = response.get("RESPONSE_ID")
+        record["confirmation_response_id"] = response_id
         record["allowed_effect"] = record["decision_effect"]
         record["effect_evidence_id"] = effect_evidence_id
         return self._result(record_id, "ACCEPTED", None)

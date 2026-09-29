@@ -121,6 +121,24 @@ def test_h06_mismatched_version_or_commit_never_applies():
     assert result["effect_applied"] is False
 
 
+def test_h06_missing_confirmation_response_id_never_applies_or_records_effect():
+    control = HumanDecisionControl()
+    record_id = control.receive(response(), [request()])["record_id"]
+    pending(control, record_id)
+    reply = confirmation(control, record_id)
+    del reply["RESPONSE_ID"]
+
+    result = control.apply_confirmation(record_id, reply, continuation_succeeded=True,
+                                        effect_evidence_id="E-must-not-apply")
+
+    assert result["reason_code"] == "CONFIRMATION_RESPONSE_ID_MISSING"
+    assert result["state"] == "REVIEW_CONFIRMATION_PENDING"
+    assert result["confirmation_response_id"] is None
+    assert result["allowed_effect"] is None
+    assert result["effect_evidence_id"] is None
+    assert result["effect_applied"] is False
+
+
 def test_h07_proxy_and_delivery_failure_preserve_source_without_promoting_authority():
     control = HumanDecisionControl()
     result = control.receive(response(source_class="PROXY_RELAY", exact_text="人間が承認したとの転記"), [request()])
