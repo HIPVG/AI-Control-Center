@@ -16,4 +16,3 @@ warnings and failure-boundary assertions.
 This is not acceptance of a live service, browser, selected Day, real telemetry,
 current Watcher liveness or product E2E. The next permitted work is only the read-only
 GV-02 reread of the existing VC-11 actor trace.
-
