@@ -111,6 +111,105 @@ class RunRecord(BaseModel):
         return self
 
 
+class TelemetryMetric(BaseModel):
+    """One measured or explicitly unknown value with provenance and observation time."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+    value: int | float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    unit: str = Field(min_length=1, max_length=40)
+    source: str | None = Field(default=None, min_length=1, max_length=240)
+    observed_at: datetime
+    unknown_reason: str | None = Field(default=None, min_length=1, max_length=500)
+
+    @field_validator("observed_at")
+    @classmethod
+    def require_observation_timezone(cls, value: datetime) -> datetime:
+        return RunIntent.require_timezone(value)
+
+    @model_validator(mode="after")
+    def known_or_unknown(self) -> "TelemetryMetric":
+        if self.value is None:
+            if not self.unknown_reason:
+                raise ValueError("Unknown telemetry requires a reason")
+        elif not self.source:
+            raise ValueError("Known telemetry requires an authoritative source")
+        elif self.unknown_reason is not None:
+            raise ValueError("Known telemetry cannot carry an unknown reason")
+        return self
+
+
+class RunInterventionType(str, Enum):
+    MANUAL_RELAY = "MANUAL_RELAY"
+    HUMAN_INTERVENTION = "HUMAN_INTERVENTION"
+    EXTERNAL_INTERVENTION = "EXTERNAL_INTERVENTION"
+
+
+class RunIntervention(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    intervention_id: str = Field(min_length=1, max_length=120)
+    run_id: str = Field(min_length=1, max_length=120)
+    intervention_type: RunInterventionType
+    reason: str = Field(min_length=1, max_length=1000)
+    actor: str = Field(min_length=1, max_length=160)
+    source: str = Field(min_length=1, max_length=240)
+    occurred_at: datetime
+
+    @field_validator("occurred_at")
+    @classmethod
+    def require_intervention_timezone(cls, value: datetime) -> datetime:
+        return RunIntent.require_timezone(value)
+
+
+class RunTelemetry(BaseModel):
+    """Immutable WC-08 telemetry snapshot; it never proves Day execution."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    schema_version: Literal[1] = 1
+    run_id: str = Field(min_length=1, max_length=120)
+    manual_relay_count: TelemetryMetric
+    interventions: tuple[RunIntervention, ...] = ()
+    attempt_count: TelemetryMetric
+    attempt_limit: TelemetryMetric
+    input_tokens: TelemetryMetric
+    output_tokens: TelemetryMetric
+    cost: TelemetryMetric
+    captured_at: datetime
+
+    @field_validator("captured_at")
+    @classmethod
+    def require_capture_timezone(cls, value: datetime) -> datetime:
+        return RunIntent.require_timezone(value)
+
+    @model_validator(mode="after")
+    def validate_run_and_metric_contract(self) -> "RunTelemetry":
+        ids: set[str] = set()
+        for intervention in self.interventions:
+            if intervention.run_id != self.run_id:
+                raise ValueError("Telemetry intervention run ID mismatch")
+            if intervention.intervention_id in ids:
+                raise ValueError("Duplicate telemetry intervention ID")
+            ids.add(intervention.intervention_id)
+
+        integer_metrics = {
+            "manual_relay_count": self.manual_relay_count,
+            "attempt_count": self.attempt_count,
+            "attempt_limit": self.attempt_limit,
+            "input_tokens": self.input_tokens,
+            "output_tokens": self.output_tokens,
+        }
+        for name, metric in integer_metrics.items():
+            if metric.value is not None and not isinstance(metric.value, int):
+                raise ValueError(f"{name} must be an integer when known")
+
+        relay_count = sum(
+            item.intervention_type == RunInterventionType.MANUAL_RELAY
+            for item in self.interventions
+        )
+        if self.manual_relay_count.value is not None and self.manual_relay_count.value != relay_count:
+            raise ValueError("Manual relay count does not match intervention records")
+        return self
+
+
 class DayIssueClassification(str, Enum):
     ENGINEERING_REPAIR = "ENGINEERING_REPAIR"
     COLLECT_EVIDENCE = "COLLECT_EVIDENCE"
