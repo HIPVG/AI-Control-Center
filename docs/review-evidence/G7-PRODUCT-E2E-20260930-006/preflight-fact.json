@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "run_id": "run-7ea73560dbac4d27aebaad042022d61a",
+  "selected_day": 6,
+  "contract_fingerprint": "766eab4ab5fe77a2ee4095713b6010320a0f732343d4c5bab5393f5c7d853f03",
+  "policy_fingerprint": "30d3055450a3c29e0c574d89211df0d55094b07a044457e282e4d4e9096fd096",
+  "config_fingerprint": "85572858e965b182ecfffe19d31bae37119208f815e150586f647e99aac59bc9",
+  "git_fingerprint": "c4846dcb97261e309426d80bcfe7be02021a409ea98816dd3e1877233de82f07",
+  "observed_at": "2026-09-30T08:49:58.313906Z",
+  "effective_permission": true,
+  "external_prerequisite": true,
+  "authority_grant_id": "AUTH-G7-SP00-PRODUCT-REVALIDATION-20260930-001",
+  "authority_decision_id": "AUTH-G7-SP00-PRODUCT-REVALIDATION-20260930-001",
+  "authority_record_sha256": "fb3fe1ca830d63dd2bec26c456556f226c956961d098bd6884016e7644c30455",
+  "prerequisite_observation_ids": [
+    "G7-SP00-PRODUCT-REVALIDATION-PREREQUISITE-20260930-001"
+  ],
+  "prerequisite_observation_hashes": {
+    "G7-SP00-PRODUCT-REVALIDATION-PREREQUISITE-20260930-001": "6ad2dc9fcfe6da479b498d290ec25a9a1f7abcc2d74ae1195ae9b423ea913c4d"
+  },
+  "permission_reason": "AUTHORITY_GRANT_EXACT_MATCH",
+  "prerequisite_reason": "PREREQUISITE_OBSERVATION_EXACT_MATCH"
+}

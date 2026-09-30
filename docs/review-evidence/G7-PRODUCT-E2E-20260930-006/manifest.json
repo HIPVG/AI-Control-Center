@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "evidence_id": "G7-PRODUCT-E2E-20260930-006-RAW",
+  "captured_at": "2026-09-30T23:32:48.746618Z",
+  "source_worktree": "C:/Users/広瀬剛/.codex/worktrees/g7-sp00-revalidation/AI-Control-Center",
+  "product_commit": "3e82626faebab8e9722939b92267deb51075d93b",
+  "run_id": "run-7ea73560dbac4d27aebaad042022d61a",
+  "original_execution_files": [
+    "control-center.json",
+    "preflight-fact.json",
+    "run-current.json",
+    "run-preflight-history.json",
+    "service-access.log",
+    "service-stderr.log"
+  ],
+  "api_readback_files": [
+    "day-status-response.json",
+    "runs-response.json"
+  ],
+  "api_readback_note": "Read-only TestClient GET against the preserved post-run state on 2026-10-01; no Go, service listener, model, or product mutation was performed.",
+  "assertions": {
+    "history_state": "PREFLIGHT",
+    "current_state": "EXTERNAL_ACTION_REQUIRED",
+    "blocker": "REAL_MODE_REQUIRED",
+    "matching_run_id": true,
+    "go_post_count": 1
+  },
+  "files": {
+    "control-center.json": {
+      "sha256": "63c17ab2c50f9d41cdb571be20cdce1ff7c5ab67006df28baa251467f988cb0b",
+      "bytes": 15594
+    },
+    "day-status-response.json": {
+      "sha256": "16a4c5c8b1fc894906056bf1a58337b27bf4ef8b55a76b75ee836e835860c1e1",
+      "bytes": 9101
+    },
+    "preflight-fact.json": {
+      "sha256": "c5bd6f0fdcdda3b7735295cd706be4df73309ef9f5a192fa0e092eaf844896d3",
+      "bytes": 1242
+    },
+    "run-current.json": {
+      "sha256": "fef6604fab03907ed2d71c8dacc9aa29d74acd02a49f3140e0a3b1eeefed8551",
+      "bytes": 1283
+    },
+    "run-preflight-history.json": {
+      "sha256": "c7c1f87608d6d85e2581b4bf435fca85fdec84fca4b2fa9750da4c8834847960",
+      "bytes": 1223
+    },
+    "runs-response.json": {
+      "sha256": "b13100c680243b5861ab35e29d5c05da0adfe27c2b932e86912f1528556933f6",
+      "bytes": 2929
+    },
+    "service-access.log": {
+      "sha256": "37df220ff78ca619b2ea7dc243bd7dae1195ac76d0165c2a5ddedda0c38b8a23",
+      "bytes": 32754
+    },
+    "service-stderr.log": {
+      "sha256": "92e7f05908e0faf1c513afb37ce06c03c3f3ed57bad0f6b30173d3b3b3fc0b90",
+      "bytes": 202
+    }
+  }
+}
