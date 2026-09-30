@@ -50,6 +50,10 @@ manifest SHA-256 and asserted:
 - exact access-log occurrences of successful
   `POST /api/local-llm/day/go`: `1`.
 
+The evidence directory is scoped as `-text` in `.gitattributes`. A final independent
+check hashed each committed Git blob obtained with `git show` and confirmed that all
+eight manifest entries match the published bytes exactly (`GIT_BLOB_HASHES_PASS`).
+
 This correction changes only evidence availability. The revision 005 product result
 and its real-runtime stop boundary are unchanged.
 
