@@ -288,7 +288,7 @@ class AuthorityFactResolver:
             for grant in grants:
                 if grant.revoked_by is not None:
                     continue
-                if grant.expires_at is not None and now > grant.expires_at:
+                if grant.expires_at is not None and now >= grant.expires_at:
                     continue
                 if (
                     grant.project_id == "local_llm_lab"

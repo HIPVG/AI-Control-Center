@@ -259,6 +259,24 @@ def test_permission_does_not_substitute_for_missing_prerequisite(tmp_path: Path)
     assert resolved.record.prerequisite_observation_ids == ()
 
 
+def test_grant_at_exact_expiration_time_fails_closed_without_provenance(tmp_path: Path) -> None:
+    project_root, head = project(tmp_path)
+    record_root = tmp_path / "control-center"
+    run = intent()
+    service = resolver(tmp_path, project_root, record_root)
+    service.grant_store.create(grant(record_root, head, run, expires_at=NOW))
+    service.observation_store.create(observation(head, run))
+
+    resolved = service.resolve(run)
+
+    assert resolved.effective_permission is None
+    assert resolved.record.permission_reason == "AUTHORITY_GRANT_NOT_MATCHED"
+    assert resolved.record.authority_grant_id is None
+    assert resolved.record.authority_decision_id is None
+    assert resolved.record.authority_record_sha256 is None
+    assert resolved.external_prerequisite is True
+
+
 def test_observation_for_another_day_cannot_promote_prerequisite(tmp_path: Path) -> None:
     project_root, head = project(tmp_path)
     record_root = tmp_path / "control-center"
