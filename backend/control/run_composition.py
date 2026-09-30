@@ -9,6 +9,7 @@ from typing import Callable
 
 from backend.control.local_llm_day_program import LocalLLMDayProgram
 from backend.control.run_store import RunStore
+from backend.control.preflight_authority import PreflightFactRecord
 from backend.models.local_llm_day import LocalLLMDayState, RunControl, RunIntent, RunRecord
 
 
@@ -16,9 +17,10 @@ from backend.models.local_llm_day import LocalLLMDayState, RunControl, RunIntent
 class RunPreflightFacts:
     effective_permission: bool | None = None
     external_prerequisite: bool | None = None
+    record: PreflightFactRecord | None = None
 
 
-PreflightResolver = Callable[[int], RunPreflightFacts]
+PreflightResolver = Callable[[RunIntent], RunPreflightFacts]
 RunExecutor = Callable[[str, int], dict[str, object]]
 
 
@@ -62,18 +64,17 @@ class RunCoordinator:
                     "run_record": current.model_dump(mode="json"),
                 }
 
-            facts = self.preflight_resolver(day)
-            prepared = self.program.prepare_go(
-                day,
-                effective_permission=facts.effective_permission,
-                external_prerequisite=facts.external_prerequisite,
-            )
+            prepared = self.program.prepare_intent(day)
             raw_intent = prepared.get("run_intent")
             if raw_intent is None:
                 return {**prepared, "source": source, "record_persisted": False}
-
             intent = RunIntent.model_validate(raw_intent)
-            admission = prepared["admission"]
+            facts = self.preflight_resolver(intent)
+            admission = self.program.admission(
+                intent,
+                effective_permission=facts.effective_permission,
+                external_prerequisite=facts.external_prerequisite,
+            )
             state = LocalLLMDayState(admission["next_state"])
             record = RunRecord(
                 intent=intent,
@@ -93,6 +94,9 @@ class RunCoordinator:
             self.store.create(record)
             response = {
                 **prepared,
+                "admission_run_id": intent.run_id,
+                "admission": admission,
+                "preflight_fact": (facts.record.model_dump(mode="json") if facts.record else None),
                 "source": source,
                 "record_persisted": True,
                 "run_record": record.model_dump(mode="json"),

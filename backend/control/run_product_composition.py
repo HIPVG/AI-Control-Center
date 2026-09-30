@@ -8,6 +8,7 @@ and rejects cross-run data before it can become observable product state.
 from __future__ import annotations
 
 from backend.control.local_llm_day_program import LocalLLMDayProgram
+from backend.control.preflight_authority import PreflightFactStore
 from backend.control.run_execution_composition import RunExecutionComposition
 from backend.control.run_projection_composition import build_run_read_model
 from backend.control.run_store import RunStore
@@ -23,10 +24,12 @@ class RunProductComposition:
         program: LocalLLMDayProgram,
         run_store: RunStore,
         telemetry_store: RunTelemetryStore,
+        preflight_fact_store: PreflightFactStore | None = None,
     ) -> None:
         self.program = program
         self.run_store = run_store
         self.telemetry_store = telemetry_store
+        self.preflight_fact_store = preflight_fact_store
         self.execution = RunExecutionComposition(program, run_store)
 
     def record_telemetry(self, run_id: str, telemetry: RunTelemetry) -> dict[str, object]:
@@ -46,5 +49,6 @@ class RunProductComposition:
         return build_run_read_model(
             run_store=self.run_store,
             telemetry_store=self.telemetry_store,
+            preflight_fact_store=self.preflight_fact_store,
             program=self.program,
         ).read()

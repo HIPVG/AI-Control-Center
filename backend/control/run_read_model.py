@@ -7,6 +7,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from backend.control.preflight_authority import PreflightFactRecord
 from backend.models.local_llm_day import RunRecord, RunTelemetry
 
 
@@ -69,6 +70,7 @@ class RunReadModel(BaseModel):
     current: RunRecord | None = None
     history: tuple[RunRecord, ...] = ()
     admission: AdmissionProjection | None = None
+    preflight_fact: PreflightFactRecord | None = None
     criteria: tuple[CriterionProjection, ...] = ()
     review: ReviewProjection | None = None
     telemetry: RunTelemetry | None = None
@@ -88,12 +90,12 @@ class RunReadModel(BaseModel):
     @model_validator(mode="after")
     def matching_run_identity(self) -> "RunReadModel":
         if self.current is None:
-            if any((self.admission, self.criteria, self.review, self.telemetry,
+            if any((self.admission, self.preflight_fact, self.criteria, self.review, self.telemetry,
                     self.human_decision, self.runtime_observation)):
                 raise ValueError("Current run is required for run-bound projection data")
             return self
         run_id = self.current.intent.run_id
-        bound = [self.admission, self.review, self.telemetry,
+        bound = [self.admission, self.preflight_fact, self.review, self.telemetry,
                  self.human_decision, self.runtime_observation, *self.criteria]
         if any(item is not None and item.run_id != run_id for item in bound):
             raise ValueError("Read projection run ID mismatch")
@@ -136,6 +138,9 @@ class RunReadModel(BaseModel):
                 "is_current": False,
             } for item in self.history],
             "admission": self.admission.model_dump(mode="json") if self.admission else None,
+            "preflight_fact": (
+                self.preflight_fact.model_dump(mode="json") if self.preflight_fact else None
+            ),
             "unmet_criteria": [item.model_dump(mode="json") for item in self.criteria if not item.satisfied],
             "review": self.review.model_dump(mode="json") if self.review else None,
             "telemetry": self.telemetry.model_dump(mode="json") if self.telemetry else None,

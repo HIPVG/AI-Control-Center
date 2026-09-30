@@ -311,6 +311,24 @@ class LocalLLMDayProgram:
         prerequisite facts remain server-owned and therefore default to unknown.
         Tests may inject observed values at this internal boundary.
         """
+        prepared = self.prepare_intent(day)
+        raw_intent = prepared.get("run_intent")
+        if raw_intent is None:
+            return prepared
+        intent = RunIntent.model_validate(raw_intent)
+        admission = self.admission(
+            intent,
+            effective_permission=effective_permission,
+            external_prerequisite=external_prerequisite,
+        )
+        return {
+            **prepared,
+            "admission_run_id": intent.run_id,
+            "admission": admission,
+        }
+
+    def prepare_intent(self, day: int) -> dict[str, object]:
+        """Create the single immutable RunIntent before trusted fact resolution."""
         contract = self._load_contracts().get(day)
         if contract is None:
             return {
@@ -361,20 +379,10 @@ class LocalLLMDayProgram:
                 currency="JPY",
             ),
         )
-        admission = day_admission(
-            self.root,
-            intent=intent,
-            expected_day=day,
-            expected_contract_fingerprint=intent.contract_fingerprint,
-            effective_permission=effective_permission,
-            external_prerequisite=external_prerequisite,
-        ).view()
         return {
             "run_id": intent.run_id,
             "selected_day": day,
             "run_intent": intent.model_dump(mode="json"),
-            "admission_run_id": intent.run_id,
-            "admission": admission,
             "execution_started": False,
             "snapshot": self.view(),
         }

@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pydantic import ValidationError
 
 from backend.control.local_llm_day_program import LocalLLMDayProgram
+from backend.control.preflight_authority import PreflightFactStore
 from backend.control.run_read_model import (
     AdmissionProjection,
     CriterionProjection,
@@ -24,6 +25,7 @@ def build_run_read_model(
     *,
     run_store: RunStore,
     telemetry_store: RunTelemetryStore,
+    preflight_fact_store: PreflightFactStore | None = None,
     program: LocalLLMDayProgram,
     at: datetime | None = None,
     review: ReviewProjection | None = None,
@@ -92,11 +94,19 @@ def build_run_read_model(
     except (OSError, ValueError, ValidationError):
         errors.append("TELEMETRY_UNREADABLE_OR_MISMATCHED")
 
+    preflight_fact = None
+    if preflight_fact_store is not None:
+        try:
+            preflight_fact = preflight_fact_store.get(run_id)
+        except (OSError, ValueError, ValidationError):
+            errors.append("PREFLIGHT_FACT_UNREADABLE_OR_MISMATCHED")
+
     try:
         return RunReadModel(
             current=current,
             history=history,
             admission=admission,
+            preflight_fact=preflight_fact,
             criteria=criteria,
             review=review,
             telemetry=telemetry,
@@ -113,6 +123,7 @@ def build_run_read_model(
             current=current,
             history=history,
             admission=admission,
+            preflight_fact=preflight_fact,
             criteria=criteria,
             projection_errors=tuple((*errors, "OPTIONAL_PROJECTION_RUN_ID_MISMATCH")),
             projected_at=projected_at,

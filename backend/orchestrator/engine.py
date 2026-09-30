@@ -30,6 +30,15 @@ from backend.control.local_runtime import ApprovedLocalRuntimeService
 from backend.control.week1_program import Week1Program
 from backend.control.local_llm_day_program import LocalLLMDayProgram
 from backend.control.run_composition import RunCoordinator, RunPreflightFacts
+from backend.control.preflight_authority import (
+    AuthorityFactResolver,
+    AuthorityGrantStore,
+    JsonAuthorityGrantStore,
+    JsonPreflightFactStore,
+    JsonPrerequisiteObservationStore,
+    PreflightFactStore,
+    PrerequisiteObservationStore,
+)
 from backend.control.run_store import JsonRunStore, RunStore
 from backend.control.run_telemetry_store import JsonRunTelemetryStore, RunTelemetryStore
 from backend.control.run_projection_composition import build_run_read_model
@@ -57,7 +66,7 @@ from backend.models.result import TokenUsage
 from backend.models.runtime import CodexAttemptResult, CodexMode, CommandRunResult, FaultRepairResult, ProjectSmokeResult, RuntimeConfig, SmokeRunResult, TaskRunResult, load_runtime_config
 from backend.models.state import RunState, WorkflowState
 from backend.models.task import TaskType, WorkOrder
-from backend.models.local_llm_day import DynamicDayWorkOrder
+from backend.models.local_llm_day import DynamicDayWorkOrder, RunIntent
 from backend.orchestrator.state_machine import StateManager
 from backend.orchestrator.progress import calculate_progress
 from backend.orchestrator.day_runner import DayRunner
@@ -101,8 +110,14 @@ class ControlCenterEngine:
         local_runtime_service: ApprovedLocalRuntimeService | None = None,
         local_llm_run_store: RunStore | None = None,
         local_llm_telemetry_store: RunTelemetryStore | None = None,
-        local_llm_preflight_resolver: Callable[[int], RunPreflightFacts] | None = None,
+        local_llm_preflight_resolver: Callable[[RunIntent], RunPreflightFacts] | None = None,
         local_llm_run_executor: Callable[[str, int], dict[str, object]] | None = None,
+        local_llm_authority_grant_store: AuthorityGrantStore | None = None,
+        local_llm_prerequisite_observation_store: PrerequisiteObservationStore | None = None,
+        local_llm_preflight_fact_store: PreflightFactStore | None = None,
+        local_llm_authority_target_commit: str | None = None,
+        local_llm_authority_record_root: Path | None = None,
+        local_llm_required_paths_by_day: dict[int, tuple[str, ...]] | None = None,
     ) -> None:
         self.store = state_store
         self.state_manager = StateManager()
@@ -180,16 +195,54 @@ class ControlCenterEngine:
             local_llm_telemetry_store
             or JsonRunTelemetryStore(project_root / "state" / "run-telemetry")
         )
+        self.local_llm_authority_grant_store = (
+            local_llm_authority_grant_store
+            or JsonAuthorityGrantStore(project_root / "config" / "preflight-authorities")
+        )
+        self.local_llm_prerequisite_observation_store = (
+            local_llm_prerequisite_observation_store
+            or JsonPrerequisiteObservationStore(project_root / "state" / "preflight-prerequisites")
+        )
+        self.local_llm_preflight_fact_store = (
+            local_llm_preflight_fact_store
+            or JsonPreflightFactStore(project_root / "state" / "preflight-facts")
+        )
+        authority_fact_resolver = AuthorityFactResolver(
+            project_root=local_llm.path if local_llm else project_root / "missing-local-llm",
+            authority_record_root=(local_llm_authority_record_root or project_root),
+            target_commit=(local_llm_authority_target_commit
+                           or self._repository_head(project_root)),
+            allowed_effect="RUN_DAY_PRODUCT_VALIDATION",
+            required_paths_by_day=(local_llm_required_paths_by_day or {
+                6: (
+                    "docs/runbooks/work-plan-day1-14.md",
+                    "docs/architecture/decision-reasoning-architecture.md",
+                    "schemas/decision-reasoning",
+                ),
+            }),
+            grant_store=self.local_llm_authority_grant_store,
+            observation_store=self.local_llm_prerequisite_observation_store,
+            fact_store=self.local_llm_preflight_fact_store,
+        )
+
+        def resolve_preflight(intent: RunIntent) -> RunPreflightFacts:
+            resolved = authority_fact_resolver.resolve(intent)
+            return RunPreflightFacts(
+                resolved.effective_permission,
+                resolved.external_prerequisite,
+                resolved.record,
+            )
+
         self.local_llm_run_product = RunProductComposition(
             self.local_llm_day_program,
             self.local_llm_run_store,
             self.local_llm_telemetry_store,
+            self.local_llm_preflight_fact_store,
         )
         self.local_llm_run_coordinator = RunCoordinator(
             self.local_llm_day_program,
             self.local_llm_run_store,
-            preflight_resolver=(local_llm_preflight_resolver
-                                or (lambda _day: RunPreflightFacts())),
+            preflight_resolver=(local_llm_preflight_resolver or resolve_preflight),
             executor=(local_llm_run_executor or self._execute_composed_local_llm_day),
         )
         self.day_action_executor = DayActionExecutor(self)
@@ -203,6 +256,17 @@ class ControlCenterEngine:
         local_data = os.environ.get("LOCALAPPDATA")
         base = Path(local_data) if local_data else Path(tempfile.gettempdir())
         return (base / "AI-Control-Center" / "codex-roles").resolve()
+
+    @staticmethod
+    def _repository_head(root: Path) -> str:
+        result = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        value = result.stdout.strip()
+        return value if result.returncode == 0 and len(value) == 40 else "0" * 40
 
     def _defaults(self) -> dict[str, Any]:
         task_completed, task_total = 18, 22
@@ -780,6 +844,7 @@ class ControlCenterEngine:
             run_store=self.local_llm_run_store,
             telemetry_store=self.local_llm_telemetry_store,
             program=self.local_llm_day_program,
+            preflight_fact_store=self.local_llm_preflight_fact_store,
         ).read()
 
     def smoke_local_llm_day(self, day: int) -> dict[str, object]:
