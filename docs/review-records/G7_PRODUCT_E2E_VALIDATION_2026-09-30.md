@@ -87,4 +87,3 @@ This G7 result does not authorize the repair, another Go attempt, G8, product ac
 - The live service log is retained at `C:/Temp/ai-control-center-g7-e2e-live`.
 - G7 did not modify product code or acceptance expectations.
 - `ARTIFACT_QUALITY_CHECK: PASS`.
-
