@@ -25,7 +25,7 @@ FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "day-contract"
 NOW = datetime(2026, 9, 29, 12, 0, tzinfo=timezone.utc)
 
 
-def _engine(tmp_path, *, admitted=True):
+def _engine(tmp_path, *, admitted=True, default_executor=False):
     holder = {}
     calls = []
 
@@ -73,17 +73,56 @@ def _engine(tmp_path, *, admitted=True):
             name="LocalLLM-Lab", path=fixture_repository.resolve(), default_branch="main"
         )
     })
-    engine = ControlCenterEngine(
+    engine_kwargs = dict(
         state_store=JsonStateStore(tmp_path / "control-center.json"),
         runtime_config=RuntimeConfig(),
         project_registry=registry,
         local_llm_run_store=JsonRunStore(tmp_path / "runs"),
         local_llm_telemetry_store=JsonRunTelemetryStore(tmp_path / "telemetry"),
         local_llm_preflight_resolver=lambda _day: RunPreflightFacts(admitted, admitted),
-        local_llm_run_executor=execute,
     )
+    if not default_executor:
+        engine_kwargs["local_llm_run_executor"] = execute
+    engine = ControlCenterEngine(**engine_kwargs)
     holder["engine"] = engine
     return engine, calls
+
+
+def test_default_async_worker_projects_settled_real_mode_blocker_once(tmp_path):
+    engine, injected_calls = _engine(tmp_path, default_executor=True)
+    client, restore = _api(engine)
+    try:
+        go = client.post("/api/local-llm/day/go", json={"selected_day": 6}).json()
+        run_id = go["run_id"]
+
+        assert go["execution_started"] is True
+        assert go["run_record"]["control"]["current_state"] == "PREFLIGHT"
+        assert injected_calls == []
+
+        engine.local_llm_day_program._thread.join(5)
+        assert not engine.local_llm_day_program._thread.is_alive()
+        readback = client.get("/api/local-llm/runs").json()
+
+        assert readback["current"]["run_id"] == run_id
+        assert readback["current"]["state"] == "EXTERNAL_ACTION_REQUIRED"
+        assert readback["current"]["blocker"] == "REAL_MODE_REQUIRED"
+        projection_events = [
+            event for event in engine.timeline
+            if event.event_type.value == "DETERMINISTIC_CHECK"
+            and event.details.get("check") == "DAY_STATE_SETTLEMENT_PROJECTION"
+            and event.details.get("run_id") == run_id
+        ]
+        assert len(projection_events) == 1
+        assert projection_events[0].details["outcome"] == "ACCEPTED"
+
+        restarted, restarted_calls = _engine(tmp_path, default_executor=True)
+        restarted_readback = restarted.local_llm_run_read_model()
+        assert restarted_calls == []
+        assert restarted_readback["current"]["run_id"] == run_id
+        assert restarted_readback["current"]["state"] == "EXTERNAL_ACTION_REQUIRED"
+        assert restarted_readback["current"]["blocker"] == "REAL_MODE_REQUIRED"
+    finally:
+        restore()
 
 
 def _api(engine):

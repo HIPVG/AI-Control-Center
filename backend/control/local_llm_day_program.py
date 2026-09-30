@@ -63,6 +63,7 @@ from backend.models.audit import AuditEventType
 
 Planner = Callable[[LocalLLMDayContract, dict[str, object]], list[LocalLLMDayWorkItem]]
 WorkOrderExecutor = Callable[[dict[str, object]], dict[str, object]]
+SettlementNotifier = Callable[[str], dict[str, object]]
 
 
 class LocalLLMDayProgram:
@@ -111,6 +112,7 @@ class LocalLLMDayProgram:
         repair_episode_store: RepairEpisodeStore | None = None,
         external_review: ExternalReviewCoordinator | None = None,
         retained_evidence_resolver: RetainedEvidenceResolver | None = None,
+        settlement_notifier: SettlementNotifier | None = None,
         approved_day_one_snapshot_paths: frozenset[str] = frozenset(),
         clock: Callable[[], float] = time.time,
         project_id: str = "local_llm_lab",
@@ -126,6 +128,7 @@ class LocalLLMDayProgram:
         self.repair_episode_store = repair_episode_store or RepairEpisodeStore()
         self.external_review = external_review or ExternalReviewCoordinator(self.root)
         self.retained_evidence_resolver = retained_evidence_resolver or RetainedEvidenceResolver(self.root)
+        self.settlement_notifier = settlement_notifier
         self.clock, self.project_id, self.evidence_registry = clock, project_id, REGISTRY
         self.approved_day_one_snapshot_paths = approved_day_one_snapshot_paths
         # The contract is the denominator.  Both registries must cover it at
@@ -145,6 +148,15 @@ class LocalLLMDayProgram:
             self.snapshot.stop_reason = "INTERRUPTED_REQUIRES_RESUME"
             self.snapshot.activity = "Interrupted by restart; Resume continues from the persisted contract and task states."
             self._save()
+
+    def bind_settlement_notifier(self, notifier: SettlementNotifier) -> None:
+        """Bind the one production projection callback before a worker starts."""
+        with self._lock:
+            if self._thread is not None and self._thread.is_alive():
+                raise RuntimeError("DAY_WORKER_ALREADY_RUNNING")
+            if self.settlement_notifier is not None and self.settlement_notifier is not notifier:
+                raise RuntimeError("SETTLEMENT_NOTIFIER_ALREADY_BOUND")
+            self.settlement_notifier = notifier
 
     def days(self) -> list[dict[str, object]]:
         """Return per-Day read-only admission metadata without selecting or starting work."""
@@ -623,7 +635,7 @@ class LocalLLMDayProgram:
             self.snapshot.stop_reason = None
             self._audit("LOCAL_LLM_DAY_STARTED", {"day": day, "objective": contract.objective})
             self._save()
-            self._thread = Thread(target=self._execute, name=f"local-llm-day-{day}", daemon=True)
+            self._thread = self._settlement_thread(day, self.snapshot.run_id)
             self._thread.start()
             return self.view()
 
@@ -645,7 +657,9 @@ class LocalLLMDayProgram:
                 self._transition(LocalLLMDayState.PREFLIGHT)
                 self._stop.clear()
                 self._save()
-                self._thread = Thread(target=self._execute, name=f"local-llm-day-{day}-infrastructure-recovery", daemon=True)
+                self._thread = self._settlement_thread(
+                    day, self.snapshot.run_id, suffix="-infrastructure-recovery"
+                )
                 self._thread.start()
                 return self.view()
             operator_episode = self._external_review_operator_resume_episode()
@@ -659,9 +673,70 @@ class LocalLLMDayProgram:
             self._transition(LocalLLMDayState.PREFLIGHT)
             self._stop.clear()
             self._save()
-            self._thread = Thread(target=self._execute, name=f"local-llm-day-{day}-resume", daemon=True)
+            self._thread = self._settlement_thread(day, self.snapshot.run_id, suffix="-resume")
             self._thread.start()
             return self.view()
+
+    def _settlement_thread(
+        self, day: int, expected_run_id: str | None, *, suffix: str = ""
+    ) -> Thread:
+        return Thread(
+            target=self._execute_and_notify_settlement,
+            args=(expected_run_id,),
+            name=f"local-llm-day-{day}{suffix}",
+            daemon=True,
+        )
+
+    def _execute_and_notify_settlement(self, expected_run_id: str | None) -> None:
+        """Persist a settled worker state before one guarded same-run notification."""
+        self._execute()
+        if expected_run_id is None or self.settlement_notifier is None:
+            return
+        with self._lock:
+            if self.snapshot.run_id != expected_run_id:
+                self._settlement_audit(
+                    expected_run_id, "REJECTED", "DAY_SNAPSHOT_RUN_ID_MISMATCH"
+                )
+                return
+            if self.snapshot.state in self.ACTIVE_STATES:
+                self._settlement_audit(
+                    expected_run_id, "REJECTED", "DAY_WORKER_NOT_SETTLED"
+                )
+                return
+            try:
+                self._save()
+            except Exception as exc:
+                self._settlement_audit(
+                    expected_run_id, "FAILED", f"DAY_FINAL_SAVE_FAILED:{type(exc).__name__}"
+                )
+                return
+        try:
+            result = self.settlement_notifier(expected_run_id)
+        except Exception as exc:
+            self._settlement_audit(
+                expected_run_id, "FAILED", f"DAY_STATE_PROJECTION_FAILED:{type(exc).__name__}"
+            )
+            return
+        outcome = str(result.get("outcome", "UNKNOWN"))
+        reason = result.get("reason_code")
+        self._settlement_audit(
+            expected_run_id,
+            outcome,
+            str(reason) if reason else "DAY_STATE_PROJECTED",
+        )
+
+    def _settlement_audit(self, run_id: str, outcome: str, reason_code: str) -> None:
+        try:
+            self._audit("DETERMINISTIC_CHECK", {
+                "check": "DAY_STATE_SETTLEMENT_PROJECTION",
+                "run_id": run_id,
+                "outcome": outcome,
+                "reason_code": reason_code,
+            })
+        except Exception:
+            # Projection and its fail-closed result must not be retried because an
+            # optional audit sink is unavailable.
+            return
 
     def register_retained_evidence(self) -> dict[str, object]:
         """Persist only resolver-validated evidence for the selected Day.

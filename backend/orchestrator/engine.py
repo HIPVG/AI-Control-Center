@@ -239,6 +239,9 @@ class ControlCenterEngine:
             self.local_llm_telemetry_store,
             self.local_llm_preflight_fact_store,
         )
+        self.local_llm_day_program.bind_settlement_notifier(
+            self.local_llm_run_product.execution.project_day_state
+        )
         self.local_llm_run_coordinator = RunCoordinator(
             self.local_llm_day_program,
             self.local_llm_run_store,

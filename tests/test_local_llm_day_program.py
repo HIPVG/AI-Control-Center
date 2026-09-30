@@ -3,6 +3,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from threading import Event
 
 import pytest
 
@@ -24,6 +25,128 @@ from backend.models.audit import AuditEventType
 
 
 FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "day-contract"
+
+
+def test_settlement_notification_follows_final_save_exactly_once(monkeypatch):
+    order = []
+    worker_started = Event()
+    release_worker = Event()
+
+    def persist(snapshot):
+        if snapshot["state"] == LocalLLMDayState.EXTERNAL_ACTION_REQUIRED.value:
+            order.append("terminal-save")
+
+    def notify(run_id):
+        order.append(f"notify:{run_id}")
+        return {"outcome": "ACCEPTED", "run_id": run_id}
+
+    runner = LocalLLMDayProgram(
+        FIXTURE_ROOT, persist=persist, settlement_notifier=notify
+    )
+
+    def controlled_execute():
+        worker_started.set()
+        assert release_worker.wait(2)
+        with runner._lock:
+            runner.snapshot.state = LocalLLMDayState.EXTERNAL_ACTION_REQUIRED
+            runner.snapshot.phase = LocalLLMDayState.EXTERNAL_ACTION_REQUIRED.value
+            runner.snapshot.stop_reason = "REAL_MODE_REQUIRED"
+            runner.snapshot.activity = "Real runtime authority is required."
+            runner._save()
+
+    monkeypatch.setattr(runner, "_execute", controlled_execute)
+    returned = runner.start(6, run_id="run-settlement-order")
+    assert worker_started.wait(2)
+    assert returned["state"] == LocalLLMDayState.PREFLIGHT.value
+    assert not any(item.startswith("notify:") for item in order)
+
+    release_worker.set()
+    runner._thread.join(2)
+
+    assert not runner._thread.is_alive()
+    assert order.count("notify:run-settlement-order") == 1
+    assert order[-2:] == ["terminal-save", "notify:run-settlement-order"]
+
+
+def test_settlement_notification_is_not_emitted_when_final_save_fails(monkeypatch):
+    terminal_saves = 0
+    notifications = []
+
+    def persist(snapshot):
+        nonlocal terminal_saves
+        if snapshot["state"] == LocalLLMDayState.STOPPED.value:
+            terminal_saves += 1
+            if terminal_saves == 2:
+                raise OSError("fixture final-save failure")
+
+    runner = LocalLLMDayProgram(
+        FIXTURE_ROOT,
+        persist=persist,
+        settlement_notifier=lambda run_id: notifications.append(run_id) or {"outcome": "ACCEPTED"},
+    )
+
+    def controlled_execute():
+        with runner._lock:
+            runner.snapshot.state = LocalLLMDayState.STOPPED
+            runner.snapshot.phase = LocalLLMDayState.STOPPED.value
+            runner.snapshot.stop_reason = "STOP_REQUESTED"
+            runner._save()
+
+    monkeypatch.setattr(runner, "_execute", controlled_execute)
+    runner.start(6, run_id="run-save-failure")
+    runner._thread.join(2)
+
+    assert terminal_saves == 2
+    assert notifications == []
+
+
+def test_settlement_notification_rejects_captured_run_mismatch(monkeypatch):
+    notifications = []
+    runner = LocalLLMDayProgram(
+        FIXTURE_ROOT,
+        settlement_notifier=lambda run_id: notifications.append(run_id) or {"outcome": "ACCEPTED"},
+    )
+
+    def controlled_execute():
+        with runner._lock:
+            runner.snapshot.run_id = "other-run"
+            runner.snapshot.state = LocalLLMDayState.STOPPED
+            runner.snapshot.phase = LocalLLMDayState.STOPPED.value
+            runner.snapshot.stop_reason = "STOP_REQUESTED"
+            runner._save()
+
+    monkeypatch.setattr(runner, "_execute", controlled_execute)
+    runner.start(6, run_id="run-expected")
+    runner._thread.join(2)
+
+    assert notifications == []
+
+
+@pytest.mark.parametrize("mode", ["rejected", "exception"])
+def test_settlement_notification_rejection_or_exception_is_not_retried(monkeypatch, mode):
+    notifications = []
+
+    def notify(run_id):
+        notifications.append(run_id)
+        if mode == "exception":
+            raise RuntimeError("fixture projection failure")
+        return {"outcome": "REJECTED", "reason_code": "RUN_NOT_CURRENT"}
+
+    runner = LocalLLMDayProgram(FIXTURE_ROOT, settlement_notifier=notify)
+
+    def controlled_execute():
+        with runner._lock:
+            runner.snapshot.state = LocalLLMDayState.STOPPED
+            runner.snapshot.phase = LocalLLMDayState.STOPPED.value
+            runner.snapshot.stop_reason = "STOP_REQUESTED"
+            runner._save()
+
+    monkeypatch.setattr(runner, "_execute", controlled_execute)
+    runner.start(6, run_id="run-non-applying")
+    runner._thread.join(2)
+
+    assert notifications == ["run-non-applying"]
+    assert runner.snapshot.state == LocalLLMDayState.STOPPED
 
 
 def test_day_one_checkpoint_template_v2_is_a_new_action_identity():
