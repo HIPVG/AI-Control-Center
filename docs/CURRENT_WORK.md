@@ -1,6 +1,19 @@
 # Current Work
 
-## Current checkpoint — G8 RG-04 attempt 003 authorized (2026-10-01)
+## Current checkpoint — G8 RG-04 attempt 003 passed; completion review preparation (2026-10-01)
+
+Attempt 003 completed one current event-driven Reviewer round trip. Report comment
+5928954706 received response comment 5928970236; the isolated Watcher applied it
+once, ran one Codex continuation with exit code 0 and `NO_REPORT`, and stopped with
+no pending/outstanding probe. The original Watcher registry is byte-identical and no
+product/release effect occurred.
+
+The post-stop scheduled-task enumeration is `NOT_EVALUABLE` because Windows CIM
+access failed; process and service-registration matches are zero and no registration
+operation exists in the validation launcher. Fix the evidence and RG-04 completion
+pack, then stop for review. Do not start RG-06 or release. `NO_RELEASE` remains.
+
+## Historical checkpoint — G8 RG-04 attempt 003 authorized (2026-10-01)
 
 広瀬剛 authorized a new attempt with 「許可します。実施してください。」 after
 confirming that the GitHub event-triggered Reviewer task was created and run. Use
