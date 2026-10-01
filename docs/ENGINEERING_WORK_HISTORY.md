@@ -4049,3 +4049,20 @@ published LF blobs for ten CRLF captures, so the capture hashes were not direct 
 blob hashes. The bounded correction publishes the exact runtime authority original
 and adds an explicit capture-to-Git transport manifest. No product execution, test,
 implementation, Watcher, credential, G8 or product-acceptance action is performed.
+
+## 2026-10-01 — G7 revision 009 accepted; stage evidence reconciled
+
+Applied the complete `ACCEPT` response for `G7-PRODUCT-E2E-20261001-009` at
+reviewed product commit `656711367ed837ddbb75e6df65234a955e44900d`. The Reviewer
+recalculated the 1010-byte runtime authority hash and all 21 capture/public Git blob
+mappings, closing both revision-008 traceability objections. Recorded the bounded
+product classifications as A01/A02/A05/A06 `PASS` and A03/A04-current
+`NOT_EVALUABLE`.
+
+Reconciled the accepted deterministic verification, historical actor evidence and
+bounded Day 6 product evidence without another execution. Proposed G7 `PASS` because
+the accepted plan does not require manufacturing repair or review events: A03's
+guards remain fixture-verified and A04 retains the admitted historical actor trace,
+while their non-occurrence in the successful run remains explicit. No G8, product
+acceptance, service/browser, Day/Go, model, Watcher, credential or paid action was
+started. The next boundary is the separate G7 stage-result review.

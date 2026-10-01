@@ -1,5 +1,20 @@
 # Current Work
 
+## Current checkpoint — G7 bounded product result accepted; stage review pending (2026-10-01)
+
+Reviewer accepted `G7-PRODUCT-E2E-20261001-009` for fixed product build
+`656711367ed837ddbb75e6df65234a955e44900d`. The runtime authority original and all
+21 capture/public Git mappings are independently reproducible. A01, A02, A05 and
+A06 are accepted `PASS`; A03 repair and A04 current review remain occurrence-level
+`NOT_EVALUABLE` because the successful run needed neither path.
+
+Reconcile the G7 stage from already accepted deterministic, historical-actor and
+product evidence. The proposed stage result is `PASS`: the accepted G7 conditions
+explicitly forbid manufacturing a repair and require a current review trace only if
+the selected run needs review. Submit the separate stage result for review and stop.
+Do not rerun tests or product operations, start G8, accept the product, operate the
+Watcher, change credentials or spend funds.
+
 ## Current checkpoint — G7 product result rejected on evidence transport bytes (2026-10-01)
 
 Reviewer rejected `G7-PRODUCT-E2E-20261001-008` without disputing the one-Go,
