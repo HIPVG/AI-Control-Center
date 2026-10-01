@@ -4014,3 +4014,24 @@ Committed the G6 completion evidence as
 `217e79ec9e8953201620b58b43720cb06fbe75fb`, pushed and remote-read back.
 Completion report `G6-AUTHORITY-FACT-STAGE-REVIEW-20260930-001` was published once
 and read back at Review Bridge PR #1 comment `5903317499`. Stopped before G7.
+
+## 2026-10-01 — Day 6 product revalidation completed on reconciled composition
+
+Applied `AUTH-G7-DAY6-PRODUCT-REVALIDATION-20261001-001` to fixed product build
+`656711367ed837ddbb75e6df65234a955e44900d` and approved LocalLLM baseline
+`e33b0a410fb8647711f02ae4e6e0b66472e6eff0` in new isolated worktrees. The single
+service process verified the managed `CODEX_SQLITE_HOME`, kept Reviewer Bus disabled,
+accepted exactly one browser Go and invoked Codex exactly once.
+
+Product run `run-494056aceb824430be81da7507d949c9` completed all four Day 6 criteria.
+Its six referenced completion Evidence Records have exact run/criterion bindings;
+Day state, terminal RunRecord, run API and visible dashboard all read `COMPLETE` for
+that run. Same-run telemetry records attempt 1 of 2, gross/cached/uncached/output
+tokens, `TASK_BUDGET_EXCEEDED`, and an explicit unknown reason for unavailable JPY
+cost. The four scoped artifacts passed their deterministic postcheck (`4 passed`).
+
+The service was stopped after raw readback. No retry, extra Go, implementation,
+Watcher, credential, G8 or product-acceptance action occurred. A01/A02/A05/A06 are
+proposed `PASS`; A03/A04-current remain `NOT_EVALUABLE`. The repeated-composition-gap
+condition for a G4/G5 return was not observed. Evidence is fixed at
+`docs/review-evidence/G7-DAY6-PRODUCT-REVALIDATION-20261001-001/`.

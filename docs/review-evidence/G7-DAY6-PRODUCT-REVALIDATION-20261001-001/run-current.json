@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "intent": {
+    "schema_version": 1,
+    "run_id": "run-494056aceb824430be81da7507d949c9",
+    "selected_day": 6,
+    "go_at": "2026-10-01T04:20:11.095309Z",
+    "contract_fingerprint": "766eab4ab5fe77a2ee4095713b6010320a0f732343d4c5bab5393f5c7d853f03",
+    "policy_fingerprint": "30d3055450a3c29e0c574d89211df0d55094b07a044457e282e4d4e9096fd096",
+    "config_fingerprint": "85572858e965b182ecfffe19d31bae37119208f815e150586f647e99aac59bc9",
+    "git_fingerprint": "c4846dcb97261e309426d80bcfe7be02021a409ea98816dd3e1877233de82f07",
+    "requested_limits": {
+      "active_work_seconds": 1800,
+      "max_attempts": 2,
+      "max_tokens": null,
+      "max_cost": 0.0,
+      "currency": "JPY"
+    }
+  },
+  "control": {
+    "schema_version": 1,
+    "run_id": "run-494056aceb824430be81da7507d949c9",
+    "selected_day": 6,
+    "contract_fingerprint": "766eab4ab5fe77a2ee4095713b6010320a0f732343d4c5bab5393f5c7d853f03",
+    "current_state": "COMPLETE",
+    "state_history": [
+      "PREFLIGHT"
+    ],
+    "next_action": "Completion criteria are supported by persisted evidence.",
+    "blocker": null,
+    "resume_target": null,
+    "updated_at": "2026-10-01T04:22:21.424960Z"
+  }
+}

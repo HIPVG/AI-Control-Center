@@ -1,0 +1,28 @@
+AI CONTROL CENTER
+LocalLLM-Lab Day Runner
+Captured from the visible browser UI after terminal settlement.
+
+CURRENT ACTIVITY
+COMPLETE
+COMPLETE: Completion criteria are supported by persisted evidence.
+Evidence: 4 / 4 criteria
+100%
+
+RUN STATUS — READ ONLY
+COMPLETE
+Selected Day: Day 6
+Run ID: run-494056aceb824430be81da7507d949c9
+Admission: ADMISSIBLE — source: initial persisted RunControl
+Runtime Observation: UNKNOWN — source: no runtime observation
+Stop / Blocker: None recorded
+Unmet Criteria: None recorded
+Attempts: 1 attempts — source: terminal task records:50b4076f5b65c734 / limit 2 attempts — source: immutable RunIntent
+Tokens: input 273793 tokens — source: terminal task records:50b4076f5b65c734; output 4792 tokens — source: terminal task records:50b4076f5b65c734
+Cost: Unknown — terminal task records did not expose measured cost JPY
+
+FINAL RESULT
+DAY_COMPLETE
+Completion criteria are supported by persisted evidence.
+Satisfied Criteria: d6-state_representations, d6-temporal_provenance, d6-fail_closed_temporal, d6-architecture_consistency
+
+Watcher UI status: DISABLED_BY_ENV

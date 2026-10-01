@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Temporal State",
+  "description": "A fail-closed temporal boundary. Planned, actual, and forecast facts are never interchangeable; snapshot_time is the time at which this state was assembled.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["snapshot_time", "planned", "actual", "forecast"],
+  "properties": {
+    "snapshot_time": {"type": "string", "format": "date-time"},
+    "planned": {"$ref": "#/$defs/factSet"},
+    "actual": {"$ref": "#/$defs/factSet"},
+    "forecast": {"$ref": "#/$defs/factSet"}
+  },
+  "$defs": {
+    "factSet": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/fact"}
+    },
+    "fact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fact_id", "value", "effective_time", "source_record_ids"],
+      "properties": {
+        "fact_id": {"type": "string", "minLength": 1},
+        "value": {"type": ["string", "number", "integer", "boolean", "null", "object", "array"]},
+        "effective_time": {"type": "string", "format": "date-time"},
+        "source_record_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  }
+}

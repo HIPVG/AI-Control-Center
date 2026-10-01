@@ -1,5 +1,23 @@
 # Current Work
 
+## Current checkpoint — Day 6 product revalidation fixed for review (2026-10-01)
+
+Under `AUTH-G7-DAY6-PRODUCT-REVALIDATION-20261001-001`, fixed product build
+`656711367ed837ddbb75e6df65234a955e44900d` used one service start, one browser Go
+and one actual Codex/model execution against a new isolated clean LocalLLM-Lab
+worktree. Product run `run-494056aceb824430be81da7507d949c9` reached durable
+`COMPLETE` with 4/4 criteria. The completion Evidence references are bound to the
+exact run and criterion; RunRecord, API and UI agree; same-run telemetry records one
+attempt, token split, budget warning and reasoned unavailable cost.
+
+Submit this bounded product result for review. A01/A02/A05/A06 are proposed `PASS`;
+A03/A04-current remain `NOT_EVALUABLE` because no repair or current review path was
+naturally required. No repeated cross-component composition gap was observed, so
+the G4/G5 return rule was not triggered. Do not start another Go, repair, service,
+model, Watcher, G8 or product acceptance. After acceptance, reconcile the complete
+G7 stage from existing accepted fixture/historical-actor evidence plus this product
+run; do not rerun merely to manufacture A03/A04 events.
+
 ## Current checkpoint — G6 product-run reconciliation accepted; G7 authority pending (2026-10-01)
 
 Reviewer accepted

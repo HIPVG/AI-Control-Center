@@ -1,0 +1,14 @@
+PRODUCT_HEAD 656711367ed837ddbb75e6df65234a955e44900d
+LOCAL_LLM_BASELINE e33b0a410fb8647711f02ae4e6e0b66472e6eff0
+PRODUCT_RUNTIME_OVERRIDES config/runtime.yaml config/projects.yaml
+LOCAL_LLM_SOURCE_WORKTREE_STATUS CLEAN
+ENGINEERING_WORKTREE de2d40441ed74de9a22c331a15147ac0
+ENGINEERING_WORKTREE_STATUS
+?? docs/architecture/temporal-state.md
+?? schemas/temporal-state.json
+?? scripts/eval/temporal_state.py
+?? tests/test_temporal_state.py
+SERVICE_STARTS 1
+BROWSER_GO_REQUESTS 1
+CODEX_MODEL_ATTEMPTS 1
+WATCHER DISABLED_BY_ENV

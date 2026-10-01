@@ -1,0 +1,45 @@
+{
+  "grant": {
+    "schema_version": 1,
+    "grant_id": "AUTH-G7-DAY6-PRODUCT-REVALIDATION-20261001-001",
+    "decision_id": "AUTH-G7-DAY6-PRODUCT-REVALIDATION-20261001-001",
+    "created_at": "2026-10-01T04:19:11.962723Z",
+    "source_class": "RECORDED_DIRECT_CONVERSATION",
+    "authority_record": "docs/review-records/G7_DAY6_PRODUCT_REVALIDATION_AUTHORITY_2026-10-01.md",
+    "authority_record_sha256": "2598e32f33266f9805daed5ec5cd396090efe1a3ba905b8becb43949f4879eab",
+    "project_id": "local_llm_lab",
+    "selected_day": 6,
+    "allowed_effect": "RUN_DAY_PRODUCT_VALIDATION",
+    "target_commit": "656711367ed837ddbb75e6df65234a955e44900d",
+    "contract_fingerprint": "766eab4ab5fe77a2ee4095713b6010320a0f732343d4c5bab5393f5c7d853f03",
+    "policy_fingerprint": "30d3055450a3c29e0c574d89211df0d55094b07a044457e282e4d4e9096fd096",
+    "config_fingerprint": "85572858e965b182ecfffe19d31bae37119208f815e150586f647e99aac59bc9",
+    "local_llm_commit": "e33b0a410fb8647711f02ae4e6e0b66472e6eff0",
+    "git_fingerprint": "c4846dcb97261e309426d80bcfe7be02021a409ea98816dd3e1877233de82f07",
+    "requested_limits": {
+      "active_work_seconds": 1800,
+      "max_attempts": 2,
+      "max_tokens": null,
+      "max_cost": 0.0,
+      "currency": "JPY"
+    },
+    "expires_at": null,
+    "revoked_by": null
+  },
+  "observation": {
+    "schema_version": 1,
+    "observation_id": "G7-DAY6-PRODUCT-REVALIDATION-PREREQUISITE-20261001-001",
+    "project_id": "local_llm_lab",
+    "selected_day": 6,
+    "observed_at": "2026-10-01T04:19:11.962723Z",
+    "local_llm_commit": "e33b0a410fb8647711f02ae4e6e0b66472e6eff0",
+    "git_fingerprint": "c4846dcb97261e309426d80bcfe7be02021a409ea98816dd3e1877233de82f07",
+    "required_paths": [
+      "docs/runbooks/work-plan-day1-14.md",
+      "docs/architecture/decision-reasoning-architecture.md",
+      "schemas/decision-reasoning"
+    ],
+    "ready": true,
+    "reason_codes": []
+  }
+}
