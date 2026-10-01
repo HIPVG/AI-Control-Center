@@ -1,5 +1,19 @@
 # Current Work
 
+## Current checkpoint — G6 product-run reconciliation accepted; G7 authority pending (2026-10-01)
+
+Reviewer accepted
+`G6-PRODUCT-RUN-RECONCILIATION-STAGE-COMPLETION-20261001-002` at reviewed commit
+`f82d976ce40b37998fa3d7e71bc7fe53ad4b54d7`. The returned G6 implementation and
+deterministic-fixture stage is complete. Revision 001 remains rejected and all
+accepted card/guard identities remain fixed.
+
+Stop for a separate human decision on bounded G7 product revalidation. No service,
+browser, actual Day/Go, model, Watcher, G7/G8 or product acceptance is authorized by
+the G6 acceptance. If the next G7 run reveals another same-class cross-component
+composition gap, stop small-patch cycling and return to G4/G5 integration design and
+gate-method review.
+
 ## Current checkpoint — G6 terminal-state guard accepted; stage revision 002 pending (2026-10-01)
 
 Reviewer accepted `G6-TERMINAL-STATE-CONFLICT-GUARD-COMPLETION-20261001-001` at

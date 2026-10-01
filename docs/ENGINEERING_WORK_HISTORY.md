@@ -1,5 +1,18 @@
 # Engineering work history
 
+## 2026-10-01 — G6 product-run reconciliation returned stage accepted
+
+Applied the complete `ACCEPT` response for
+`G6-PRODUCT-RUN-RECONCILIATION-STAGE-COMPLETION-20261001-002` at reviewed commit
+`f82d976ce40b37998fa3d7e71bc7fe53ad4b54d7`. The Reviewer confirmed the unique
+accepted PR-00 through PR-03 and invariant-9 guard chain, retention of revision 001's
+REJECT, closure of the completed-state conflict, and full plan-DoD mapping within the
+implementation/deterministic-fixture boundary.
+
+Recorded the returned G6 stage complete and stopped at the separate G7 product
+revalidation authority boundary. No source change, test, service/browser, actual
+Day/Go, model, Watcher, credential, spending, G7/G8 or product acceptance occurred.
+
 ## 2026-10-01 — G6 terminal-state conflict guard accepted
 
 Applied the complete `ACCEPT` response for
