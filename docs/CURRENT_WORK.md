@@ -1,6 +1,24 @@
 # Current Work
 
-## Current checkpoint — G8 RG-04 accepted within its limited boundary (2026-10-01)
+## Current checkpoint — bounded local release recorded; no operation started (2026-10-01)
+
+広瀬剛 selected option 1 with `1。限定ローカルでリリースします`. Decision
+`D8-LOCAL-BOUNDED-RELEASE-20261001-001` designates the exact accepted artifact
+`AI-Control-Center-Day6-Bounded-RC1` as `RELEASED_LOCAL_BOUNDED` for Day 6
+demonstration use by 広瀬剛 on the fixed local Windows/loopback environment.
+
+The archive was read back at 288,116 bytes and SHA-256
+`6453a213b0a48b827bbbc83ec2bdf1036515e6d857451473402cae3fb79f6714`;
+the existing local candidate root is present and retains default `mock` mode. RG-06
+is `COMPLETE_ACCEPTED_LIMITATIONS`. A03/A04 remain occurrence-level
+`NOT_EVALUABLE`; other Days, continuous operation, external distribution, real mode
+and broader release remain excluded.
+
+No service, Watcher, Day/Go, model, credential or external operation was started.
+Stop after recording and review preparation. Any operational start or broader scope
+requires its applicable explicit authority.
+
+## Historical checkpoint — G8 RG-04 accepted within its limited boundary (2026-10-01)
 
 Attempt 003 completed one current event-driven Reviewer round trip. Report comment
 5928954706 received response comment 5928970236; the isolated Watcher applied it

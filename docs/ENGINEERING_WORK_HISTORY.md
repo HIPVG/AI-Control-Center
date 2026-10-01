@@ -1,5 +1,24 @@
 # Engineering work history
 
+## 2026-10-01 — Day 6 bounded local release selected and recorded
+
+広瀬剛 selected RG-06 option 1 with the direct instruction
+`1。限定ローカルでリリースします`. Recorded decision
+`D8-LOCAL-BOUNDED-RELEASE-20261001-001` as `RECORDED_DIRECT_CONVERSATION`.
+It designates only `AI-Control-Center-Day6-Bounded-RC1` for Day 6 demonstration use
+by 広瀬剛 on the accepted local Windows/loopback boundary.
+
+Immediately before recording, re-read the preserved ZIP: 288,116 bytes and SHA-256
+`6453a213b0a48b827bbbc83ec2bdf1036515e6d857451473402cae3fb79f6714`.
+The existing local candidate root is present and retains default `mock` mode. No
+archive generation, extraction, service/Watcher start, Day/Go, model, credential or
+external operation occurred.
+
+RG-06 is now `COMPLETE_ACCEPTED_LIMITATIONS`. A03 actual repair and A04 product-run
+review remain occurrence-level `NOT_EVALUABLE`; other Days, continuous operation,
+external distribution, real mode and every broader release remain excluded. The
+former `NO_RELEASE` state is superseded only for this exact bounded local identity.
+
 ## 2026-10-01 — G8 RG-04 revision 002 accepted within its limited boundary
 
 Applied the complete `ACCEPT` response for

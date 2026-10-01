@@ -1,7 +1,7 @@
 # G8 GA-03 — Local Release-Gate Plan
 
 - **Plan ID:** `G8-GA03-RELEASE-GATE-PLAN-20261001-001`
-- **Status:** `PLAN_FOR_REVIEW`
+- **Status:** `RELEASED_LOCAL_BOUNDED`
 - **Authority:** `AUTH-G8-GA03-RELEASE-GATE-20261001-001`
 - **Candidate product build:** `656711367ed837ddbb75e6df65234a955e44900d`
 - **Operating owner:** 広瀬剛
@@ -18,6 +18,19 @@ run a model, test a product path, alter credentials or spend funds.
 The current accepted claim remains
 `ACCEPT_BOUNDED_DAY6_DEMONSTRATION`. It is not all-Day acceptance, continuous
 operation or a release decision.
+
+## Applied local release decision
+
+広瀬剛 selected option 1 with the direct instruction
+`1。限定ローカルでリリースします`. Decision
+`D8-LOCAL-BOUNDED-RELEASE-20261001-001` releases only the fixed
+`AI-Control-Center-Day6-Bounded-RC1` identity for Day 6 demonstration use by
+広瀬剛 on the named local Windows/loopback environment. It accepts the RG-06
+limitations below and does not start a service, Watcher, Day/Go or model.
+
+The former `NO_RELEASE` state is superseded only for that exact bounded local scope.
+All-Day, multi-user, externally accessible, continuously unattended, real-mode and
+externally distributed release states remain `NOT_RELEASED`.
 
 ## 2. Fixed inputs and retained limitations
 
@@ -41,7 +54,7 @@ authority may be requested. A plan is not evidence that a condition is met.
 | RG-03 | Stop and rollback are usable. | Tested or otherwise approved stop/rollback procedure for the named artifact, with evidence preservation. | `COMPLETE_LIMITED` — revision 002 was accepted at reviewed commit `b1dc48e...`. One isolated mock start/stop returned the candidate to no process/listener/service/task with evidence retained. The accepted trace remains a post-execution transcription, not native OS audit evidence, and graceful shutdown is not claimed. |
 | RG-04 | Review path is current and bounded. | Current Reviewer Bus/Watcher condition or an explicitly approved alternative, correlation and escalation path. | `COMPLETE_LIMITED` — `G8-RG04-REVIEW-PATH-COMPLETION-20261001-002` accepted one exactly correlated report/response, one Watcher application/stop and one `NO_REPORT` continuation with zero matching post-stop registrations. Continuous liveness and all failure paths are not claimed. |
 | RG-05 | Cost and credential conditions are safe. | Explicit spend limit, credential owner/change rule and treatment of unavailable cost. | `COMPLETE_POLICY_BOUNDARY` — zero-spend, unknown-cost and credential rules accepted in the operating envelope. |
-| RG-06 | Scope limitations are accepted. | Human decision whether A03/A04 and all-Day gaps are acceptable for the named release scope. | `INPUT_REQUIRED` — bounded Day 6 acceptance does not decide release scope. |
+| RG-06 | Scope limitations are accepted. | Human decision whether A03/A04 and all-Day gaps are acceptable for the named release scope. | `COMPLETE_ACCEPTED_LIMITATIONS` — decision `D8-LOCAL-BOUNDED-RELEASE-20261001-001` accepts A03/A04 as occurrence-level `NOT_EVALUABLE` and excludes all other Days, continuous operation and broader release claims. |
 | RG-07 | Ownership and recovery are assigned. | Operating owner, escalation contact, data/evidence retention and stop authority. | `COMPLETE_POLICY_BOUNDARY` — owner, stop authority, retention and escalation accepted in the operating envelope. |
 
 ## 4. Future authority boundary
@@ -56,7 +69,9 @@ human authority propose an actual release. That authority must name:
 5. the cost, credential and time limits; and
 6. exactly which G8 limitations remain accepted, deferred or rejected.
 
-Without that authority, `NO_RELEASE` remains in force.
+That authority now exists only as decision
+`D8-LOCAL-BOUNDED-RELEASE-20261001-001` for the exact bounded local identity.
+Every broader release remains prohibited.
 
 ## 5. GA-03 deliverables and stop condition
 

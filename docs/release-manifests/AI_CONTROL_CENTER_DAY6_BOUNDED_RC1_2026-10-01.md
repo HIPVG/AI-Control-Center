@@ -19,6 +19,14 @@
 The inventory hash is calculated from UTF-8 without BOM, one sorted relative path
 per LF-terminated line.
 
+## Release disposition
+
+Human decision `D8-LOCAL-BOUNDED-RELEASE-20261001-001` designates these exact bytes
+as `RELEASED_LOCAL_BOUNDED` for Day 6 demonstration use by 広瀬剛 on the fixed local
+Windows/loopback environment. This later disposition does not alter the archive or
+its original packaging evidence. It does not designate an all-Day, externally
+distributed, multi-user, continuously unattended or real-mode release.
+
 ## Packaging boundary
 
 Included content is drawn directly from the fixed commit and is limited to runtime
@@ -36,8 +44,9 @@ Explicitly excluded:
 - `config/external-review.json`; and
 - binary release publication or GitHub Release metadata.
 
-The tracked `config/runtime.yaml` remains `mode: mock`. This is a source candidate,
-not an operational or externally distributed release.
+The tracked `config/runtime.yaml` remains `mode: mock`. The archive is now the fixed
+bounded local release source, not an operationally started or externally distributed
+release.
 
 ## Reproduction
 

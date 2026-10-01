@@ -10,6 +10,15 @@
 - Policy: `docs/WORKING_RULES.md` at
   `60c0fe7dcf8935fad4c6d3818256a94e95965501`
 
+## Final bounded disposition
+
+広瀬剛 first selected `ACCEPT_BOUNDED_DAY6_DEMONSTRATION` and subsequently issued
+`1。限定ローカルでリリースします`. The latter is recorded as
+`D8-LOCAL-BOUNDED-RELEASE-20261001-001` and completes RG-06 by accepting the
+documented limitations for the fixed local RC1 identity only. It does not change the
+underlying evidence classifications: A03 actual repair and A04 product-run review
+remain occurrence-level `NOT_EVALUABLE`, and all-Day acceptance remains absent.
+
 ## 1. Purpose and boundary
 
 G8 turns the fixed G0 purpose, G2 acceptance conditions and accepted G7 evidence
