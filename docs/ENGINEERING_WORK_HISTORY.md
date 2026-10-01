@@ -1,5 +1,358 @@
 # Engineering work history
 
+## 2026-10-01 — G6 PR-00 strict Evidence binding fixed for review
+
+Recorded human authority `AUTH-G6-PRODUCT-RUN-RECONCILIATION-20261001-001` for
+PR-00 through PR-03, sharing 30 ACTIVE_WORK minutes, at most two executions of each
+focused command and 0 JPY cost. Implemented PR-00 at
+`8dad7084e146dd1d1e9305e3f7c4ae3b888753af`: accepted Day Evidence is revalidated
+and copied into distinct immutable records carrying the exact product run ID,
+criterion ID and contract fingerprint. All results are computed before mutation,
+and historical nullable Evidence remains unchanged.
+
+The first focused execution (`11 passed, 1 failed`) exposed a missing exact-criterion
+filter during restart reevaluation. The bounded correction produced the final
+`12 passed`; no third execution occurred. Published review pack
+`G6-PR00-COMPLETION-20261001-001` at
+`269a02615a356fabfcffda6dbb8dabcc461c814b`; remote readback matched, and work
+stopped before PR-01. No service, browser, Day/Go, model, Watcher, G7/G8 or
+product-acceptance action occurred.
+
+## 2026-10-01 — G6 product-run reconciliation plan accepted
+
+Applied the complete matching acceptance of
+`G6-PRODUCT-RUN-RECONCILIATION-PLAN-20261001-001` at
+`73cfcafd85f285cdc5db6afba5d322d48af7d304`. The Reviewer accepted PR-00 through
+PR-03 as the minimum repair for run/criterion Evidence binding, same-run telemetry,
+terminal projection and deterministic production-composition proof.
+
+Recorded the acceptance at `dd14debfb43a55e94b77dd0c523d53c338f6312c`, pushed it
+and matched the remote readback. No implementation, test, Go, model, service,
+Watcher or G8 action occurred. The next boundary is a separate human implementation
+decision; unnecessary detail work did not delay the checkpoint.
+
+## 2026-10-01 — G7 product return accepted and minimum G6 plan fixed
+
+Applied the complete matching acceptance of `G7-PRODUCT-E2E-20261001-007` at
+`91423c2e45fa5c4b35ee589c003adcdd3f39ac13`. The response independently matched
+all twelve evidence hashes and accepted the three product discrepancies: nullable
+run/criterion Evidence, terminal Day/RunRecord divergence, and missing same-run
+attempt/token/budget/cost-availability telemetry.
+
+Created a four-card dependency-ordered G6 plan that reuses the strict Evidence
+evaluator, telemetry contract, SP-00 settlement notification and guarded state
+projection. It preserves historical nullable Evidence as read-compatible only,
+separates zero from unknown cost, prohibits rewriting the accepted real run, and
+uses a deterministic production-composition fixture instead of another Day 6 run.
+No source, test, service, Go, model, Watcher or G8 action occurred. Fixed plan commit
+`73cfcafd85f285cdc5db6afba5d322d48af7d304`; pack head
+`0e4b9d1291e9a6d82160e9d26aa12f8ec9444cd5` was pushed and read back.
+
+## 2026-10-01 — Real Day 6 execution completed; same-run product composition failed
+
+The service process first verified that configured and resolved
+`CODEX_SQLITE_HOME` both used the existing Control Center-managed directory. One
+browser Go created admitted product run `run-8b9fb7cac4c948098af3e9aa7dfeaf8d`.
+One real Codex execution in isolated engineering worktree
+`a8dce10961cf44bfb38ef75e92d7ff2c` changed only the four allowed Day 6 files.
+The postcheck passed six tests and Day state reached all four criteria and COMPLETE.
+
+Actual usage was 528,695 gross input tokens (474,112 cached, 54,583 uncached) and
+8,131 output tokens; `TASK_BUDGET_EXCEEDED` was retained. The service log contains
+one Go and the service was stopped after terminal readback.
+
+Product G7 did not pass: the same RunRecord/dashboard remained PREFLIGHT, Evidence
+Records used for completion had null run/criterion IDs, and actual task usage was not
+run-bound telemetry. Recorded A01 PASS, A02/A05/A06 FAIL and A03/A04-current
+NOT_EVALUABLE. Fixed raw evidence and artifacts with hashes; no retry, repair,
+Watcher, credentials, G8 or product-acceptance action occurred. Unnecessary detail
+work did not delay the bounded result.
+
+## 2026-10-01 — Day 6 real-mode retry 2 authorized
+
+広瀬剛 issued `AUTH-G7-DAY6-REAL-MODE-RETRY-20261001-002`. The replacement
+validation must use a new isolated product worktree and explicitly set the existing
+Control Center-managed `C:\AI-Control-Center\state\codex-sqlite` as
+`CODEX_SQLITE_HOME`. The exact path must be verified before browser Go.
+
+One additional Day 6 Go and one actual model execution are allowed. The fixed build,
+clean LocalLLM baseline, Grant/RunIntent limit two, 30 ACTIVE_WORK minutes, 0 JPY,
+Reviewer Bus disablement and previous exclusions remain unchanged.
+
+## 2026-10-01 — Corrected Day 6 real-mode retry reached admission, then failed before Codex start
+
+Used the one additional Go from
+`AUTH-G7-DAY6-REAL-MODE-RETRY-20261001-001` in a new isolated product worktree.
+Run `run-dbfa4263c3fd47709057548288a9468d` had an exact Grant/RunIntent
+`max_attempts: 2` match, matching prerequisite facts and `ADMISSIBLE` admission.
+
+The engineering adapter then attempted its one allowed Codex boundary but returned
+`CODEX_SQLITE_HOME_NOT_FOUND` before a subprocess, thread, turn or model call began.
+The fresh product worktree lacked the fallback directory and the service process did
+not receive the existing managed `C:\AI-Control-Center\state\codex-sqlite` path.
+This second setup omission was recorded without retry. Exactly one Go appears in the
+complete service log; all token counters and cost are zero; LocalLLM-Lab is clean.
+
+Stopped the service and browser, retained the failed state and isolated engineering
+worktree, and fixed raw evidence plus hashes. A further Go requires new human
+authority and an explicit pre-Go verification of the managed SQLite path. No
+Watcher, credential, G8 or product-acceptance action occurred.
+
+## 2026-10-01 — Corrected Day 6 real-mode retry authorized
+
+広瀬剛 issued `AUTH-G7-DAY6-REAL-MODE-RETRY-20261001-001`. Preserve the first
+blocked run, create a new isolated product worktree, use the product's fixed
+RunIntent/Grant `max_attempts: 2`, and retain the separate actual Codex execution cap
+of one. The authority adds one Go only; the existing 30 ACTIVE_WORK minutes, 0 JPY,
+fixed product and LocalLLM baselines, Day 6 scope, Reviewer Bus disablement and all
+prior exclusions remain unchanged.
+
+## 2026-10-01 — Day 6 real-mode validation failed closed on Grant limit mismatch
+
+The authorized browser path produced exactly one Go POST and run
+`run-a64337972833404e9f5dcd4265f6765f`. Admission stopped before Day or model
+execution because the exact Grant used `max_attempts: 1`, while the product creates
+an immutable RunIntent with its deterministic upper bound `max_attempts: 2`.
+Prerequisite evidence matched, but effective permission remained unknown.
+
+This was a validation setup error: the human one-real-model limit was incorrectly
+encoded as the RunIntent attempt limit. The engineering adapter independently calls
+the Codex task with `max_codex_attempts=1`, so the correct setup retains two in the
+Grant and enforces one at the actual model boundary. No model, tokens, Day output,
+LocalLLM-Lab change or cost occurred. The blocked state was preserved, service and
+browser were stopped, and no retry was made. A fresh isolated run and additional Go
+now require explicit human authority.
+
+## 2026-10-01 — Day 6 real-mode product validation authorized
+
+広瀬剛 explicitly issued `AUTH-G7-DAY6-REAL-MODE-20261001-001`. The authority is
+limited to the fixed Day 6 product path on product build `3e82626...` and clean
+LocalLLM-Lab baseline `e33b0a4...`: 30 ACTIVE_WORK minutes, one Go, one real-model
+execution and 0 JPY. Real mode is a run-local override; allowed writes are the Day 6
+scope in an isolated engineering worktree and isolated validation state/evidence.
+
+The run may evaluate A02 and only naturally reached A03/A04-current. Failure
+injection, additional execution, Watcher, credentials, G8, main changes and product
+acceptance remain excluded.
+
+## 2026-10-01 — G7 revision 006 raw evidence accepted
+
+Applied the complete acceptance of `G7-PRODUCT-E2E-20261001-006` at reviewed commit
+`aed7922c20c375336f3c7aad8cd6b62cda088e25`. The Reviewer independently recomputed
+the byte lengths and SHA-256 values for all eight fixed evidence files and matched
+the manifest. The preserved records establish exactly one Go and the same-run
+transition from `PREFLIGHT` to `EXTERNAL_ACTION_REQUIRED / REAL_MODE_REQUIRED`;
+later GET readback remains distinguished from the original communication record.
+
+Recorded A01 and A05 as limited `PASS`, A06 as partial `PASS`, A02 as
+`INPUT_BLOCKED`, and A03/A04-current as `NOT_EVALUABLE`. G7 stopped at the separate
+`REAL_MODE_REQUIRED` human/runtime authority boundary. No real-mode change, model,
+additional Go, Watcher, G8 or product-acceptance action was performed.
+
+## 2026-10-01 — Fix G7 product evidence availability without rerun
+
+Applied the complete rejection of `G7-PRODUCT-E2E-20260930-005`. The product result
+was not rejected on behavior; the reviewed commit lacked the raw RunRecord, Day/API
+readback and access-log bytes needed to verify the stated hashes and one-Go claim.
+
+Copied the preserved original Day state, preflight fact, PREFLIGHT history RunRecord,
+current RunRecord and complete service logs into a versioned evidence directory.
+Captured GET-only Day/run API readbacks from the same preserved state without a
+listener or Go, and labelled them as later readbacks rather than original wire
+captures. A manifest records SHA-256 and byte length for every file. An independent
+PowerShell reconciliation verified all hashes, one shared run ID, the state
+transition, blocker and exactly one successful Go POST. No product, runtime, model,
+Watcher or source operation occurred, and unnecessary detail work did not delay the
+correction.
+
+## 2026-09-30 — G7 SP-00 product revalidation closes live projection gap
+
+Used an isolated product worktree at `3e82626...` and the unchanged clean LocalLLM
+baseline. Reviewer Bus was disabled. A new exact current-build Grant and fresh Day 6
+prerequisite observation admitted one Chrome Go; no second Go, real-mode change or
+model invocation occurred.
+
+Run `run-7ea73560dbac4d27aebaad042022d61a` was first persisted at `PREFLIGHT` and,
+after the asynchronous worker stopped, the dashboard, Day API, run API and durable
+RunRecord all converged on `EXTERNAL_ACTION_REQUIRED / REAL_MODE_REQUIRED`. This
+closes the accepted A05 projection return with product-path evidence. The remaining
+G7 boundary is real-runtime authority; cost stayed 0 JPY. The isolated service was
+stopped, dirty user work was preserved and no unnecessary detail work delayed the
+result.
+
+## 2026-09-30 — G7 SP-00 product revalidation authorized
+
+広瀬剛 replied `許可します` to the exact proposal to publish the SP-00 acceptance
+and perform one bounded Day 6 product revalidation of fixed implementation
+`3e82626faebab8e9722939b92267deb51075d93b`. Recorded decision
+`AUTH-G7-SP00-PRODUCT-REVALIDATION-20260930-001`.
+
+The validation window is 30 ACTIVE_WORK minutes, one Go and 0 JPY, using isolated
+clean product and LocalLLM-Lab checkouts with Reviewer Bus disabled. It may create an
+exact current-build Grant and prerequisite observation and observe the asynchronous
+same-run projection only. Real mode, model execution, repair, Watcher, credentials,
+G8 and product acceptance remain excluded.
+
+## 2026-09-30 — SP-00 accepted at deterministic-fixture scope
+
+Applied exact acceptance for `G6-SP00-COMPLETION-20260930-001` at
+`3e82626faebab8e9722939b92267deb51075d93b`. The Reviewer confirmed the captured
+run ID, non-active final-save-before-notify order, one guarded projection, failure
+non-application, default asynchronous executor path, accepted audit and restart
+readback.
+
+Recorded G6 SP-00 complete only for implementation and deterministic fixtures. No
+live service/browser, Go/Day, real mode, model, Watcher, G7 rerun or G8 action was
+performed. Stopped for a separate direct G7 product-revalidation decision.
+
+## 2026-09-30 — SP-00 asynchronous settlement projection implemented
+
+Added a single Day-worker settlement wrapper shared by Start and Resume paths. It
+captures the run ID, waits for `_execute` to return, requires a non-active same-run
+snapshot, performs a final save and calls the existing guarded RunRecord projection
+once. Production Engine binds that callback; it does not project on the early Go
+return or duplicate state semantics.
+
+Settlement fixtures passed 3 tests on execution 1 and 5 after the final direct
+rejection/exception non-retry assertions on execution 2. Product, projection and
+authority composition passed 18 tests on execution 1 with six existing dependency
+warnings. Scoped compile and diff checks passed. No live/product operation occurred;
+evidence is in `docs/review-records/G6_SP00_2026-09-30.md`. Fixed implementation
+commit `3e82626faebab8e9722939b92267deb51075d93b` and completion pack head
+`1d570fe5c1ab6880e7bef766fd98feca9210b067` were pushed and read back from GitHub.
+
+## 2026-09-30 — SP-00 implementation authorized
+
+広瀬剛 explicitly authorized the accepted SP-00 plan with the exact limits of 30
+ACTIVE_WORK minutes, at most two executions per focused command and 0 JPY. Recorded
+decision `AUTH-G6-SP00-IMPLEMENTATION-20260930-001`. The plan acceptance record was
+published as `aaea1a9b178852d7cf0823f580f2a3034df8e960` and remote-read back.
+Implementation remains limited to the asynchronous post-save settlement notification,
+existing guarded projection wiring and focused fixtures.
+
+## 2026-09-30 — Async settlement projection plan accepted
+
+Applied exact acceptance for
+`G6-SAME-RUN-STATE-PROJECTION-PLAN-20260930-002` at
+`c6b81eb779350f9f2ed1be47bcc6da1a23c3aa0b`. The Reviewer confirmed that the
+post-save Day worker settlement notification and its ordering/non-application
+fixtures are the minimum sufficient plan for the G7 projection return.
+
+Recorded plan acceptance only. SP-00 implementation, fixture execution, service,
+browser, Go/Day, real mode, model, Watcher, G8 and product acceptance remain
+unstarted pending a separate direct human implementation decision.
+
+## 2026-09-30 — Correct projection plan to the asynchronous settlement boundary
+
+Applied the complete rejection of
+`G6-SAME-RUN-STATE-PROJECTION-PLAN-20260930-001`. Read-only inspection confirmed
+that `LocalLLMDayProgram.start()` launches `_execute` on a daemon thread and returns
+the current view immediately; the Engine default executor returns that result.
+
+Revised SP-00 only at the invocation boundary. The Day worker lifecycle performs a
+final successful non-active snapshot save, then emits one same-run notification per
+execution episode to the existing guarded projection. The deterministic proof now
+controls worker ordering and asserts early return, save-before-notify and one-time
+application. No implementation, test, Go/Day, real-mode, model, Watcher or G8 action
+occurred. Fixed the revised plan and rejection record at
+`c6b81eb779350f9f2ed1be47bcc6da1a23c3aa0b`; published revision 002 pack at remote
+head `6ea65ac0e14985870fa1736448a3ea2b1fb767bb`. GitHub readback confirmed both.
+
+## 2026-09-30 — G7 projection return accepted and minimally replanned
+
+Applied the exact `ACCEPT` response for `G7-PRODUCT-E2E-20260930-004` at
+`18be053bde907f646737bfd2f36753585d8e051d`. The accepted return is limited to
+the missing production call from the completed executor path to the existing guarded
+same-run Day-state projection. `REAL_MODE_REQUIRED` remains a separate authority
+boundary.
+
+Prepared one-card G6 plan SP-00: inject and wire a post-execution projection callback,
+reuse the existing identity/Evidence/review guards, prove durable same-run readback
+and fail-closed mismatch/error paths with deterministic fixtures. No implementation,
+test, service/browser, Go/Day, model, runtime/config, Watcher or G8 action occurred.
+Fixed the plan and acceptance record at
+`575108e0a73d1d8ffdffb95724c0341e0e2ef108`, then published review pack
+`G6-SAME-RUN-STATE-PROJECTION-PLAN-20260930-001` at remote head
+`c29fd540d18383560b1a548ab18de4914a70270b`. GitHub API readback confirmed both
+the pack and reviewed commit. Stopped for plan review and separate human
+implementation authority.
+
+## 2026-09-30 — G7 current-build authority passes; run projection diverges
+
+Applied the direct bounded G7 revalidation authority with a new current-build Grant
+and fresh Day 6 prerequisite observation. Used isolated product and clean LocalLLM
+worktrees, Reviewer Bus disabled, one Chrome Go and 0 JPY. Admission recorded exact
+permission and prerequisite matches for run
+`run-b229e3cee8a347b5bd621b799b146cda`.
+
+The Day controller stopped at `EXTERNAL_ACTION_REQUIRED / REAL_MODE_REQUIRED`
+because the fixed runtime uses mock Codex. The durable run read model remained
+`PREFLIGHT` without the blocker, exposing that the production default executor result
+is not projected into RunControl. Did not use the second Go, change runtime, repair
+code, invoke a model or operate Watcher. Stopped the service and proposed a minimum
+G6 return for the projection gap. Unnecessary detail work did not delay the result.
+
+## 2026-09-30 — G6 authority-fact stage accepted at fixture boundary
+
+Applied the exact `ACCEPT` response for
+`G6-AUTHORITY-FACT-STAGE-COMPLETION-20260930-001`, reviewed at
+`acd505f66ca66550e392f00922b94843243b26c4`. Recorded G6 authority-fact
+composition complete only for AF-00 revision 002, AF-01, and their deterministic
+fixtures. AF-00 revision 001 remains rejected history. No live service/browser,
+Go/Day, model, Watcher, credential, spending, G7/G8 or product operation was
+performed. Stopped for the separate human decision required before G7 product
+revalidation; the historical Day 6 Grant is not reused for the current build.
+
+## 2026-09-30 — G6 authority-fact implementation authorized
+
+広瀬剛 replied `開始してください。` to the fixed two-card plan at commit
+`3f7352e...`. Recorded direct authority
+`AUTH-G6-AUTHORITY-FACT-IMPLEMENTATION-20260930-001`. AF-00 is selected first;
+AF-01 remains review-blocked. Limits are 30 ACTIVE_WORK minutes per card, two runs
+per focused command and 0 JPY, with no real service/browser/Go/Day/model/Watcher
+operation.
+
+## 2026-09-30 — G7 permission-composition return accepted and replanned
+
+Applied exact acceptance for `G7-PRODUCT-E2E-20260930-003` at
+`ef93249eb238cbf52707e8ff4521e7d9f487a198`. Kept the result limited to the
+production preflight authority/prerequisite resolver; downstream product validation
+remains unevaluated.
+
+Prepared a two-card G6 plan. AF-00 adds strict create-only versioned authority and
+prerequisite evidence with exact intent matching. AF-01 wires it into the production
+coordinator and validates the actual FastAPI composition with an injected executor.
+The plan rejects unconditional booleans, browser permission, Markdown parsing and
+permission-as-prerequisite shortcuts. No implementation, test, service, Go, Day,
+model or Watcher operation occurred. Stopped for human implementation authority.
+
+## 2026-09-30 — G7 clean baseline exposes unresolved permission composition
+
+Created separate detached LocalLLM-Lab and AI-Control-Center validation worktrees,
+leaving the original dirty work untouched. The LocalLLM checkout at approved commit
+`e33b0a4...` remained clean before and after execution. Started the loopback service
+with Reviewer Bus disabled, confirmed empty run state, and used Chrome to select
+Day 6 without creating a run.
+
+One Go created `run-a29217eb049447b68b83ce53a1df1054` and stopped at
+`HUMAN_ACTION_REQUIRED / EFFECTIVE_PERMISSION_UNKNOWN`. Dashboard, API and the
+RunRecord agreed; no executor, model or telemetry started and cost was 0 JPY. The
+production `RunCoordinator` receives default-empty `RunPreflightFacts`, with no
+trusted path from the already-recorded authority into effective permission or the
+external prerequisite. Did not repeat the unchanged action. Stopped the service and
+preserved both worktrees and evidence. Proposed G7 `RETURN` to bounded G6 composition
+repair; no repair was made in validation.
+
+## 2026-09-30 — New G7 clean-baseline validation window authorized
+
+広瀬剛 replied `はい、進めてください。` to the exact proposed baseline and new
+validation window. Recorded decision
+`AUTH-G7-CLEAN-BASELINE-VALIDATION-20260930-001`: retain the dirty LocalLLM-Lab
+working tree unchanged, use a separate clean checkout at `e33b0a4...`, and resume
+Day 6 product validation for at most 30 ACTIVE_WORK minutes, two Go attempts and
+0 JPY. Reviewer Bus remains disabled. This is validation authority, not repair,
+G8 or product acceptance.
+
 ## 2026-09-22 — Establish mandatory engineering-history ledger
 
 - **Requested change:** Enforce a complete engineering-history read before work and one exact ledger entry after every individual change.
@@ -1873,3 +2226,1601 @@ No ACL repair retry, Day action, LocalLLM invocation, GitHub access, commit, pus
 
 ### NEXT
 Restart the local Control Center process so the watcher loads the guarded handoff, then verify the next response/report cycle through the existing watcher-owned transport.
+
+
+## 2026-09-25 — Project restart planning and G0 draft
+
+### REQUEST / INTENT
+The human requested a project restart under the attached integrated AI work standard,
+with existing project assets inspected for possible reuse. The human then explicitly
+authorized saving the restart plan and G0 prompt in this repository and executing the
+prompt to produce a G0 draft.
+
+### INSTRUCTION APPLIED
+Created `docs/PROJECT_RESTART_PLAN_2026-09.md`,
+`prompts/G0_RESTART_ARTIFACT_PROMPT_2026-09.md`, and
+`docs/G0_RESTART_ARTIFACT_DRAFT_2026-09.md`. The G0 result permits only G1
+read-only investigation; it does not authorize implementation, tests, application
+startup, LocalLLM work, external delivery, Git mutation, deletion, or state reset.
+
+### EVIDENCE / SCOPE CONTROL
+Current policy, current-work definition, authoritative Day runbook, engineering
+history, reviewer watcher state, Git state, tracked-file inventory, and relevant
+control components were read. Existing untracked state and pytest directories were
+preserved. No commit, push, reviewer-bus operation, or external call was performed.
+
+### NEXT
+Obtain the G0 governance decisions or, if the human authorizes it, perform only the
+specified G1 read-only inventory and classification.
+
+## 2026-09-25 — Second execution of the saved G0 prompt
+
+The human explicitly requested another execution. Read the saved prompt, current
+policy in full, CURRENT_WORK, the referenced runbook, relevant history and persisted
+watcher fields; refreshed Git identity and attachment/prompt hashes. Generated
+`docs/G0_RESTART_ARTIFACT_DRAFT_2026-09_v2.md` in this conversation, retaining v1
+and the unchanged prompt. The saved-document permission carries forward from the
+human request; it is not derived from the attachment.
+
+The draft distinguishes observed data from historical reports, partial reading
+from complete reading, project risk from the current drafting activity, and
+limited G1 readiness from formal acceptance. No new reviewer response was applied
+or external message sent. No Day, model subprocess, tests, or Git mutation ran.
+G0 draft self-check uses the five acceptance conditions in the v2 artifact;
+independent acceptance remains pending. Stop after delivering this rerun artifact.
+
+## 2026-09-25 — Correct product purpose and regenerate G0
+
+The human rejected the earlier framing: this is a project to build AI-Control-Center,
+not a project to produce G0 drafts. Read the supplied ten-conversation ZIP with
+focused inspection of the original user requests and later scope corrections.
+The intended product removes routine human relaying between ChatGPT and Codex;
+the initial scenario is selecting a LocalLLM-Lab Day and pressing Go, followed by
+bounded planning, execution, evidence, review, ordinary repair, and stopping at the
+selected Day boundary. Historical instructions were not executed as current authority.
+
+Created docs/PROJECT_PURPOSE_2026-09.md with source message references, product
+requirements and proposed acceptance conditions. Replaced the saved restart prompt
+and plan, then applied the corrected prompt in this conversation to create
+docs/G0_AI_CONTROL_CENTER_PROJECT_2026-09.md. No separate model/API was invoked.
+Marked both earlier G0 drafts superseded for their purpose/acceptance/stage decisions;
+their previous self-checks do not establish the correctness of the product framing.
+
+This is documentation-only work. Existing code, state, untracked artifacts, current
+policy and CURRENT_WORK were preserved. Product tests, Day/model startup, external
+delivery, Git mutations, and implementation were not performed. Product acceptance
+and independent review remain pending. Next proposed work is the bounded G1
+main-path reuse/gap inventory, not further G0 generation or automatic Day execution.
+
+## 2026-09-25 — Accepted G0 review corrections and named roles
+
+The human approved the G0 review and authorized its three corrections: evidence
+insufficiency must block completion rather than all permitted recovery work; the
+first-Day proof scope must be separated from the Day 1–14 delivery scope; and the
+dashboard's visible status and cost information must be verified against persisted
+execution state. The human named roles: 広瀬剛 as human owner and final accepter,
+Codex as planner/implementer, ChatGPT as reviewer/verifier, and ChatGPT optionally
+as a dashboard monitoring/summarization aid.
+
+Updated the purpose, restart plan, G0 artifact, and its reusable prompt accordingly.
+The G0 records that ChatGPT's reviewer and verifier roles are distinct from Codex but
+are not independent from one another when held by the same ChatGPT; mechanical checks,
+real-path evidence, and the human final acceptance remain required. No product code,
+Day/model execution, test, external delivery, Git mutation, or state reset occurred.
+
+## 2026-09-25 — G0 human approval recorded
+
+広瀬剛 approved the corrected G0 document in this Codex conversation. Recorded that
+human approval in the G0 artifact and restart plan. No separate delivery to Codex or
+the reviewer bus was needed: this conversation is already the Codex intake path.
+The approval covers the G0 document and its safe G1 investigation boundary only; it
+does not start G1, authorize product implementation or Day execution, or authorize
+tests, external delivery, Git mutation, or state reset.
+
+## 2026-09-25 — G1 current-state investigation prompt
+
+After G0 approval, the human requested a prompt for G1. Created
+`prompts/G1_CURRENT_STATE_REUSE_GAP_PROMPT_2026-09.md`. It confines G1 to
+read-only current-state investigation and a saved G1 record: A01–A06 path tracing,
+resource/authority mapping without secrets, reuse classification, and a bounded gap
+list. It incorporates the approved roles and the corrections to evidence handling,
+pilot-versus-delivery scope, and dashboard verification. The prompt has not been
+executed; no G1 artifact, product operation, test, external delivery, Git mutation,
+or state reset occurred.
+
+## 2026-09-25 — G1 current-state, reuse, and gap investigation
+
+### CONTEXT / AUTHORITY
+After the human approved the G1 prompt review, the human instructed Codex to apply
+the corrections and execute G1. The authorization was limited to `DIAGNOSIS`:
+read-only investigation, saving the G1 record, and this fact-based history append.
+
+### BASELINE AND READING
+Re-read the current policy and active-work hierarchy, the LocalLLM-Lab Day runbook,
+G0/purpose/restart artifacts, the canonical Day Runner specification, relevant
+history and persisted state, current local Git references, relevant startup scripts,
+FastAPI/controller/frontend paths, and non-secret configuration metadata. The
+baseline branch is `agent/autonomous-multitask-orchestration` at
+`7eda9c6b5c303409557971e7b4eec65fef25f75e`. Existing dirty and untracked assets
+were preserved; status reading reported access-denied warnings for some legacy
+`.pytest-*` paths.
+
+### RESULT
+Created `docs/G1_AI_CONTROL_CENTER_CURRENT_STATE_2026-09.md`. It records the A01–A06
+paths, role/resource mapping, conditional-reuse candidates, isolated historical
+state, dashboard/telemetry gaps, and the difference between persisted Day 4/watcher
+reports and current runtime proof. The proposed G1 exit is limited handoff to G2
+requirements definition; it is not approval to start G2 or implementation.
+
+### NOT PERFORMED
+No test, app/model/watcher start or stop, Day operation, reviewer-bus/external/API
+delivery, credential access, Git change operation, state reset, or deletion/move of
+untracked assets was performed.
+
+### NEXT
+Obtain the required review/confirmation of the G1 record before defining G2. Any
+live runtime, external-review, or model validation requires its own scope and, when
+applicable, authority boundary.
+
+## 2026-09-25 — G1 exit approval and G2 requirements draft
+
+### APPROVAL RECORDED
+広瀬剛 approved the G1 exit determination and directed the project to proceed to
+G2. The approval authorizes G2 requirements-definition artifacts only; it does not
+authorize G3 feasibility work, product implementation, tests, startup, Day actions,
+external delivery, cost-incurring operations, Git change operations, or state reset.
+
+### RESULT
+Recorded the approval in the G1 record and restart plan. Created
+`prompts/G2_REQUIREMENTS_DEFINITION_PROMPT_2026-09.md` and applied it to create
+`docs/G2_AI_CONTROL_CENTER_REQUIREMENTS_DRAFT_2026-09.md`. The draft defines the
+product objective, non-objectives, A01–A06 functional requirements, nonfunctional
+requirements, role boundaries, pilot-versus-Day-1–14 scope, and five explicit human
+decisions required before G3.
+
+### STOP CONDITION
+The first proof Day, execution/token/cost/time/retry limits, external-review
+transport conditions, acceptance environment, and operational-metric retention are
+not inferred. They remain `PENDING_HUMAN_DECISION`; G2 formal exit and all later
+execution remain blocked on their confirmation.
+
+## 2026-09-25 — G2 decision values supplied by the human
+
+広瀬剛 provided all five pending G2 decisions. The comparison design has two cases:
+already-completed Day 1 is a reference case that must be provenance/condition checked
+and is not rerun; intended Day 6 is a no-reference new-execution candidate. The
+comparison measures control, evidence, and stop behavior with/without reusable
+reference, not research-result quality. Historical isolated Day 6 status artifacts
+remain excluded from the new-case reference.
+
+For any later G3 case, ACTIVE_WORK is capped at 30 minutes and attempts at two;
+additional paid operations are prohibited, and token values have no requested cap but
+may only be recorded when actually available. Required external review may use the
+current role rules; missing authentication is a human decision boundary. Results are
+returned in this chat, the comparison has no screen operation, and its future G3
+deadline is three hours from start. Retain only performed actions and short notes;
+stop before any cost would be incurred. Updated the G2 prompt and requirements draft.
+
+### REVIEWER DELIVERY READINESS
+The required GitHub reviewer transport was checked before attempting a G2 completion
+report. The active `HIPVG` account has an invalid keyring token. No report was sent,
+no reauthentication was attempted, and no fallback was used. This is recorded as the
+human authority boundary specified by D-03, not as a successful review or a G2 exit.
+
+### AUTHENTICATION RECOVERY
+After 広瀬剛 confirmed that GitHub authentication had been reset, the same elevated
+access path used for reviewer delivery verified the active `HIPVG` keyring account
+and required `repo` scope. The credential value was not read or recorded. Existing
+Day 6 reviewer reports had matching responses and are outside the latest human G2
+scope; they are not outstanding G2 work. The next permitted operation is one G2
+completion-review report, followed by a safe checkpoint.
+
+### G2 REVIEW REJECTION AND CORRECTION
+The reviewer replied to `G2-ACC-REVIEW-20260925-001` with `RESULT: REJECT`: the
+local untracked G2 file was not reviewer-visible from PR #1. The matching response
+requires the complete artifact body to be posted as a PR #1 comment without Git
+changes, followed by one new completion report containing that comment ID/link, the
+verified SHA-256, and the unchanged G2 stop boundary. The human also approved an
+explicit final-coverage expression: safety, execution, permitted automatic repair,
+human decision request for unresolved cases, evidence, stop, and recovery. Applied
+that wording to the G2 final-scope row before preparing the required re-submission.
+
+## 2026-09-25 — G2 reviewer acceptance and human exit approval
+
+The complete G2 artifact was published as reviewer-visible evidence in Review Bridge
+comment `5827557995`; the re-submitted completion report was comment `5827562128`.
+ChatGPT reviewer response `5827615882` returned `ACCEPT_COMPLETE`, limited to the
+visible requirements artifact, and required a hold at the G2 exit boundary. 広瀬剛
+then explicitly approved G2 exit. Recorded that approval in the G2 document. G3,
+Day 6 execution, implementation, testing, service/model start, Git changes, and paid
+operations remain unstarted and require a separate explicit G3 scope/start decision.
+
+## 2026-09-25 — Reviewer-bus watcher operational restart
+
+### CONTEXT / AUTHORITY
+広瀬剛 requested that the Watcher remain running so reviewer-response completion is
+detected without manual status checks. Authority was limited to restoring the local
+Control Center reviewer-bus operation; it did not authorize G3, a Day action, model
+use, test execution, reviewer delivery, or paid work.
+
+### DIAGNOSIS AND CHANGE
+The running service reported `REVIEWER_BUS_PREREQUISITE_MISSING`. The GitHub CLI and
+current Codex executable were available, but `config/runtime.yaml` referenced a
+removed Codex version. Updated only that executable path to the current locally
+installed Codex binary. Reconciled the watcher state to record the already applied
+G2 response `5827615882` / `G2-ACC-REVIEW-20260925-002`, preventing duplicate
+processing of the human-approved G2 exit.
+
+### VERIFICATION
+Restarted the loopback Control Center service. `/api/reviewer-bus/status` returned
+`running: true`, `available: true`, `last_error: null`, and a new poll timestamp;
+the watcher cadence remains 120 seconds. `/api/runtime` reports the current Codex
+executable. No outstanding reviewer report exists.
+
+### BOUNDARY
+The watcher may fetch and route a future matching reviewer response. It does not
+select or start a Day, and this restart did not begin G3 or Day 6.
+
+## 2026-09-25 — G3 comparative-proof preflight
+
+### CONTEXT / AUTHORITY
+広瀬剛 explicitly directed the project to proceed to G3. The initial G3 scope was
+the G2-defined C-01/C-06 comparison preflight, preserving its 30-active-minute,
+two-attempt, zero-paid-operation, no-screen-operation limits.
+
+### RESULT
+Created `prompts/G3_COMPARATIVE_PROOF_PROMPT_2026-09.md` and applied its read-only
+preflight. C-01 is `NOT_EVALUABLE`: historical Day1 completion records exist but
+cannot be bound to one verified reference record with all required revision,
+contract/runbook, Evidence/validator, timestamp, and storage provenance. C-06 remains
+unstarted: Day6 is `TRUSTED_NOT_EXECUTED`, but the current LocalLLM-Lab main worktree
+contains unrelated tracked and untracked user changes, so its baseline is not safe to
+select or execute without further guarded handling.
+
+### BOUNDARY
+Recorded `docs/G3_AI_CONTROL_CENTER_COMPARATIVE_PROOF_2026-09.md` as a safe
+review checkpoint. No Day selection, Go, code/test/model execution, external review
+delivery, Git mutation, cost, or user-work cleanup occurred. The next action is a
+reviewer `PROGRESS_UPDATE` on the two classifications; Day6 remains blocked pending
+that review and a safe baseline decision.
+
+## 2026-09-25 — G3 reframed to standard external-feasibility work
+
+### USER CORRECTION
+広瀬剛 identified that the initial G3 framing followed the project-specific Day1/Day6
+comparison rather than the attached standard's G3 definition. The human directed a
+rework that includes a simple functional composition, candidate-method selection, and
+selection criteria, plus any justified standard-document suggestions.
+
+### RESULT
+Preserved the original G3 preflight record as history and created the standard-aligned
+`prompts/G3_FEASIBILITY_METHOD_SELECTION_PROMPT_2026-09.md` and
+`docs/G3_AI_CONTROL_CENTER_FEASIBILITY_2026-09.md`. The revised G3 distinguishes
+candidate comparison from G4 detailed control design and G5 implementation planning.
+It defines the minimal Control Center path, SC-01 through SC-07 selection criteria,
+three candidate dispositions, and normal/abnormal minimal-E2E plans. Day1/Day6 are
+repositioned as possible bounded inputs to a feasibility case, not the G3 purpose.
+
+Created `docs/STANDARD_G3_REVISION_SUGGESTIONS_2026-09.md` as a non-binding
+suggestion, not a modification to the supplied standard. It proposes a minimal
+functional composition, explicit selection criteria, a G3-to-G4 handoff, and clearer
+G3 review decisions while preserving proportional application.
+
+### BOUNDARY
+The earlier G3 reviewer report remains the sole outstanding report. No replacement
+report is sent until its matching response is fully applied. No Day selection, Go,
+code/test/model execution, external delivery beyond the already recorded report, Git
+change, cost, or cleanup occurred in this reframing step.
+
+## 2026-09-25 — G3 repair, escalation, and alternative-path correction
+
+### USER CORRECTION AND REVIEWER CONTEXT
+広瀬剛 identified two omissions in the revised G3: the G1/G2 product purpose of
+permitted automatic repair and human escalation was missing from the functional
+composition, and a single adoption candidate would force a full G3 restart if it
+failed later. The matching reviewer response to `G3-ACC-PROGRESS-20260925-001` was
+read in full: `HUMAN_REQUIRED`, retaining C-01 as `NOT_EVALUABLE`, C-06 unstarted,
+and requiring Hirose's explicit baseline-preservation choice before any Day6 action.
+
+### CHANGE
+Updated the G3 prompt and feasibility record. The functional path now includes Repair
+Supervisor, deterministic guarded repair, revalidation, and a human decision request
+with evidence, options, and resume point when the repair boundary is reached. Added
+SC-08/SC-09 and F-04/F-05. M-01 remains the primary candidate; M-04 is a bounded
+durable-outbox/reconciler alternative using the same local stack and Review Bridge;
+M-05 is the required evidence-rich safe-stop/human-decision fallback. The composer
+and ordinary manual relay remain rejected as normal paths.
+
+Extended the standard suggestion with S-05 (repair/escalation in relevant G3 minimal
+compositions) and S-06 (primary, alternative, and safe-stop paths with reusable
+evidence), preserving proportional application.
+
+### BOUNDARY
+No Day6 selection/execution, source change, test/model run, external delivery, cost,
+or user-work cleanup occurred. Day6 remains blocked until Hirose selects a
+baseline-preservation method. The next report must contain this corrected G3 artifact
+and is sent only after the current reviewer response has been applied, which is now
+complete.
+
+## 2026-09-25 — G3 reviewer decision applied and completion checkpoint
+
+### REVIEWER RESPONSE
+Read and applied the complete matching response to
+`G3-ACC-PROGRESS-20260925-003`: `DECISION: RECORD_F05_NOT_EVALUABLE`. It directs
+that G3 must not create or modify an F-05 fixture or implementation; F-01, F-02, and
+F-04 are passed; F-05 and candidate-switch behavior are `NOT_EVALUABLE`; M-04 remains
+an unevaluated alternative; and M-05 remains the required safe-stop boundary.
+
+### CHANGE
+Updated only `docs/G3_AI_CONTROL_CENTER_FEASIBILITY_2026-09.md` to record those
+determinations, the evidence references for F-01/F-02/F-04, the explicit F-05 scope
+prohibition, and `ARTIFACT_QUALITY_CHECK: PASS`. No F-05 fixture, candidate-switch
+implementation, source code, test, Day state, or LocalLLM-Lab artifact was created or
+modified.
+
+### BOUNDARY / NEXT
+Prepare one evidence-based G3 `COMPLETION_REPORT` for watcher delivery. Do not enter
+G4 or Day6 unless the matching completion response expressly clears that boundary.
+
+## 2026-09-25 — G3 role-based composition and same-Day resumption correction
+
+### USER CORRECTION
+
+広瀬剛 clarified that a G3 minimal functional composition must name replaceable
+roles, not a person or program, otherwise comparing alternatives has no meaning. The
+user also corrected the authority-resumption path: after a human decision request, the
+human records the decision, the review/verification role confirms its scope and
+restart point, and execution returns to the **same selected Day's `PREFLIGHT`** for
+revalidation. It must not merely unfreeze, auto-select another Day, or roll back to
+Day selection without a reason.
+
+### CHANGE
+
+Updated the G3 feasibility prompt and record to define the functional composition as
+entry, human authority, execution management, mechanical checking, implementation/
+repair, review/verification, evidence/state management, and monitoring/delivery
+roles. Concrete systems and named people remain candidate realizations, not the
+architecture itself. Added SC-10 and extended F-04 to require evidence of the
+review-confirmed same-Day `PREFLIGHT` return. Updated the non-binding standard
+suggestion with role-based comparison wording and S-07 for the same-target resumption
+rule.
+
+The existing F-04 fixture evidence supports repair and stop, but not this newly
+explicit recovery path. Reclassified the same-Day-return portion as `NOT_EVALUABLE`,
+and changed the G3 artifact-quality status to `PENDING_REVIEW`; no previous `PASS`
+claim is carried forward for that unverified behavior.
+
+### BOUNDARY
+
+This is documentation correction only. No Day selection or Go, Day6 action, source
+change, test/model run, paid operation, or user-work cleanup occurred. The reviewer
+response to the prior completion packet requests one visible final-artifact evidence
+comment. The Watcher owns application of that response and its delivery; the corrected
+artifact is the only valid candidate for that evidence. This does not enter G4 or
+authorize Day6.
+
+## 2026-09-25 — G3 completion accepted; exit boundary held
+
+Read and applied the complete matching reviewer response to
+`G3-ACC-COMPLETION-20260925-006`: `ACCEPT_COMPLETE`. Updated only the G3 feasibility
+record to make the accepted hold explicit. M-01 remains conditionally selected, M-04
+remains unevaluated, and M-05 remains the required evidence-rich safe-stop. The
+same-selected-Day `PREFLIGHT` return after human decision/reviewer confirmation,
+F-05, and candidate-switch behavior remain `NOT_EVALUABLE`; C-01 remains
+`NOT_EVALUABLE` and C-06 remains unstarted.
+
+No G4 work, Day6 selection/Go, source change, test/model run, external delivery,
+cost-incurring action, Git operation, state reset, or cleanup occurred. The watcher
+owns reviewer-bus state/delivery. Hold at the G3 exit boundary until separate explicit
+authorization identifies a next scope.
+
+## 2026-09-25 — G3 standard-recommendation alignment and G4 control design
+
+広瀬剛 identified `HIPVG/ai_work_operating_standard` as the current standard source
+and explicitly authorized G4. Read `main` revision
+`766fe6643a4f125af82ff3ffcffe00dc451ec648`: the earlier G3 proposals S-01 through
+S-07 are already incorporated, including role-based composition, candidate criteria,
+handoff, alternate/safe-stop conditions, and same-target recovery. Updated the local
+G3 suggestion record to an adoption-status summary; no upstream content was changed.
+
+Created the G4 prompt and control-design record. The design adopts M-01 conditionally,
+defines M-04 only as a triggered alternative, and retains M-05 as safety stop. It
+uses the canonical Day Runner states, evidence path, reviewer correlation, bounded
+repair, authority packet, and same-selected-Day `PREFLIGHT` resumption. The latter and
+candidate switching remain explicitly `NOT_EVALUABLE` and are G5 validation inputs.
+
+No source code, tests, Day selection/Go, Day6 activity, model activity, paid operation,
+or upstream repository content changed. G4 awaits its completion review boundary.
+
+## 2026-09-25 — G4 preliminary walkthrough correction
+
+広瀬剛 correctly identified that a G4 walkthrough must test whether the selected
+technical method works at the important stages; merely assigning paths in a design is
+insufficient. Reopened the G4 draft, removed unnecessary target-Day references, and
+added a bounded walkthrough plan. The plan uses only existing local fixtures, one run
+per selected node, no external delivery, model, source change, target-Day operation,
+or paid work.
+
+The existing fixture walkthrough passed for reviewer-bus exact correlation and
+exit-zero rejection; authority resolution preserving the same selected Day through
+`PREFLIGHT`; bounded repair escalation; and evidence fail-closed. Read-only inspection
+found no durable outbox/reconciler or candidate-switch implementation/fixture. M-04 is
+therefore not promoted as a usable alternative and remains `NOT_EVALUABLE`; if M-01
+fails, the method returns to G3 for an actual-actor E2E or impossibility finding rather
+than silently entering G5. M-05 remains the safe stop.
+
+The corrected G4 artifact is ready for a new reviewer decision. No G5 or target-Day
+work has started.
+
+## 2026-09-25 — G4 role-to-technology and flow-continuity clarification
+
+### USER CORRECTION
+
+広瀬剛 identified two traceability gaps in the corrected G4 draft: it did not make
+explicit which selected technical means can fulfill each G3 role and on what evidence;
+and its state-transition presentation could appear to replace rather than refine the
+G3 role flow.
+
+### CHANGE
+
+Updated only the G4 prompt, control-design record, walkthrough record, and this
+history ledger. The control-design record now maps every G3 role to its M-01 technical
+means, function boundary, existing direct/fixture evidence, and unconfirmed scope.
+It explicitly keeps M-04 outbox/reconciler capability, browser UI behavior, broad
+evidence coverage, and particular repair success as unproven. It also adds a G3
+role-flow-to-G4-state refinement diagram and mapping: the G3 responsibility flow is
+unchanged; G4 states only make execution-manager control, revalidation, and record
+requirements explicit; monitoring/delivery cannot directly change Day state.
+
+### BOUNDARY
+
+This is an unapproved G4 draft clarification under the human's current instruction.
+No further validation, test, app/model/target-Day operation, G5 work, external
+delivery, source change, Git mutation, cost, or cleanup occurred.
+
+## 2026-09-26 — G0–G4 current-standard application
+
+### CONTEXT / AUTHORITY
+
+広瀬剛 directed Codex to read the current `HIPVG/ai_work_operating_standard` repository
+and apply it to G0–G4, permitting re-execution only where needed. The latest matching
+G4 reviewer response (`5829889939`) was read in full: its traceability tables are
+accepted only as a draft and G4 remains pending Hirose's explicit exit decision.
+
+### RESULT
+
+Read the current standard commit `3c1d8c6b8b28128bd4db6f0f01b0b86f19aece1f`, its
+artifact-sufficiency study, and template-selection guidance. Created a single standard
+application record instead of duplicating the full template set; it maps only needed
+T01/T04/T05/T07/T08/T12/T16/T17/T20/T21/T22/T23/T24/T26/T29/T31/T41/T42/T49 questions
+to the existing G0–G4 artifacts. Added G2 requirement-to-design/evidence traceability
+and a G4 design-review record. Updated G0–G4 and their prompts with current-standard
+references, the new-feature route, standard work states, external-effect states, and
+the template questions that must be retained.
+
+Performed a read-only G1 recheck: the current Codex principal and the workspace/state
+owners differ; no listener was observed on either the configured port 8000 or the
+historical monitoring port 8765, and both reviewer-bus status API requests refused
+connection, while persisted watcher state reports `running: true`. The record keeps
+the persisted value as REPORTED and the live non-reachability as OBSERVED/BLOCKED; it
+does not start, repair, or diagnose the service beyond this boundary.
+
+### BOUNDARY
+
+No code test, service/model/watcher start or stop, Day action, external reviewer post,
+cost, Git mutation, state reset, permission repair, or cleanup occurred. G4 remains
+`HUMAN_DECISION`; G5 and target-Day work remain prohibited pending explicit G4 exit
+ratification.
+
+## 2026-09-26 — G0–G4 standard-application acceptance and reporting correction
+
+The standard-application artifact and its progress report were published to Review
+Bridge PR #1 after Hirose explicitly authorized that delivery. The matching reviewer
+response for `G0-G4-STANDARD-APPLY-20260926-001` was read in full and accepted the
+G0–G4 documentation baseline only: freeze the record, preserve `G4=HUMAN_DECISION`,
+and do not repair services or begin G5 or target-Day work without separate authority.
+
+Recorded the reviewer-requested metadata correction. The earlier
+`ACTIVE_WORK_MINUTES: 22` was an unmeasured estimate, so neither active nor wait time
+can be reconstructed; the correction records both as `UNKNOWN` and makes no
+15-minute-cap compliance claim. The read-only current-state recheck is explicitly a
+permitted G1 `DIAGNOSIS` under the human's standard-application instruction, not an
+assertion of "no validation." Reviewer transport is now expressed as the distinct
+states `SENT`, `RECEIVED`, `APPLIED`, and `VERIFIED`; no product external effect or
+product verification is claimed.
+
+No code, test, service/model/watcher action, Day action, repair, Git mutation, state
+reset, credential change, cost-incurring action, or cleanup occurred.
+
+## 2026-09-26 — G0–G4 external evaluation kit
+
+At Hirose's request, created a compact external-evaluation kit for the accepted G0–G4
+documentation baseline. It provides the authoritative reading order, scope, a
+copyable evaluator request, criteria, report format, and an explicit rule that the
+review cannot authorize product acceptance, G5, service repair, or Day work. It
+preserves the current `G4=HUMAN_DECISION` boundary and requires findings to cite an
+exact document path and heading.
+
+No service/model/watcher action, Day action, test, repair, external delivery, Git
+mutation, credential change, cost-incurring action, or cleanup occurred.
+
+## 2026-09-26 — G0–G4 reporting-correction acceptance applied
+
+Read and applied the complete matching reviewer response to
+`G0-G4-STANDARD-APPLY-CORR-20260926-001`: `DECISION:
+REPORTING_CORRECTION_ACCEPTED`. Updated only the standard-application record and its
+reporting-correction record to freeze the corrected metadata as part of the G0–G4
+documentation baseline. The correction remains limited to reporting semantics;
+`G4=HUMAN_DECISION` is unchanged.
+
+No service repair, G5 work, target-Day selection or execution, test, model/watcher
+action, external delivery, Git mutation, state reset, credential change, cost-incurring
+action, or cleanup occurred. Wait for separate authorization before any such work.
+
+## 2026-09-28 — Reviewer-Bus Watcher prerequisite repair
+
+At Hirose's explicit direction, diagnosed and repaired the Watcher startup
+prerequisite. `config/runtime.yaml` referenced a removed Codex version-directory;
+the configured executable did not exist while the current Codex executable did.
+Updated only that executable path, stopped the confirmed loopback Control Center
+process on port 8000, and restarted it through the standard startup script.
+
+Post-restart local API evidence: `server_state=HEALTHY`, Watcher `running=true`,
+`available=true`, `last_error=null`, and a fresh poll timestamp. No Day selection or
+execution, model invocation, test, repair beyond this prerequisite, Git mutation,
+external report delivery, credential change, cost-incurring operation, or cleanup
+occurred.
+
+## 2026-09-28 — G4 exit ratified by human owner
+
+広瀬剛 explicitly approved G4. Applied that authority only to the G4 document/design
+exit: the control design and design-review record are now `COMPLETE`, with the
+human-approval date and scope recorded. The prior `ARTIFACT_QUALITY_CHECK: PASS`
+remains limited to the documented fixture walkthrough; this approval does not claim
+product E2E, live external-effect verification, or product acceptance.
+
+G5, Day selection/Go, model activity, additional service repair, cost-incurring work,
+and Git mutation remain unapproved. The next action is to publish the required G4
+completion control report and wait for its matching reviewer response; do not begin
+G5 during that wait.
+
+## 2026-09-28 — G5 implementation planning initiated by human owner
+
+After the G4-exit approval, Hirose explicitly instructed that G5 begin. That newer,
+specific authorization supersedes the prior sentence's prohibition only for G5
+planning. Created the G5 implementation plan, independently bounded work cards, and
+test plan. The plan separates the run-scoped telemetry contract, its read-only API,
+dashboard projection, actual-actor reviewer-bus E2E, and a selected-Day E2E. It keeps
+the M04 durable-outbox alternative conditional on an actual M01 actor-E2E failure.
+
+No G6 implementation, test execution, Day selection/Go, model activity, external
+reviewer delivery, additional service repair, Git mutation, credential change,
+cost-incurring operation, or cleanup occurred. G6 remains subject to a separate
+human instruction selecting one card; selected-Day E2E remains blocked until the
+human supplies both a Day and Go authority.
+
+## 2026-09-28 — G5 purpose-alignment correction
+
+At Hirose's request, reviewed the first G5 plan against the G0 product objective and
+all G0–G4 deliverables. The review found that the plan correctly retained evidence,
+review, telemetry, and M04 restraint, but wrongly placed observability before the
+core product route and embedded A01–A03 in the final Day E2E card. Replaced the plan
+with independently stoppable cards for UI Go, server preflight/run identity, typed
+evidence, bounded repair/revalidation, normal reviewer-bus continuation, telemetry,
+read-only API, dashboard, Day 1–14 admission, and final selected-Day acceptance. It now explicitly
+records manual relay count, limits versus actuals, and the distinction between a G6
+development instruction and a product user's Go action.
+
+No implementation, test execution, service/model/Day action, external reviewer
+delivery, Git mutation, credential change, cost-incurring operation, or cleanup
+occurred. The corrected plan is `READY_FOR_REVIEW`; G6 remains unapproved.
+
+## 2026-09-28 — G4 functional-control design re-execution
+
+Hirose directed a return to G4 after identifying that functional design belongs in
+G4, not G5. Preserved the approved G4 v1 and created a separate v2 functional-control
+design draft. It fixes the product-level design for Day admission, selection/Go, run
+intent and preflight, evidence, repair/revalidation, reviewer control, telemetry,
+dashboard projection, and selected-Day acceptance. It explicitly keeps review control
+orthogonal to Day state and M04 conditional on an M01 actor failure.
+
+The G5 plan is marked `SUPERSEDED_PENDING_G4_V2_REVIEW`; it must be regenerated only
+after the v2 design is reviewed and reapproved. No implementation, test, Day/model
+action, external delivery, Git mutation, credential change, cost-incurring operation,
+or cleanup occurred.
+
+## 2026-09-28 — G4 v2 approval recorded; G5 v2 planning started
+
+Hirose explicitly approved the G4 v2 functional-control design and instructed that
+G5 begin. Updated G4 v2 to `COMPLETE`, preserving the difference between its design
+self-check and any fixture, actor, or product-E2E claim. Replaced the prior G5 draft
+with a G5 v2 plan whose cards are derived from the approved G4 v2 functions: run
+contract, admission/preflight, catalog, UI entry, Evidence, repair/recovery, review
+control, telemetry, read API, dashboard, and an actor/E2E gate. The plan keeps
+selected-Day product acceptance `INPUT_BLOCKED` until a separate product Go supplies
+the Day, environment, and limits; it keeps M04 conditional on a real M01 actor
+failure.
+
+No G6 implementation, test execution, service/model/Day operation, external reviewer
+delivery, credential change, cost-incurring action, Git commit/push, or cleanup
+occurred. The G5 v2 plan is `READY_FOR_REVIEW`; review acceptance is still required
+before declaring G5 complete or beginning a selected G6 card.
+
+## 2026-09-28 — G5 reviewer-delivery prerequisite check
+
+Hirose directed that the G5 v2 plan be sent through the normal Review Bridge path
+and established standing authority to send future reviewer reports without waiting for
+separate human approval. Re-read the current operating policy, active work, runbook,
+relevant history, persisted watcher state, and Git baseline. There is no outstanding
+report, so the planned report is a single `PROGRESS_UPDATE` for
+`G5-ACC-PLAN-20260928-003`.
+
+Before publication, the local GitHub CLI authentication check returned an invalid
+keyring token for the active `HIPVG` account. Therefore no report ID was created, no
+PR comment was posted, and no reviewer approval was requested or received. This is a
+genuine credential/transport prerequisite boundary; no authentication bypass or
+credential modification was attempted. After the account is re-authenticated, publish
+the prepared single G5 report to Review Bridge PR #1 and end at the reviewer wait
+checkpoint.
+
+After Hirose reported re-authentication complete, rechecked the same local GitHub CLI
+used by the Control Center Watcher. It still reports the active `HIPVG` keyring token
+as invalid. The Watcher state still has `outstanding_report_id: null`; no G5 report,
+PR comment, or reviewer response exists. Do not claim delivery or retry against an
+invalid credential. Re-authentication must be completed in the GitHub CLI profile
+available to this Control Center process before the prepared G5 report can be posted.
+
+The CLI account was then logged out and a browser device-flow login was completed by
+Hirose. The browser confirmed device connection and the GitHub CLI configuration file
+timestamp changed, but a fresh `gh auth status` still reports the keyring token as
+invalid. The Watcher consequently records `GITHUB_COMMENT_FETCH_FAILED`, with no
+outstanding report. This establishes a local credential-store failure, not a working
+directory mismatch. The only known CLI fallback is `--insecure-storage`, which would
+store a token without OS-keyring protection; it is not enabled without Hirose's
+explicit security decision.
+
+## 2026-09-28 — Review-continuation observability amendment
+
+During the G5 review loop, a point-in-time read observed a matching reviewer response
+in `pending_response` before its fresh Codex continuation completed. A subsequent
+read showed the continuation time and exit code, but exit code alone did not prove the
+continuation's envelope action or a follow-up reviewer delivery. Hirose directed that
+this operational ambiguity be addressed in the G0–G5 design work.
+
+Added a limited G4 v2 observation amendment: Review Control now distinguishes
+`RECEIVED_PENDING_APPLY`, `APPLYING`, `APPLIED`, `VERIFIED`,
+`CONTINUATION_FAILED`, and `DELIVERY_FAILED`; it requires correlation IDs, times,
+envelope validation, and follow-up external-effect IDs. It also defines a
+secret-free `AUTH_CONTEXT_MISMATCH` result for execution-context-specific credential
+availability. Added independent G5 card `WC-07A` for this state/trace contract and
+updated the G5 prompt and test-plan mapping. The original G4 v2 baseline remains
+human-approved; the narrow amendment and the revised G5 plan are review pending.
+
+No G6 implementation, test execution, Day/model operation, credential-storage change,
+Git commit/push, or cleanup occurred. Reviewer transport remains under the single
+outstanding/pending control path; no duplicate report was sent by this work.
+
+## 2026-09-28 — Human approval of the review-observability amendment
+
+Hirose approved the G4 v2 review-continuation observability amendment and the
+corresponding revised G5 plan. Recorded that approval as a design/planning-baseline
+approval only. It does not authorize G6 implementation, tests, Day/model work, product
+Go, credential changes, or product acceptance. The operational reviewer state has one
+outstanding report, `G5-ACC-REVIEW-20260928-003`; no matching response has been
+received or applied at this checkpoint.
+
+## 2026-09-28 — Human approval subject and reviewer confirmation design
+
+Read the current WORKING_RULES, CURRENT_WORK, runbook and saved reviewer response.
+Hirose requested the G4/G5 correction after distinguishing endorsement of a reviewer
+recommendation from acceptance of a Codex artifact. Added G4 section 13, G5 WC-07B,
+eight planned checks and API/display/actor verification dependencies. A short reply
+requires an explicit subject binding; reception cannot close the decision or gate.
+The amendment remains review pending and does not implement this runtime behavior.
+
+The saved watcher state reports pending ID 004 but its response body replies to 003.
+No matching 004 response was established from that record. Do not republish a second
+control report or relabel the response. Publish the new document commit, retaining
+004's fixed commit 4a2b7a2, and queue the revision for the next valid review boundary.
+Only document consistency/hash checks and the authorized document publication are
+in scope; no service repair, Day or product test is included. Unrelated existing
+history/configuration changes remain outside the document publication commit.
+
+## 2026-09-28 — Explicit acceptance of 258e442 and conditional G5 close
+
+Hirose clarified that the approval accepts the G4/G5 document contents at 258e442
+and requested G5 close after addressing reviewer instructions. Recorded the exact
+message and separate artifact-acceptance/conditional-exit scopes in
+docs/review-records/G5_ACCEPTANCE_258e442_2026-09-28.md.
+One authorized GitHub read found report 004 but no subsequent matching response;
+its wait exceeds ten minutes (REVIEWER_RESPONSE_TIMEOUT). Persisted pending ID 004
+still contains the response to 003 and must not be applied as 004. The next action
+is to deliver this acceptance as supplemental evidence, then await the matching
+004 response before creating another control report. G5 is not closed; no G6,
+Day, service repair, model work or product tests are authorized by this record.
+
+## 2026-09-28 — Restore 004 receipt and retain concurrent review work
+
+Current human authority: resolve the Watcher failure; the earlier instruction also
+authorized service restart and real continuation. Read current policy, runbook,
+state, and the complete matching 004 response 5863431829. The live poll timestamp
+advanced, but the prior maintenance report AAF1EDD had displaced 004. The previous
+turn's claim of complete recovery was therefore insufficient.
+
+Added an explicit offline recovery operation that verifies the old target and PR
+report identity and persists the old error, IDs, authority, and restricted scope.
+Executed it with the service stopped; restarted the existing loopback service.
+At 05:22:11 UTC the real continuation returned exit 0 and a HUMAN_REQUIRED envelope;
+the watcher recorded response 5863431829 applied, pending/outstanding cleared.
+This proves transport handling of the authority request, not G5 closure.
+
+The human then requested a persistent unfinished-request list, informational
+requests, individual or batched responses, and omission of completed work from
+outbound lists. Chose individual ID replies with a combined unfinished-work list.
+Implemented report_registry persistence, per-ID application/dedupe (no global
+comment-ID cutoff), one continuation at a time, and RESPONSE_REQUIRED:no /
+ACKNOWLEDGED handling without Codex execution. Completed history remains local;
+human-decision waits stay visible. Updated the policy and minimal G4/G5 contract.
+Fifteen focused tests passed, including real temporary-file reload, restoration,
+continuous additions, delayed lower-ID replies, acknowledgement-only handling,
+and rejection of multi-ID replies. No G5 document decision, G6 or Day was executed.
+
+## 2026-09-28 — Reviewer instruction update explicitly authorized
+
+Hirose explicitly authorized applying state/reviewer-task-prompt-update.md to the
+Review Bridge poc/reviewer-task-prompt.md and requested an operating prompt for the
+Reviewer. Checked the existing PR head and preserved its current text; published
+the exact approved update as Bridge commit 658da08b642a357103dd1c70f0a555c02e1b2119.
+Readback at that commit matched the approved local text exactly. The prior external
+write approval block is resolved by this new explicit authority.
+
+Saved prompts/REVIEWER_OPERATING_PROMPT_2026-09.md as an entry procedure that refers
+to the governing files, reads the triggering ID and unfinished list, deduplicates
+per ID, returns ACKNOWLEDGED for informational requests, and leaves polling and
+continuation with the Watcher. Prepare one event-driven delivery under
+REVIEWER-OPERATING-PROMPT-20260928-001, then end the turn. Actual Reviewer receipt
+and Watcher acknowledgement remain separate from repository publication evidence.
+
+## 2026-09-28 — G5 fixed-baseline closure and G6 WC-01 start
+
+Read full Reviewer comment 5864471565 (ACCEPT_COMPLETE, explicit supersession of
+5863431829) for report G5-ACC-REVIEW-20260928-004. Record G5 closed only for
+4a2b7a2269adae8318903179b10bb59ef424b145. The separate latest human instruction
+authorizes starting G6 after that confirmation. Select only WC-01 in dependency
+order, reuse WC-00 publication, and keep Day/Go/model/service operations excluded.
+Read current policy, plan, G4 contract, standard G6, history and Git state.
+Added versioned RunIntent/RunControl and a separate create-only JSON boundary;
+legacy snapshot and live runtime wiring remain unchanged. Seven isolated tests
+passed on the first attempt, asserting restart round-trip, no-overwrite duplicate
+rejection, run/Day/fingerprint mismatch rejection without writes, corrupt data
+retention, history/current separation and legacy compatibility. No retries.
+See docs/review-records/G6_WC01_2026-09-28.md for authority and evidence limits.
+004's registry still showed HUMAN_REQUIRED; do not rewrite it by hand or claim
+automatic superseding-response handling. No broader Watcher repair in this card.
+Next: publish the bounded WC-01 diff and one review report, then wait. Preserve
+unrelated dirty runtime config/history; no G6 whole-stage or product completion.
+
+## 2026-09-28 — Approval completes in the Codex chat
+
+Human chose this-chat approval and requested implementation. Read current policy,
+history, runbook, full G6 HUMAN_REQUIRED response 5864898586 and live registry.
+The watcher had applied that response, leaving authority waiting. No continuation
+was pending before reload preparation. Existing explicit G6 start instruction is
+preserved; it is not retroactively treated as artifact acceptance.
+Updated policy, G4/G5, prompts and bounded Watcher confirmation handling. Use new
+confirmation IDs bound to the old report/reply, decision and immutable commit;
+resolve the old wait only after positive review and successful continuation.
+Retain old IDs/history; no hand edits of the persisted watcher state. Twenty-five
+focused tests passed, including ten new confirmation cases with real JSON restart.
+See CHAT_APPROVAL_HANDOFF_2026-09-28.md. Main/unrelated runtime config remain unchanged.
+Next: publish policy/prompt update, reload the existing watcher, send one G6
+authority confirmation carrying the original chat instruction, then end this turn.
+
+## 2026-09-28 — G6 WC-01 confirmation applied and card stopped
+
+Read the complete matching response 5865174825 to
+G6-ACC-WC01-CONFIRM-20260928-002 and the current policy, active work, runbook,
+history, persisted watcher state, and Git status. The response is `CONTINUE` and
+exactly matches the old report/reply, decision ID, and fixed WC-01 commit
+bf34b6a4d167cd007be2103c80ca8f0dd93b9531. Recorded that review outcome in
+docs/review-records/G6_WC01_2026-09-28.md. The successful `NO_REPORT` continuation
+allows the Watcher, not this turn, to resolve the old HUMAN_REQUIRED entry through
+its confirmation path. No persisted watcher-state hand edit, test, service/model/Day
+operation, WC-02, G7/G8 work, Git publication, or broader validation occurred.
+
+## 2026-09-28 — G6 card continuity correction
+
+Human explicitly instructed 「では設計変更し、進めてください。」 after the
+WC-01-only stop was identified. Read policy, current work, runbook, relevant
+history, persisted watcher state, Git and full response 5865174825. Replace
+per-card human selection with serial dependency/evidence-based selection inside
+authorized G6. Update G4 section 14, G5 section 3.1, current work, policy and
+Reviewer instructions; preserve earlier stop/acceptance records. See
+docs/review-records/G6_CONTINUITY_2026-09-28.md for authority and walkthrough.
+Validation is document-path consistency and publication hash verification;
+no runtime/code changes or test reruns are needed. Preserve unrelated dirty
+runtime/history and state. Next: publish one fixed-commit review request; matching
+positive review must advance WC-02, subject to remaining limits, rather than
+stop after recording the review. Human approval is not requested again.
+
+Published 4ac5550d8c09817d8ec29f683d8f0190087797dc to the approved origin branch;
+remote matches. Manifest check: 30 files, zero mismatches. Bridge prompt commit
+5964c40ae3fdca8359bed6763c48778e94cb15e7 readback matches. Submitted
+G6-ACC-CONTINUITY-20260928-001 as comment 5865470063 (SENT). Watcher was live before
+submission; receipt/application and WC-02 start await its normal continuation.
+Ended at publication checkpoint; no PR polling or repeated human request.
+
+## 2026-09-28 — isolated file-response trial 003
+
+Human requested another PoC after clarifying that WC02's separately authorized
+comment action had prompted for confirmation. Read current policy, active work,
+runbook, relevant history, persisted watcher summary and Git state. Trial 002's
+six-field response exists on Bridge commit 49f8b80 with the expected 9a3a1aa
+request binding. This proves file delivery only; absence of human confirmation
+was not established. Preserve that evidence and WC02 authority.
+Prepared trial 003 at Bridge commit 35e31ec04d3e502dabb4c8c726f032111635f662:
+one request plus an invocation-specific prompt to handle only 003 and finish.
+The Work result must distinguish file delivery from confirmation observed
+yes/no/unknown. No tool approval bypass, watcher/code/service change, or G6
+response application is included. Diff whitespace check passed. Next: publish
+one event notification, record its delivery, and end at the safe checkpoint.
+Notification SENT: https://github.com/HIPVG/AI-Control-Center-Review-Bridge/pull/1#issuecomment-5867473014
+Response receipt and unattended completion remain unverified; no post-send polling.
+
+## 2026-09-28 — file response Watcher implementation
+
+Human explicitly requested design and implementation. Read current policy, current
+work, runbook, architecture, history, watcher state and target code/tests. Added
+commit-pinned read-only adapter and integration with the existing registry and
+continuation. Recorded preimplementation actor/happy/failure walkthrough and G4/G5
+contract delta. Tests: 51 passed, including pending mismatch/changed/deleted file,
+ACK without execution, restart deduplication, legacy transport and old-registry
+upgrade. Real GET-only adapter probe validated PoC003 head and blob; no live cycle,
+restart or Codex execution. Source published at 544742769367d9d64fc1271ba0ebfb3671451af3
+on agent/g0-g5-baseline-publication. Git index write first failed in sandbox and
+succeeded through approved escalation; no new host write mechanism was created.
+Unrelated config/history changes preserved and excluded from commits. Review request
+fixed in Review Bridge at 9a0be015e7e3283b976ddd810d16f7826fd590d6, with file-only reply.
+Next: publish its single trigger and end at the review checkpoint. Live deployment
+and continuation proof remain pending; WC02 host-write authority remains separate.
+Review notification SENT: https://github.com/HIPVG/AI-Control-Center-Review-Bridge/pull/1#issuecomment-5867792668
+No post-publication PR polling or continuation performed in this turn.
+
+## 2026-09-28 — file response Watcher live deployment
+
+Human authorized proceeding after matching file review CONTINUE. Read current
+policy/context/history/state and complete response. Reloaded existing app at source
+5447427 with source and loaded-method fingerprints; review applied via one actual
+Watcher continuation (NO_REPORT). New FILE-WATCHER-LIVE-ACK-20260928-001 was received
+and persisted without a continuation. One restart retained both terminal states
+and the unchanged continuation timestamp. Local JSON representation comparisons
+were corrected after inspecting property order/timezone differences; no state
+rewrites. Detailed immutable identities, process times and evidence are appended
+to docs/review-records/FILE_RESPONSE_WATCHER_2026-09-28.md. Unrelated dirty work
+preserved. WC02 authority gap remains; no broader work. Next: send bounded
+FILE-WATCHER-DEPLOYMENT-20260928-001 completion report, then stop. Live ACK stimulus
+was followed using local HTTP state only; no foreground PR response polling.
+Completion notification SENT: https://github.com/HIPVG/AI-Control-Center-Review-Bridge/pull/1#issuecomment-5868090655
+Immutable request d61dcb78b98d6a4c94891057500f6b60cf305e8a; published evidence
+bcfdb511cfb17ea69ad2df8a23b48f92463e97d0. Reviewer acceptance remains pending;
+end foreground turn after delivery and let the existing Watcher acquire the reply.
+
+## 2026-09-28 — file response Watcher deployment accepted
+
+Read the complete matching Git-file response to
+FILE-WATCHER-DEPLOYMENT-20260928-001, current policy, CURRENT_WORK, the
+authoritative runbook, relevant history, persisted watcher state, and Git status.
+The Reviewer returned ACCEPT_COMPLETE, bound to immutable request
+d61dcb78b98d6a4c94891057500f6b60cf305e8a, for the bounded existing
+github_file Watcher deployment only. The accepted evidence remains the source/load
+hashes, immutable file provenance, APPLIED and ACKNOWLEDGED transitions,
+ACK-without-continuation, and unchanged terminal identities/timestamps after one
+restart. Recorded the acceptance in the deployment evidence record; no watcher
+state hand edit, GitHub access, report publication, deployment, test, service,
+WC02, G6/G7/G8, Day/Go, model, credential, or product-E2E action occurred.
+
+Separate WC02 and prior human-authority waits remain HUMAN_REQUIRED and unchanged.
+The only continuation outcome is NO_REPORT; stop at this maintenance checkpoint.
+
+## 2026-09-28 — reviewer progress dashboard
+
+Human requested visible progress. Read current policy/current work, runbook,
+architecture, relevant history and persisted state; preserved unrelated dirty work.
+Reused GET reviewer status to display per-report saved states, file/comment evidence
+links and timestamps. Distinguished stale/offline/failed states, applied vs approval,
+and observed page-session changes vs saved snapshots. No backend/state mutation,
+restart or WC02 work. Six JavaScript fixture checks and one focused dashboard test
+passed; initial Node worker spawn EPERM avoided by direct same-file test execution.
+Live browser/reload showed the deployment APPLIED and human waits. Detailed scoped
+evidence: docs/review-records/REVIEWER_PROGRESS_UI_2026-09-28.md.
+Next: publish REVIEWER-PROGRESS-UI-20260928-001 and stop for matching UI-only review.
+Source/evidence 8cfffd7b5c8c8b9ca06c1cc027a0243dcbaf2800 pushed and remote matched.
+Immutable request 7626a071300c0e8cc0763a516f481fbc58cb56a1; notification SENT:
+https://github.com/HIPVG/AI-Control-Center-Review-Bridge/pull/1#issuecomment-5868326901
+Review acceptance is pending. End foreground turn; no PR polling after publication.
+
+## 2026-09-28 — human approves existing foreground WC-02 route
+
+Human assented "はい、そうしてください。" to foreground-only existing edit/test
+route review, not a new host writer/reload subsystem. Recorded decision
+AUTH-G6-WC02-FOREGROUND-20260928-001 with exact context, target files, actor map,
+happy/failure/rollback paths and terminal evidence. Read current policy, active
+work, runbook, history/state and full prior HUMAN_REQUIRED response5867480489.
+Also read UI ACCEPT_COMPLETE at Bridge27c46c1; its scope remains UI-only.
+Found old WC02 diagnosis has no REVIEWED_COMMIT, so the confirmation validator
+cannot safely bind it. Disclosed this limitation in a separately pinned new route
+request; did not invent a baseline, weaken validation or hand-edit old state.
+Authority/current-work documents published at a5dd08abc952412faa7b3189c84e49bb45d97577,
+remote matched; unrelated runtime/history/acceptance changes preserved.
+Request G6-ACC-WC02-FOREGROUND-20260928-001 fixed at Bridge
+c8ec553b5e9a4f0d0bb5b170e5372d56c455a09d. Notification SENT:
+https://github.com/HIPVG/AI-Control-Center-Review-Bridge/pull/1#issuecomment-5868404598
+No WC02 source/fixture or service operation performed; end after delivery. Watcher
+records matching route response only; approved foreground actor implements after
+review and residual-budget check. Old unbound wait is not declared resolved.
+
+## 2026-09-28 — post-rejection transport recovery
+
+Human requested implementation and design reflection after an omitted trigger
+AUTHORITY_RECORD remained stuck with only file_error. Read current policy, active
+work, runbook, relevant history, state and Git. Implemented deterministic bounded
+recovery, persistent escalation and dashboard projection; updated G4 §15.1, G5
+WC-07/07A mapping and policy. Focused Python 60 passed; dashboard 7 passed.
+See REVIEWER_REJECTION_RECOVERY_2026-09-28.md for state-transition evidence and
+the initial test-fixture correction. No live restart, real automatic resend,
+WC-02 patch, Day, credentials or paid operation. Preserve unrelated dirty history
+and acceptance notes outside this scoped commit. Next: fixed-commit review of
+this maintenance, with deployment explicitly separate. Active maintenance time
+is counted; this is not another zero-minute WC-02 implementation claim.
+
+## 2026-09-28 — human-requested Watcher suspension
+
+After reading current policy, active work, runbook, history, persisted state,
+Git state, and the separate Control Tower manual review-pack pilot, stopped
+the old dashboard-hosted Watcher using its existing disable environment flag.
+Verified no pending continuation or child process before replacing Uvicorn
+PID 10728 with PID 22256, bound to 127.0.0.1:8000. New startup uses
+`AI_CONTROL_CENTER_DISABLE_REVIEWER_BUS=1`; live status reports running=false,
+available=false, DISABLED_BY_ENV, and the dashboard health check is HEALTHY.
+Last poll remains 2026-09-28T13:32:26.992264Z (22:32:26 JST).
+
+The following nonterminal records remain, without acceptance or closure:
+- G6-ACC-WC02-IMPLEMENTATION-20260928-001: HUMAN_REQUIRED.
+- G6-ACC-WC02-REPAIR-CONFIRM-20260928-001: WAITING_RESPONSE.
+- G6-ACC-WC02-WINDOW-20260928-001: WAITING_RESPONSE.
+- REJECTION-RECOVERY-CONFIRM-20260928-001: WAITING_RESPONSE.
+
+Initial serialized registry equality check returned false; it is not evidence
+of byte-identical preservation. Startup reads existing JSON and only updates
+disable status; persistence sorts keys. Rechecked the four outstanding IDs,
+states, and comment identities. No manual state rewrite or registry cleanup.
+No source fix, WC-02 execution, GitHub post, credential change, or external
+ChatGPT-task change. Disable flag is process-local: future dashboard launches
+must preserve it while suspended. Existing unrelated edits are preserved.
+
+## 2026-09-28 — WC-02 bounded upper-limit repair and exhausted fixture attempt
+
+Human resumed G6 under the new Control Tower/manual external-gate regime. Re-read
+current policy, CURRENT_WORK, the authoritative Day 1-14 runbook, G4/G5 design,
+the bounded repair authority, relevant history, target source/tests and Git state.
+Implemented only the previously authorized fail-closed rejects for requested
+active work over 1800 seconds or attempts over two, plus focused assertions for
+both boundaries.
+
+Ran the one authorized fresh-process command once. Pytest stopped during
+collection because the newly parameterized test omitted `import pytest`; no WC-02
+assertion executed. Classified this as a test-harness defect and added the missing
+import, but did not rerun after consuming the explicit one-attempt allowance.
+WC-02 remains unverified and requires explicit authority for one additional
+focused validation attempt. No Day/Go, service/model, credentials, external
+reviewer delivery, paid work, destructive Git, WC-03, G7 or G8 action occurred.
+See `docs/review-records/G6_WC02_BOUNDED_REPAIR_2026-09-28.md`.
+
+The human then explicitly authorized one additional focused validation attempt.
+Ran the corrected test file once in a fresh Python process: 8 passed in 4.06s.
+The focused evidence includes both upper-limit rejects and confirms they occur
+before Git inspection without mutating the fixture repository. This closes the
+bounded implementation verification gap, but is not product/E2E acceptance.
+Next action is a fixed implementation commit and manual external-gate review pack;
+no WC-03 or Day action starts from the fixture result alone.
+
+Committed the bounded source, test and evidence record as
+`3eb601ac1bbb45d8d126401d853e0b1caaa9afc6`. Created immutable manual gate pack
+`G6-WC02-COMPLETION-20260928-001`, bound to that commit, in follow-up commit
+`6a45da2ea8704c07b87fdd01b64c9127454fde98`. Pushed the existing branch and
+read back the same remote head. The old Watcher remained disabled; no Review
+Bridge report was created. Await a manually returned pack response before WC-03.
+
+## 2026-09-28 — WC-02 external gate accepted; WC-03 selected
+
+Received the complete manually relayed response for pack
+G6-WC02-COMPLETION-20260928-001. Its PACK_ID and reviewed commit exactly match
+the immutable pack and `3eb601ac1bbb45d8d126401d853e0b1caaa9afc6`; result is
+ACCEPT with no unresolved gaps. Applied it only as WC-02 deterministic-fixture
+completion, not product/runtime/UI/Day E2E acceptance, and did not alter old
+Review Bridge records.
+
+Following the accepted minimum next action and existing G6 continuity rule,
+selected WC-03. Scope is read-only Day 1–14 catalog/admission data and focused
+fixtures: contract version, required Evidence, authoritative source scope,
+preflight inputs and a concrete admission/block reason per Day. No Day selection,
+Go, model, service, LocalLLM-Lab write, external post, or WC-04 action is included.
+See `docs/review-records/G6_WC02_COMPLETION_ACCEPTANCE_2026-09-28.md`.
+
+Implemented the selected WC-03 read-only Day 1–14 admission catalog. Each entry
+now exposes contract version/fingerprint, required Evidence, authoritative source
+scope/presence, required preflight inputs, a concrete admission outcome and an
+explicit non-executed marker. A malformed Day definition blocks only that Day;
+global configuration, Evidence registration and source availability fail closed.
+
+Focused fresh-process validation passed on the first attempt: 18 passed with six
+existing FastAPI/Starlette deprecation warnings in 2.71s. Tests cover all 14
+catalog entries, nonmutation/unselected IDLE state, Day 6-only invalid-definition
+blocking and existing API compatibility. No Day/Go, model, service, LocalLLM-Lab
+write, external post, WC-04, G7 or G8 action. Evidence:
+`docs/review-records/G6_WC03_2026-09-28.md`.
+
+Committed the WC-02 acceptance record and bounded WC-03 source/test/evidence as
+`0bda133b20f834f8316be6f8084a240d3034a947`. Created manual completion pack
+`G6-WC03-COMPLETION-20260928-001` in commit
+`67a01ec02c1ceef52bcb3499f103405dede7e180`, pushed the existing branch and read
+back the same remote head. Watcher remains disabled. Await the matching manual
+pack response before WC-04.
+
+## 2026-09-28 — WC-03 accepted; WC-04 selected and fixture-verified
+
+Received a complete manual external response matching pack
+G6-WC03-COMPLETION-20260928-001 and reviewed commit
+0bda133b20f834f8316be6f8084a240d3034a947. Applied ACCEPT only to the WC-03
+deterministic catalog fixture and selected WC-04 under existing G6 continuity.
+
+Replaced UI selection POST with local-only selection. Added typed Go preview API
+that accepts only selected Day, creates a server-owned immutable RunIntent, keeps
+the same run ID through WC-02 admission, and never starts a Day. Browser claims
+for permission/prerequisites are rejected; unknown server facts fail closed.
+Focused validation passed 27 tests with six existing dependency deprecations;
+the second and final WC-04 validation was `node --check frontend/app.js`, exit 0.
+No service reload, actual Day/Go, model, LocalLLM-Lab write, external post, WC-05,
+G7 or G8 action. Evidence: `docs/review-records/G6_WC04_2026-09-28.md`.
+
+Committed the WC-03 acceptance record and bounded WC-04 source/test/evidence as
+`76a1c9c7dada47239a8a5f8ccb4b6431dc1d4fda`. Created immutable manual gate pack
+`G6-WC04-COMPLETION-20260928-001`, bound to that reviewed commit, in follow-up
+commit `10ea88bf99cbc03085f26dd64c824ee0341e34e5`. Pushed the existing branch and
+read back the same remote head. Watcher remains disabled. Await a complete
+matching pack response before WC-05; no actual Day or product E2E was started.
+
+## 2026-09-28 — WC-04 accepted; WC-05 selected and fixture-verified
+
+Received a complete manual external response matching pack
+`G6-WC04-COMPLETION-20260928-001` and reviewed commit
+`76a1c9c7dada47239a8a5f8ccb4b6431dc1d4fda`. Applied ACCEPT only to the WC-04
+selection/Go-to-PREFLIGHT stub. Service restart, browser E2E and actual Day/Go
+remain unobserved and excluded. Selected WC-05 under the authorized G6 order.
+
+Added a strict provider-result contract and server-owned Result Adapter/criterion
+evaluator. Accepted Evidence Records bind the exact run and criterion and preserve
+provider/validator versions, fingerprints, collection time and validator result.
+Wrong Evidence type, empty value, exit 0 alone and run mismatch fail closed without
+accepted records. Legacy records remain readable but absent run/criterion bindings
+cannot satisfy the new evaluator.
+
+The first focused attempt returned 3 failed/3 passed because the new test fixture
+used the wrong Day 6 criterion for `provenance_test`; no product assertion failed.
+After correcting only the fixture mapping, the second/final attempt passed six
+tests in 1.97 seconds. No Day, model, service, browser, credential, paid, G7 or G8
+operation occurred; unnecessary broader work was not performed.
+
+Committed implementation/evidence as
+`5f45bfc8dcfbe7fa5fe73854ca549a72fa99e9ae`. Created immutable pack
+`G6-WC05-COMPLETION-20260928-001` in commit
+`08e9017d7961c8f941ced5e93508708195620bfb`, pushed the branch and read back the
+same remote head. Watcher remains disabled. Await the exact external gate response
+before WC-06.
+
+## 2026-09-29 — WC-05 accepted; WC-06 selected and fixture-verified
+
+Applied the complete external response for `G6-WC05-COMPLETION-20260928-001`
+after exact PACK_ID and reviewed-commit correlation. Acceptance remains limited to
+the typed Evidence/criterion fixture; all-Day collection, persistence migration,
+actual Day and product E2E remain excluded.
+
+Implemented a fixture-only repair/recovery controller around the immutable
+RunRecord. It rejects run/Day, scope, Git, active-work and attempt-limit mismatch;
+a verified bounded outcome reaches REVALIDATING. The second same failure enters
+HUMAN_ACTION_REQUIRED, a third attempt is rejected, and only exact review
+correlation returns the same run/Day to PREFLIGHT without resetting attempts.
+
+The first focused command passed 11 tests in 0.40 seconds. No actual repair, file
+mutation, Day/model, service, browser, reviewer transport, credential, paid, G7 or
+G8 operation occurred. Unnecessary broader work did not delay the result.
+
+Committed implementation/evidence as
+`7ff69297eedfa5f3f549e8060a544b34a774a51b`; committed pack
+`G6-WC06-COMPLETION-20260929-001` at
+`9bf727a1bc51d12d9386cc2654d7840336544d23`, pushed and read back the matching
+remote head. Await exact acceptance before WC-07.
+
+## 2026-09-29 — WC-06 accepted; WC-07 selected and fixture-verified
+
+Applied the exact matching acceptance for `G6-WC06-COMPLETION-20260929-001`,
+limited to its repair/recovery fixture. Implemented a separate Review Control
+fixture with one outstanding report, exact reply/response correlation, duplicate
+suppression, Watcher-availability and timeout fail-closed handling, downstream
+evidence before VERIFIED, and no Day-state mutation.
+
+The first focused command passed 20 tests in 0.67 seconds. Artifact review then
+separated historical report identity from active outstanding identity; the second
+and final command passed the same 20 tests in 0.68 seconds. No live Watcher,
+GitHub delivery, continuation, Day/model/service, credential or paid action occurred.
+
+Committed implementation/evidence as
+`091343d45fea907f6015be997930cdb040c29c91`; committed pack
+`G6-WC07-COMPLETION-20260929-001` at
+`3d0152a35defb0a19d1b5d1d9241b0dc1d529d2a`, pushed and read back the matching
+remote head. Await exact acceptance before WC-07A.
+
+## 2026-09-29 — WC-07 accepted; WC-07A fixture verified
+
+Applied exact WC-07 acceptance and added continuation observability states with
+correlated IDs, timestamps, actions, envelope result, downstream effect, actor and
+auth availability. Exit 0 without valid envelope/effect fails closed; VERIFIED
+requires matching readback. First 25-test run passed; after adding failure-terminal
+timestamps, the second/final 25-test run passed. No live transport or Day action.
+
+Implementation commit `2881f8e6a58dfbaca68baf0355f111986b31b6a4` and pack
+head `306c766dcd4f6d449eca211ccfe84b062c1a0c78` were pushed and read back.
+Await exact acceptance before WC-07B.
+
+## 2026-09-29 — WC-07A accepted; WC-07B selected and fixture-verified
+
+Applied the exact matching acceptance for `G6-WC07A-COMPLETION-20260929-001`,
+limited to its continuation-observability fixture. Implemented the WC-07B
+HumanDecision subject guard and confirmation contract without transport or Day
+execution. Bare approval, proxy relay and binding mismatches retain provenance and
+apply no effect. A classified direct response remains pending until exact Reviewer
+confirmation, continuation success and effect evidence; confirmed effects do not
+expand from proposal to artifact, gate exit, next stage, PR close or merge.
+
+The first focused command passed 45 tests in 7.18s. Artifact review added one direct
+continuation/effect-evidence assertion; the second/final command passed 45 tests in
+3.84s. `git diff --check` passed. No live Watcher, GitHub delivery, service, Day,
+model, credential, paid, G7/G8 or product-E2E action occurred. Evidence:
+`docs/review-records/G6_WC07B_2026-09-29.md`.
+
+Committed the bounded source, tests, WC-07A acceptance and WC-07B evidence as
+`4d59414d44c43dc23ff4c8f6e205c4c7543fa09b`. Created the immutable pack
+`G6-WC07B-COMPLETION-20260929-001` in commit
+`ea6b0db83f2be3157aa5b51386df59f19d7eec46`, pushed the existing branch and read
+back the same remote head. Watcher remains disabled. Await exact acceptance before
+WC-08.
+
+## 2026-09-29 — WC-07B completion rejection and RESPONSE_ID repair
+
+Read and applied the complete rejection of
+`G6-WC07B-COMPLETION-20260929-001` at reviewed commit
+`4d59414d44c43dc23ff4c8f6e205c4c7543fa09b`. The reviewer identified one bounded
+contract defect: `apply_confirmation` did not require a non-empty Reviewer
+`RESPONSE_ID`, so an otherwise matching response could apply an effect while its
+confirmation-response identity remained null.
+
+Added the missing fail-closed guard before confirmation application and one focused
+H06 test. The test removes `RESPONSE_ID` from an otherwise complete reply and asserts
+pending state, null response identity, null allowed effect, null effect evidence and
+no applied effect. The focused repair command passed 46 tests in 4.32s on its first
+attempt. No live Watcher, delivery, Day/model/service, credential, paid, G7/G8 or
+product-E2E action occurred. The rejected pack remains immutable evidence; resubmit
+under a new PACK_ID and fixed reviewed commit.
+
+Committed the bounded repair, assertion and amended WC-07B evidence as
+`6103fdb605b93a8ac8271ddc9a7746564f54d772`. Created immutable resubmission pack
+`G6-WC07B-COMPLETION-20260929-002` at
+`46ccaa82cd4bcf5d7e30ec030b4962e7061cac36`, pushed the existing branch and read
+back the same remote head. No Watcher operation was performed. Await exact
+acceptance before WC-08.
+
+## 2026-09-29 — WC-07B accepted; WC-08 selected and fixture-verified
+
+Applied the exact matching acceptance for `G6-WC07B-COMPLETION-20260929-002`,
+limited to its HumanDecision fixture. Selected WC-08 under the approved G6 dependency
+order and implemented immutable run-bound telemetry plus create-only JSON storage.
+
+The contract separates manual relay, reasoned intervention, attempt actual/limit,
+token actuals and cost, while retaining source and timezone-aware observation time.
+Unknown values require a reason and remain null; known values require an authoritative
+source. Run mixing, reasonless intervention, duplicate intervention IDs, relay-count
+inconsistency and overwrite of an existing run telemetry snapshot fail closed.
+
+The first focused command passed 16 tests in 0.35s. Assertions inspect values,
+provenance, unknown preservation, identity guards and create-only failure. No live
+run, Day/model/service, UI, external send, credential, paid, G7/G8 or product-E2E
+action occurred. Evidence: `docs/review-records/G6_WC08_2026-09-29.md`. Next is a
+fixed commit and WC-08 review pack; WC-09 remains blocked on exact acceptance.
+
+Committed the bounded WC-08 model, create-only store, tests, WC-07B acceptance and
+evidence as `3ee207594c8b7e70cf0ceb420bdab0fa2ea58950`. Created immutable pack
+`G6-WC08-COMPLETION-20260929-001` at
+`cdbf57d4e9a42f601577af63e868bbd468b6aca8`, pushed the existing branch and read
+back the same remote head. No Watcher operation was performed. Await exact acceptance
+before WC-09.
+
+## 2026-09-29 — WC-08 accepted; WC-09 fixture and exhausted validation limit
+
+Applied exact acceptance for `G6-WC08-COMPLETION-20260929-002` and selected WC-09.
+Implemented a read-only current/history projection with run/time/source bindings,
+unknown liveness without runtime observation, separate human/reviewer states and
+fail-closed run mismatch handling.
+
+Attempt 1 returned 18 passed and 7 fixture-setup failures because `git-v1` violated
+the existing eight-character fingerprint minimum. After correcting only that value,
+attempt 2/final passed 25 tests in 2.69s. Artifact review then identified that rich
+state assertions invoked the model directly rather than through the GET endpoint.
+Prepared a minimal endpoint injection boundary and routed PREFLIGHT through HTTP, but
+did not execute a third test beyond the explicit two-run card limit. WC-09 remains
+unverified and uncommitted pending authority for one additional focused command. No
+service, write API, Day/model, Watcher, external send, credential or paid action occurred.
+
+The human explicitly authorized one additional focused validation command. The exact
+focused suite then passed 25 tests in 3.59 seconds with six dependency deprecation
+warnings. The run exercises both the unselected endpoint and the state-rich PREFLIGHT
+projection through HTTP. This closes the bounded WC-09 fixture-validation gap; the next
+boundary is a fixed implementation commit and immutable external review pack. WC-10,
+service/Day/model work and product E2E remain unstarted.
+
+Committed the WC-08 acceptance record and bounded WC-09 source, API binding, tests and
+evidence as `b9d16674de3c7be35c82bc24f279d7b67e3a4809`. Created immutable pack
+`G6-WC09-COMPLETION-20260929-001` at
+`af68b21a96d8f75b71cbf2e3ac233cce28a1df19`, pushed the existing branch and read
+back the matching remote head. Watcher remained disabled. Await exact acceptance
+before WC-10; no actual runtime, Day or product E2E was started.
+
+The external review of `G6-WC09-COMPLETION-20260929-001` returned REJECT only because
+the reviewed evidence did not preserve the human authority provenance for the third
+focused run. The Reviewer confirmed no technical fixture defect and requested no code
+change or rerun. Applied the minimum action by recording decision
+`AUTH-G6-WC09-EXTRA-VALIDATION-20260929-001`: exact human text `実施してください`,
+the immediately preceding one-extra-run request, exact command, one-run limit, current
+Codex Work chat channel, and unavailable message ID/time as UNKNOWN. Next is a new
+fixed evidence commit and resubmission pack; WC-10 remains unstarted.
+
+Committed the authority amendment as
+`02fbfbe6db894c822adb3292082f4fb591ac1add`. Created immutable resubmission pack
+`G6-WC09-COMPLETION-20260929-002` at
+`91315dd591744501725775ca4685b960aaab5712`, pushed the existing branch and read
+back the matching remote head. No code changed and no test was rerun. Await exact
+acceptance before WC-10.
+
+## 2026-09-29 — WC-09 accepted; WC-10 selected and fixture-verified
+
+Applied the exact matching acceptance for `G6-WC09-COMPLETION-20260929-002`, limited
+to its deterministic read-only API/projection fixture, and selected WC-10 under the
+approved G6 dependency order.
+
+Added a vanilla-JavaScript read-only dashboard projection for the existing WC-09 GET
+API. It displays current identity/state/admission, next action/blocker, unmet criteria,
+review, approval subject/effect, separate human and Reviewer states, sourced or unknown
+telemetry, interventions and explicitly historical runs. It adds no POST or Go binding.
+
+The first validation command failed before any assertion because the Node test runner
+could not spawn its child process in the sandbox (`spawn EPERM`). After consolidating
+DOM, GET-only, syntax and state assertions into the same-process fixture, the second
+and final command passed four tests. No backend contract, service/browser, Day/Go,
+model, Watcher, external send, credential, paid, VC-11, G7/G8 or product-E2E action
+occurred. Evidence: `docs/review-records/G6_WC10_2026-09-29.md`. Next is a fixed
+implementation commit and immutable completion pack.
+
+Committed the WC-09 acceptance record and bounded WC-10 dashboard, projection helper,
+fixture and evidence as `138cc2144ad8a820deec889e66a90ddfe0ca9903`.
+Created immutable pack `G6-WC10-COMPLETION-20260929-001` at
+`c7ca55b6311ed2770dc6e47fc282abbb0c29d31a`, pushed the existing branch and read
+back the matching remote head. Await exact acceptance before VC-11.
+
+The review of `G6-WC10-COMPLETION-20260929-001` returned REJECT for one evidence gap:
+the fixture populated sourced zero relay/cost and attempt actual/limit metrics without
+asserting their rendered values. Added only the three missing assertions; production
+code is unchanged. Because the WC-10 two-run limit is exhausted, did not execute the
+updated fixture. Await direct human authority for one additional focused
+`node tests/run_status_ui.test.js` run. No VC-11 or broader action started.
+
+The human replied `お願いします。` to the immediately preceding request for one extra
+WC-10 validation run. Recorded decision
+`AUTH-G6-WC10-EXTRA-VALIDATION-20260929-001` with exact text, command, one-run limit,
+chat source and unavailable message ID/time as UNKNOWN before execution. The one
+authorized command passed all four tests, including exact assertions for sourced zero
+relay/cost and attempt actual/limit. No production code changed and no further test,
+VC-11 or broader action ran. Next is a fixed test/evidence commit and resubmission.
+
+Committed the three assertions, direct authority and passing evidence as
+`b041bf7bce51023a3de9067b7a3e80460adb3a0b`. Created immutable resubmission pack
+`G6-WC10-COMPLETION-20260929-002` at
+`fc5314682d661cfcd88cde6958d0936ad33aa99e`, pushed the existing branch and read
+back the matching remote head. Await exact acceptance before VC-11.
+
+## 2026-09-29 — WC-10 accepted; VC-11 actual-actor evidence selected
+
+Applied the exact matching acceptance for `G6-WC10-COMPLETION-20260929-002`, limited
+to the deterministic dashboard fixture, and selected VC-11. Reused the existing real
+comment-transport confirmation `G6-ACC-WC01-CONFIRM-20260928-002`: GitHub readback
+confirmed report comment 5865122824, sole matching reply 5865174825 and exact
+authority/target fields. The persisted Watcher registry records the confirmation as
+APPLIED and the original wait as RESOLVED_BY_CONFIRMATION with the same response and
+decision. This is actor evidence, not a fixture-pass inference.
+
+No listener was present on localhost:8000 during the current read-only check although
+the saved JSON still said running=true; treated that flag as stale and did not restart
+the suspended Watcher. Selected-Day product E2E remains INPUT_BLOCKED because no Day,
+Go, run environment/owner, limits or live-auth authority is supplied. No Day, service,
+model, continuation, credential or paid action occurred. Evidence:
+`docs/review-records/G6_VC11_2026-09-29.md`. Next is a fixed evidence commit and one
+VC-11 review pack; G6 completion remains a later review boundary.
+
+Committed the WC-10 acceptance and VC-11 fixed evidence as
+`c1758faa9f8ce8b8a7018d828d97fcb90b4bd35b`. Created immutable review pack
+`G6-VC11-COMPLETION-20260929-001` at
+`9a7ad1b4f8c359ddaa5511084ecee2825038b8f0`, pushed the existing branch and read
+back the matching remote head. Await exact acceptance before the separate G6
+completion review; no runtime or product action was performed.
+
+The external review rejected the first VC-11 pack only because the reviewed commit
+did not include the primary Watcher-state rows or continuation result. Located the
+exact completed continuation turn in the Control Center-isolated SQLite history. Its
+final item is a `NO_REPORT` envelope for the same confirmation report; the persisted
+Watcher registry records `APPLIED` and `RESOLVED_BY_CONFIRMATION` 4.321 seconds later
+with the same response, decision and target commit. Exported these rows read-only with
+source file, raw-item and canonical-entry SHA-256 values. A read-only cross-check
+returned `VC11_EVIDENCE_VALID`; no state file, service or delivery was modified.
+
+Committed the fixed trace as `8d4e6bda66d283ffcc8f2fe1b6d7eaba9b66f254` and
+created resubmission pack `G6-VC11-COMPLETION-20260929-002` at
+`b69da542a5ffb1721e1efc5cdc86d8c2051f8d74`. Pushed the existing branch and read
+back the matching remote head. Await exact acceptance; product E2E remains
+INPUT_BLOCKED and G6 completion review remains separate.
+
+The amended VC-11 pack returned exact ACCEPT for
+`8d4e6bda66d283ffcc8f2fe1b6d7eaba9b66f254`, limited to one real actor path.
+Recorded the acceptance and built the G6 stage-completion matrix from WC-00 through
+VC-11. All listed fixed commits resolve locally; tracked acceptance records preserve
+the exact bounded scopes, and rejected first packs remain history. Product E2E stays
+INPUT_BLOCKED; no Day, service, model, G7 or G8 action occurred.
+
+Committed the stage evidence as `a30ed2303a85ff00ebbb5b0721bea4fe5c66ad0f` and
+created completion pack `G6-STAGE-COMPLETION-20260929-001` at
+`cfb3b1895faea9c2827250b75ce29565f2f7307b`. Pushed the existing branch and read
+back the matching remote head. G6 remains completion-review pending.
+
+The G6 stage-completion review returned exact ACCEPT for
+`a30ed2303a85ff00ebbb5b0721bea4fe5c66ad0f`, with no unresolved gap inside the G6
+decision scope. Recorded G6 as closed only for the implementation-and-fixture stage
+in `G6_STAGE_COMPLETION_ACCEPTANCE_2026-09-29.md`, committed it as
+`8d47386f9be21ab69d2debb59b2a429813e5fa11`, pushed the existing branch and read
+back the matching remote head. Stopped without starting G7/G8, a Day, service,
+browser, model, credential, spending or product-E2E work. Selected-Day product E2E
+remains INPUT_BLOCKED.
+
+## 2026-09-29 — WC-08 completion rejection and duplicate-ID evidence repair
+
+Read and applied the complete rejection of `G6-WC08-COMPLETION-20260929-001` at
+reviewed commit `3ee207594c8b7e70cf0ceb420bdab0fa2ea58950`. The implementation
+already rejected duplicate intervention IDs, but the fixed test set did not assert
+that behavior, making the evidence record's claim unsupported.
+
+Added one focused assertion using two same-run interventions with the same ID and a
+relay count of two, so the duplicate identity guard is the rejecting condition. The
+one bounded repair command passed 17 tests in 0.36s. No production code, live run,
+Day/model/UI/service, external send, credential, paid, G7/G8 or product-E2E action
+occurred. The rejected pack remains immutable evidence; resubmit under a new PACK_ID.
+
+Committed the added duplicate-ID assertion and amended evidence as
+`502550c487afc52844f8ec3011b4914e85f7822d`. Created immutable resubmission pack
+`G6-WC08-COMPLETION-20260929-002` at
+`765f722c301b08c00e6a4108f4f76cb09f77aceb`, pushed the existing branch and read
+back the same remote head. No Watcher operation was performed. Await exact acceptance
+before WC-09.
+## 2026-09-29 — G6 runtime composition RI-00 implemented and fixture-verified
+
+Read the complete direct human authority to execute accepted RI-00 through RI-03 in
+dependency order, current WORKING_RULES/CURRENT_WORK, runbook, architecture, relevant
+history, persisted Watcher state and dirty Git state. Preserved all unrelated dirty
+and untracked work. Classified the card as IMPLEMENTATION.
+
+Added a production RunCoordinator and version-preserving RunStore boundary. The
+coordinator persists RunIntent/RunControl before an injected executor, passes the same
+run ID only after server-fact admission, persists blockers without an effect, rejects
+duplicate active Go and routes the legacy start API through the same guard. Production
+facts default unknown; no real Day was started. The primary focused command passed 32
+tests on attempt 1; the modified legacy controller compatibility fixture passed its 2
+parameter cases on attempt 1. Compileall and diff checking passed. No service,
+browser-product flow, model, Watcher, credential, paid, G7/G8 or destructive Git
+action occurred. Evidence: `docs/review-records/G6_RI00_2026-09-29.md`.
+
+Next: fix the implementation commit and submit RI-00 for review. RI-01 remains blocked
+until exact acceptance. No unnecessary detail work delayed the card.
+
+## 2026-09-30 — G6 RI-03 product-boundary fixture fixed for review
+
+Applied the exact RI-02 acceptance and selected RI-03 under the existing dependency-
+ordered G6 authority. Added one production composition root joining the accepted
+same-run execution controls, durable run store, telemetry store and read projection.
+The integrated fixture uses actual FastAPI Go/read handlers and the real coordinator
+with a deterministic injected executor; it starts no thread or real Day.
+
+The first focused run produced 38 passes and four failures, identifying missing fixture
+Git admission facts and a read-time injection compatibility issue. The second produced
+41 passes and one fixture-shape failure. 広瀬剛 then explicitly authorized one extra
+execution with `許可します。`; the unchanged focused command passed 42 tests with six
+known dependency warnings. Scoped compile and diff checks passed. Evidence:
+`docs/review-records/G6_RI03_2026-09-30.md`.
+
+Committed implementation/evidence as `cc7976ddeded8e171d4ce9a668895b582bdb5987`
+and immutable review pack `G6-RI03-COMPLETION-20260930-001` at
+`fe6eca251865d018d38d94d3c953478972274845`. Pushed the existing branch and read back
+the same remote head. Await exact RI-03 acceptance. No real service/browser, Day/Go,
+model, Watcher, credential, paid, G7/G8 or product-E2E action occurred.
+
+## 2026-09-30 — RI-03 accepted; G6 runtime-composition completion review prepared
+
+Applied the complete exact acceptance for `G6-RI03-COMPLETION-20260930-001` at
+`cc7976ddeded8e171d4ce9a668895b582bdb5987`. Recorded RI-03 as accepted only for its
+deterministic in-process fixture and reconciled the accepted RI-00 through RI-03 chain
+against all ten plan invariants and the G6 return-plan DoD. No test or product
+operation was rerun.
+
+Committed acceptance and stage evidence as
+`bff5990bf11b40892f1841f9ab72deda1a1bcb39`. Created separate completion pack
+`G6-RUNTIME-COMPOSITION-COMPLETION-20260930-001` at
+`98a31b6429c60a683ec5cb2d460a463ba42e88b9`, pushed the existing branch and read
+back the same remote head. Await exact completion review. G7, service/browser, Day 6,
+model, Watcher, credentials, spending and product E2E remain unstarted.
+
+## 2026-09-30 — G6 completion rejection repaired at two exact guards
+
+Applied the complete rejection of `G6-RUNTIME-COMPOSITION-COMPLETION-20260930-001`.
+Added only the missing snapshot-run check before Evidence application and the required-
+review guard before `COMPLETE`. The latter uses the persisted review blocker as well
+as live ReviewControl state, so reconstruction does not erase the requirement.
+
+Two non-mutation assertions cover cross-run snapshot Evidence and completion after a
+persisted review wait plus composition reconstruction. The focused suite passed 44
+tests twice; scoped compile and diff checks passed. Committed the repair/evidence as
+`a71ab7a30edad05a1b6310fb87548764fe5e17c1` and revision pack
+`G6-RUNTIME-COMPOSITION-COMPLETION-20260930-002` at
+`4cc258d29b4acf4893a988719e3dd66f7071ed55`. Pushed and read back the same remote
+head. No live/product/G7 operation occurred.
+
+## 2026-09-30 — G6 runtime-composition return stage accepted and closed
+
+Applied exact acceptance for `G6-RUNTIME-COMPOSITION-COMPLETION-20260930-002` at
+`a71ab7a30edad05a1b6310fb87548764fe5e17c1`. The Reviewer confirmed snapshot-run
+Evidence rejection and persisted required-review completion blocking, including the
+reconstructed-composition assertion. G6 runtime-composition implementation and
+deterministic fixtures now have no unresolved gap in the accepted scope.
+
+Committed the acceptance record as `8497bb239c35003f212996e9d4d7afde0a57ffab`,
+pushed the existing branch and read back the same remote head. Stopped without
+starting G7, service/browser, actual Day 6, product E2E, model, Watcher, credentials
+or spending. The next boundary is a separate human G7 decision.
+
+## 2026-09-30 — G7 real service/browser admission fails from a clean baseline
+
+広瀬剛 authorized execution of the accepted G7 plan. Recorded the exact authority,
+started the loopback service with the Reviewer Bus disabled, and used the real Chrome
+dashboard. The existing dirty worktree failed closed as expected and was preserved.
+A managed worktree at `8497bb239c35003f212996e9d4d7afde0a57ffab` was then verified
+clean before the second and final permitted Go attempt.
+
+Day 6 selection created no run and Go was enabled. One browser Go created
+`run-048d552b085a4c4e816ccf02ed1a0a1f`, but admission returned
+`DIRTY_GIT_BASELINE` and no Day executor or model started. Immediately after Go the
+only Git status entry was the generated RunRecord under `state/runs/`; the dashboard
+and API agreed on Day 6, the run ID, `HUMAN_ACTION_REQUIRED`, unknown runtime and the
+dirty-baseline blocker. The exact internal interleaving was not inferred beyond this
+black-box evidence.
+
+Classified A01 product Go-to-`PREFLIGHT` as `FAIL`, A05 as partial product evidence,
+and downstream A02/A03/A04-current/A06 as `NOT_EVALUABLE`. G7 does not repair the
+defect. Proposed `RETURN` to the minimum G6 admission/persistence integration repair,
+with the two-attempt cap exhausted and 0 JPY spent. Evidence and fixed review pack:
+`docs/review-records/G7_PRODUCT_E2E_VALIDATION_2026-09-30.md` and
+`docs/review-packs/G7-PRODUCT-E2E-20260930-001.md`.
+
+## 2026-09-30 — Correct G7 admission cause after review rejection
+
+Applied the complete rejection of `G7-PRODUCT-E2E-20260930-001`. The prior diagnosis
+mistakenly used the AI-Control-Center managed worktree's status to explain admission.
+Readback of `config/projects.yaml` and the fixed Engine/program/admission call path
+shows that the inspected root was `C:/LocalLLM-Lab` and the check occurred before
+RunRecord persistence.
+
+The saved Day 6 RunIntent fingerprint equals the current LocalLLM-Lab fingerprint
+`a1380a4f...`, while its four tracked modifications and four untracked files all
+predate Go. An immutable pre-Go G7 record had already recorded the same HEAD,
+ahead-by-11 relation and dirty work. With no Go retry or write to either product
+repository, withdrew the generated RunRecord cause and the G6 return. Corrected the
+G7 product state to `INPUT_BLOCKED`, pending one human decision on an approved clean
+LocalLLM-Lab baseline. Revision pack: `G7-PRODUCT-E2E-20260930-002`.
+
+## 2026-09-30 — Corrected G7 product result accepted
+
+Applied the exact `ACCEPT` response for `G7-PRODUCT-E2E-20260930-002` at reviewed
+commit `8497bb239c35003f212996e9d4d7afde0a57ffab`. The accepted result remains
+`INPUT_BLOCKED`: no G6 defect is established, A05 has only partial product evidence,
+and the downstream product path remains unevaluated. The absent raw Go-time Git
+status bytes remain an explicit evidence limitation.
+
+The next boundary is human selection of an approved clean LocalLLM-Lab baseline
+that preserves existing work. The two permitted Go attempts remain exhausted;
+baseline selection does not itself authorize another Go. No service, browser, Day,
+model, Watcher, credential, spending, G8 or product-acceptance action was performed.
+
+## 2026-09-30 — G6 AF-00 authority-fact boundary implemented
+
+Implemented strict immutable authority grants, independent prerequisite observations,
+create-only JSON stores and a resolver bound to the complete RunIntent identity and
+current LocalLLM commit. The resolver records grant/decision provenance, authority
+record hash, prerequisite record IDs and content hashes, timestamps and explicit
+unknown reasons without treating permission as prerequisite readiness.
+
+The focused command passed 22 tests on ordinary attempt 1 and 23 after the historical
+authority companion was added. Final reconciliation found one missing prerequisite
+observation content hash. 広瀬剛 authorized one additional execution with
+`実行してください`; after the bounded correction it passed 23 tests in 16.71s.
+Compile and scoped diff checks passed. No production wiring, service/browser,
+Go/Day, model, Watcher, credential, paid action, G8 or product acceptance occurred.
+
+Fixed implementation commit `2a42323b6999b6e79fc34c6c9ec08edaabe9fcd6`
+and review-pack commit `f5edfbb0ac822124fdceaf11f66aabcae29c6987`
+were pushed and the remote head was read back. Completion report
+`G6-AF00-REVIEW-20260930-001` was published once to Review Bridge PR #1 and its
+complete body was read back at comment `5902887112`. Stopped before AF-01.
+
+## 2026-09-30 — AF-00 exact-expiry review rejection repaired
+
+Applied the complete rejection of `G6-AF00-COMPLETION-20260930-001`. Changed only
+the Grant validity edge from `now > expires_at` to `now >= expires_at`. Added a
+focused equality assertion requiring unknown permission and absent Grant provenance,
+without coupling the independently valid prerequisite result. A newly declared
+exact-boundary command passed once: `1 passed, 18 deselected in 0.87s`. AF-01 and
+all product operations remained untouched.
+
+Fixed repair commit `bb111de0b7ef3425f99efa9b887378f96e3632d0` and revision-pack
+commit `9140b41e68ebddf0fbb2ad6dc56ceb229bf352b5` were pushed and remote-read back.
+Report `G6-AF00-REVIEW-20260930-002` was published once and read back at Review
+Bridge PR #1 comment `5903078963`. Stopped before AF-01.
+
+## 2026-09-30 — AF-00 accepted and AF-01 production composition implemented
+
+Applied acceptance of `G6-AF00-COMPLETION-20260930-002` at reviewed commit
+`bb111de0b7ef3425f99efa9b887378f96e3632d0`; no AF-00 gap remains. Selected AF-01
+under the existing G6 authority.
+
+Refactored Go composition so one RunIntent precedes server-side fact resolution and
+is reused for admission, persistence and executor handoff. Wired the accepted
+Grant/Observation/Fact stores and resolver into production Engine, added read-only
+Fact projection, and retained legacy start through the same guard. A FastAPI fixture
+proved one same-run injected effect, restart/duplicate protection, independent
+authority/prerequisite failures and the absence of criterion/Day completion from
+admission evidence. The focused suite passed 20 tests once; scoped compile and diff
+checks passed. No real product operation occurred.
+
+Fixed AF-01 commit `0d94d74a218ed0a1d1e4155801e0095f03b3c761` and review-pack
+commit `870556a08b7edfd646bebfc8b0ca89d6fec5db00` were pushed and remote-read back.
+Report `G6-AF01-REVIEW-20260930-001` was published once and read back at Review
+Bridge PR #1 comment `5903193771`. Stopped before G6 completion review or G7.
+
+## 2026-09-30 — AF-01 accepted; authority-fact G6 completion assembled
+
+Applied acceptance of `G6-AF01-COMPLETION-20260930-001` at reviewed commit
+`0d94d74a218ed0a1d1e4155801e0095f03b3c761`. The Reviewer confirmed same-intent
+composition, server-owned facts, exact one-effect behavior, independent fail-closed
+paths, current-run readback and restart/legacy guards. No gap remains in AF-01 scope.
+
+Reconciled the accepted AF-00 and AF-01 commits against every repair-plan DoD item.
+All implementation and deterministic fixture obligations map to fixed accepted
+evidence. Live product E2E remains explicitly outside this completion proposal. No
+test, service, browser, Day, model or external operation was rerun.
+
+Committed the G6 completion evidence as
+`acd505f66ca66550e392f00922b94843243b26c4` and its pack as
+`217e79ec9e8953201620b58b43720cb06fbe75fb`, pushed and remote-read back.
+Completion report `G6-AUTHORITY-FACT-STAGE-REVIEW-20260930-001` was published once
+and read back at Review Bridge PR #1 comment `5903317499`. Stopped before G7.

@@ -169,3 +169,16 @@ state transitions, scope and replay check are traceable. This is not exactly-onc
 proof under arbitrary crashes, OS-login startup proof, G6 completion, or product E2E.
 No Day/model/credential/paid actions, WC02 source edit or new host handoff occurred.
 Next: completion review of this maintenance only; WC02 remains HUMAN_REQUIRED.
+
+## Deployment acceptance (2026-09-28)
+
+The matching file response to `FILE-WATCHER-DEPLOYMENT-20260928-001` returned
+`ACCEPT_COMPLETE` for the existing `github_file` Watcher deployment only. It is
+bound to request commit `d61dcb78b98d6a4c94891057500f6b60cf305e8a` and confirms
+the preserved deployment record at `bcfdb511cfb17ea69ad2df8a23b48f92463e97d0`.
+The response accepted the recorded source hashes, immutable request/response
+provenance, APPLIED and ACKNOWLEDGED transitions, ACK-without-continuation, and
+restart deduplication. Its stated exclusions remain in force: product E2E,
+arbitrary-crash exactly-once, OS-login startup, WC02, G6/G7/G8, and Day/Go work
+were not accepted. No watcher state was edited by hand and no further deployment,
+test, report, or next-stage action was taken.

@@ -50,3 +50,12 @@ Verification:
 ARTIFACT_QUALITY_CHECK: PASS for the read-only visibility scope. No product E2E,
 G6 completion, human-wait resolution, or complete historic transition log claimed.
 Next: bounded UI review, then stop; WC02 remains separate.
+
+Acceptance checkpoint: `REVIEWER-PROGRESS-UI-20260928-001` received the matching
+`ACCEPT_COMPLETE` Git-file response bound to request commit
+`7626a071300c0e8cc0763a516f481fbc58cb56a1` and reviewed commit
+`8cfffd7b5c8c8b9ca06c1cc027a0243dcbaf2800`. Acceptance is limited to this
+read-only reviewer-progress dashboard maintenance. It does not authorize a durable
+transition audit, chat notification transport, WC02, G6/G7/G8, Day/Go execution,
+service operation, model run, credential change, or spending. Preserve this record;
+the Watcher finalizes its pending response from the continuation `NO_REPORT` result.
