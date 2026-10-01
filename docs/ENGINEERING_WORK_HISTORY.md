@@ -1,5 +1,19 @@
 # Engineering work history
 
+## 2026-10-01 — G6 terminal-state conflict guard accepted
+
+Applied the complete `ACCEPT` response for
+`G6-TERMINAL-STATE-CONFLICT-GUARD-COMPLETION-20261001-001` at reviewed commit
+`656711367ed837ddbb75e6df65234a955e44900d`. The Reviewer confirmed the early
+completed-record check, fail-closed conflict result, unchanged current record and
+version history, unchanged executor-effect count, retained normal replay assertion,
+and one authorized 24-test execution.
+
+Added the accepted guard to invariant 9 of the returned-stage DoD reconciliation.
+Revision 001 remains rejected; revision 002 will add only this accepted evidence.
+No source change, additional test, service/browser, Day/Go, model, Watcher, G7/G8 or
+product acceptance occurred while applying the response.
+
 ## 2026-10-01 — G6 completed-state conflict guard fixed and validated
 
 広瀬剛 issued `AUTH-G6-TERMINAL-STATE-CONFLICT-GUARD-20261001-001`, authorizing only

@@ -1,5 +1,18 @@
 # Current Work
 
+## Current checkpoint — G6 terminal-state guard accepted; stage revision 002 pending (2026-10-01)
+
+Reviewer accepted `G6-TERMINAL-STATE-CONFLICT-GUARD-COMPLETION-20261001-001` at
+reviewed commit `656711367ed837ddbb75e6df65234a955e44900d`. This closes the sole
+invariant-9 gap from the returned-stage revision 001 review: an already COMPLETE
+RunRecord now rejects a conflicting later Day state without projection or a new
+version.
+
+Resubmit the G6 product-run-reconciliation stage completion as revision 002, retaining
+revision 001 as REJECT and adding only this accepted guard. Stop for the matching
+stage review. Do not start G7 or operate service/browser, actual Day/Go, model,
+Watcher, G8 or product acceptance.
+
 ## Current checkpoint — G6 terminal-state conflict guard fixed for review (2026-10-01)
 
 Under `AUTH-G6-TERMINAL-STATE-CONFLICT-GUARD-20261001-001`, settlement now checks an
