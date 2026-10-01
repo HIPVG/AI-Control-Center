@@ -1,5 +1,21 @@
 # Engineering work history
 
+## 2026-10-01 — G6 completed-state conflict guard fixed and validated
+
+広瀬剛 issued `AUTH-G6-TERMINAL-STATE-CONFLICT-GUARD-20261001-001`, authorizing only
+the completed-RunRecord conflict guard, one non-mutation assertion, one additional
+focused execution, ten active minutes and 0 JPY.
+
+Moved current-RunRecord inspection ahead of the Day-state branch in terminal
+settlement. When the exact current record is already COMPLETE, any non-COMPLETE Day
+snapshot now returns `COMPLETED_RUN_DAY_STATE_CONFLICT` at `STATE_REPLAY` before
+projection. The new assertion confirms the current RunRecord, version history and
+executor effect count remain unchanged after the conflict.
+
+The single authorized execution passed 24 tests with six existing deprecation
+warnings. No further execution, other-card implementation, service/browser, actual
+Day/Go, model, Watcher, credential, spending, G7/G8 or product acceptance occurred.
+
 ## 2026-10-01 — G6 returned-stage completion rejected on one state-conflict guard
 
 Applied the complete `REJECT` response for

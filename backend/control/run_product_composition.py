@@ -88,14 +88,19 @@ class RunProductComposition:
         self, run_id: str, task_records: list[object]
     ) -> dict[str, object]:
         """Reconcile one already-saved terminal Day without repeating an effect."""
-        if self.program.snapshot.state != LocalLLMDayState.COMPLETE:
-            return self.execution.project_day_state(run_id)
         current = self.run_store.current()
         if (
             current is not None
             and current.intent.run_id == run_id
             and current.control.current_state == LocalLLMDayState.COMPLETE
         ):
+            if self.program.snapshot.state != LocalLLMDayState.COMPLETE:
+                return {
+                    "outcome": "REJECTED",
+                    "reason_code": "COMPLETED_RUN_DAY_STATE_CONFLICT",
+                    "run_id": run_id,
+                    "stage": "STATE_REPLAY",
+                }
             evidence = self.execution.verify_bound_day_evidence(run_id)
             if evidence.get("outcome") != "ACCEPTED":
                 return {
@@ -123,6 +128,8 @@ class RunProductComposition:
                 "telemetry_replay": True,
                 "run_record": current.model_dump(mode="json"),
             }
+        if self.program.snapshot.state != LocalLLMDayState.COMPLETE:
+            return self.execution.project_day_state(run_id)
         evidence = self.execution.bind_day_evidence(run_id)
         if evidence.get("outcome") != "ACCEPTED":
             return {

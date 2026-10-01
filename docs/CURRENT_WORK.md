@@ -1,5 +1,17 @@
 # Current Work
 
+## Current checkpoint — G6 terminal-state conflict guard fixed for review (2026-10-01)
+
+Under `AUTH-G6-TERMINAL-STATE-CONFLICT-GUARD-20261001-001`, settlement now checks an
+already `COMPLETE` current RunRecord before branching on the Day snapshot. A later
+non-`COMPLETE` Day state is rejected at `STATE_REPLAY` without changing the RunRecord
+or its version history. The one authorized additional focused execution passed 24
+tests with existing warnings only.
+
+Submit this bounded correction for individual review and stop. Do not resubmit the G6
+stage result until this guard is accepted. Do not operate service/browser, actual
+Day/Go, model, Watcher, G7/G8 or product acceptance.
+
 ## Current checkpoint — G6 returned-stage review rejected on terminal-state conflict (2026-10-01)
 
 Reviewer rejected

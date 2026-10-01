@@ -370,6 +370,33 @@ def test_integrated_settlement_failures_never_create_terminal_product_state(tmp_
         restore()
 
 
+def test_completed_run_rejects_conflicting_day_state_without_new_version(tmp_path):
+    engine, calls = _engine(tmp_path)
+    _install_integrated_terminal_executor(engine, calls)
+    client, restore = _api(engine)
+    try:
+        run_id = client.post("/api/local-llm/day/go", json={"selected_day": 6}).json()["run_id"]
+        complete = engine.local_llm_run_store.get(run_id)
+        versions = engine.local_llm_run_store.versions(run_id)
+        engine.local_llm_day_program.snapshot.state = LocalLLMDayState.FAILED
+        engine.local_llm_day_program.snapshot.activity = "Conflicting later Day state."
+        engine.local_llm_day_program._save()
+
+        rejected = engine._settle_local_llm_product_run(run_id)
+
+        assert rejected == {
+            "outcome": "REJECTED",
+            "reason_code": "COMPLETED_RUN_DAY_STATE_CONFLICT",
+            "run_id": run_id,
+            "stage": "STATE_REPLAY",
+        }
+        assert engine.local_llm_run_store.get(run_id) == complete
+        assert engine.local_llm_run_store.versions(run_id) == versions
+        assert calls == [(run_id, 6)]
+    finally:
+        restore()
+
+
 def test_terminal_settlement_orders_evidence_telemetry_projection_and_replays_once(tmp_path):
     engine, _calls = _engine(tmp_path)
     client, restore = _api(engine)
