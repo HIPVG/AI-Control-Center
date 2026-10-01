@@ -1,6 +1,19 @@
 # Current Work
 
-## Current checkpoint — G8 RG-04 revision 002 retry authorized (2026-10-01)
+## Current checkpoint — G8 RG-04 revision 002 timed out; new authority required (2026-10-01)
+
+Revision 002 corrected the import path, started the production Watcher once and
+observed report `G8-RG04-REVIEW-PATH-PROBE-20261001-002`. No matching response
+arrived before the 720-second bound. The Watcher stopped with `WAITING_RESPONSE` and
+zero Codex continuations at 2026-10-01T09:22:24.222423Z. The Reviewer event task was
+created and run only after this stop.
+
+Do not restart or repair under the consumed retry authority. Preserve the timeout
+evidence and wait for a new human decision. Any further attempt must begin after the
+Reviewer task is enabled and use a new report ID/create-only state. RG-06 and release
+remain unauthorized; `NO_RELEASE` remains.
+
+## Historical checkpoint — G8 RG-04 revision 002 retry authorized (2026-10-01)
 
 広瀬剛 authorized the one-time retry as
 `UTH-G8-RG04-REVIEW-PATH-RETRY-20261001-001` exactly as typed. Correct only the

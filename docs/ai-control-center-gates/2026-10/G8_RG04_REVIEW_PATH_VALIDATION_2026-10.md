@@ -20,6 +20,19 @@ path and prepends that root to `sys.path`. It uses create-only runtime directory
 The original pass/fail conditions remain unchanged. This is the sole retry. A
 failure retains evidence and stops without another repair. `NO_RELEASE` remains.
 
+## Attempt 002 result
+
+The corrected harness started the Watcher once and observed report comment
+5928347837. No matching Reviewer response arrived within 720 seconds because the
+Reviewer event task had not yet been configured. The Watcher stopped once with the
+probe at `WAITING_RESPONSE`; Codex continuation count is zero. The human created and
+ran the Reviewer task only after this stop, so revision 002 cannot apply a later
+response. No retry or repair is permitted under this authority.
+
+The evidence-summary helper also matched the literal response example embedded in
+the report body. The production Watcher did not apply that text; retain this as a
+trace-helper limitation. RG-04 remains incomplete and `NO_RELEASE` remains.
+
 ## Objective
 
 Establish whether the current GitHub Review Bridge PR #1, production

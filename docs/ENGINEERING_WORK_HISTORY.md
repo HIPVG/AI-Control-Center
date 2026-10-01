@@ -4343,3 +4343,16 @@ The retry permits one Watcher start/stop, one exact response and one `NO_REPORT`
 continuation. Product source, the historical Watcher registry, Day/Go, model,
 credentials, RG-06, distribution and release remain unchanged and unauthorized.
 Any failure is retained and ends the attempt without repair. `NO_RELEASE` remains.
+
+## 2026-10-01 — RG-04 revision 002 stopped on response timeout
+
+The import-path-only correction succeeded and the isolated Watcher observed report
+comment 5928347837. No matching Reviewer response arrived during the 720-second
+window; the Watcher stopped once at `WAITING_RESPONSE` with zero Codex
+continuations. The Reviewer event task was configured only after the stop.
+
+The existing project Watcher registry remained byte-identical. The raw trace's
+summary helper falsely listed the report itself as a response because its body
+contained the expected response example; the production Watcher did not apply it.
+No retry, repair or broader action followed. RG-04 remains incomplete under
+`NO_RELEASE` pending a new human authority.
