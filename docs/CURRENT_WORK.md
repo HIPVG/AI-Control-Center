@@ -1,6 +1,18 @@
 # Current Work
 
-## Current checkpoint — G8 RG-02/RG-05/RG-07 envelope fixed; review pending (2026-10-01)
+## Current checkpoint — G8 RG-02/RG-05/RG-07 accepted; RG-03 authority pending (2026-10-01)
+
+Reviewer accepted `G8-OPERATING-ENVELOPE-COMPLETION-20261001-001` at reviewed
+commit `e5f772c7e2557fc2d9abc360e421df0b554214db`. RG-02, RG-05 and RG-07 are
+complete only as documentary policy/ownership boundaries. No deployment or runtime
+claim was accepted.
+
+Stop under `NO_RELEASE`. The next dependency-eligible gate is RG-03, which requires
+separate human authority for isolated extraction, one mock-mode service start,
+controlled stop, listener/process shutdown confirmation and state/log preservation.
+Do not start RG-03, RG-04, RG-06 or any release action before that authority.
+
+## Historical checkpoint — G8 RG-02/RG-05/RG-07 envelope fixed; review pending (2026-10-01)
 
 Under `AUTH-G8-OPERATING-ENVELOPE-20261001-001`, the local operating envelope for
 accepted candidate `AI-Control-Center-Day6-Bounded-RC1` is fixed for review. It maps

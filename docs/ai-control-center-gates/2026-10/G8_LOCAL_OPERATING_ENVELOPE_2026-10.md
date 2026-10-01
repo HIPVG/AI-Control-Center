@@ -1,7 +1,7 @@
 # G8 RG-02/RG-05/RG-07 — Local Operating Envelope
 
 - **Envelope ID:** `G8-LOCAL-OPERATING-ENVELOPE-20261001-001`
-- **Status:** `FIXED_FOR_REVIEW`
+- **Status:** `ACCEPTED_POLICY_BOUNDARY`
 - **Authority:** `AUTH-G8-OPERATING-ENVELOPE-20261001-001`
 - **Candidate:** `AI-Control-Center-Day6-Bounded-RC1`
 - **Source commit:** `656711367ed837ddbb75e6df65234a955e44900d`
@@ -69,9 +69,9 @@ cost or a live credential-path verification.
 
 | Gate | Evidence fixed here | Proposed status after review |
 |---|---|---|
-| RG-02 | Host, user, loopback/port, candidate/data/log paths and mock-mode boundary. | `COMPLETE_POLICY_BOUNDARY` |
-| RG-05 | Zero-spend, unknown-cost, paid-service and credential-change rules. | `COMPLETE_POLICY_BOUNDARY` |
-| RG-07 | Named owner, role allocation, stop authority, retention and escalation rules. | `COMPLETE_POLICY_BOUNDARY` |
+| RG-02 | Host, user, loopback/port, candidate/data/log paths and mock-mode boundary. | `COMPLETE_POLICY_BOUNDARY` — accepted by `G8-OPERATING-ENVELOPE-COMPLETION-20261001-001`. |
+| RG-05 | Zero-spend, unknown-cost, paid-service and credential-change rules. | `COMPLETE_POLICY_BOUNDARY` — accepted by `G8-OPERATING-ENVELOPE-COMPLETION-20261001-001`. |
+| RG-07 | Named owner, role allocation, stop authority, retention and escalation rules. | `COMPLETE_POLICY_BOUNDARY` — accepted by `G8-OPERATING-ENVELOPE-COMPLETION-20261001-001`. |
 
 RG-03 stop/rollback operation, RG-04 current review transport and RG-06 human scope
 disposition remain unfulfilled. The prospective extraction root does not exist as a

@@ -1,5 +1,19 @@
 # Engineering work history
 
+## 2026-10-01 — G8 RG-02/RG-05/RG-07 operating envelope accepted
+
+Applied the complete `ACCEPT` response for
+`G8-OPERATING-ENVELOPE-COMPLETION-20261001-001` at reviewed commit
+`e5f772c7e2557fc2d9abc360e421df0b554214db`. The Reviewer accepted the local
+Windows/loopback/data-location boundary, mock and zero-spend/unknown-cost rules,
+credential restrictions, role assignments, retention and escalation as sufficient
+documentary policy/ownership evidence for RG-02, RG-05 and RG-07.
+
+Updated each gate to `COMPLETE_POLICY_BOUNDARY` without promoting it to deployment or
+runtime evidence. No extraction, service/Watcher, Day/Go, model, credential,
+distribution or release action occurred. RG-03, RG-04 and RG-06 remain unfulfilled;
+`NO_RELEASE` remains in force pending separate human authority for the next input.
+
 ## 2026-10-01 — G8 local operating envelope fixed for review
 
 広瀬剛 issued `AUTH-G8-OPERATING-ENVELOPE-20261001-001`, authorizing documentation,
