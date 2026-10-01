@@ -1,5 +1,27 @@
 # Engineering work history
 
+## 2026-10-01 — G6 PR-03 integrated product fixture passed
+
+広瀬剛 issued `AUTH-G6-PR03-WORK-WINDOW-20261001-001`, authorizing the accepted
+PR-03 production-composition/FastAPI fixture and G7 handoff for 30 active minutes,
+two executions per focused command and 0 JPY. The fixture uses disposable stores and
+an injected deterministic executor; it does not start a service, browser, actual Day
+or model.
+
+The success path produced one Go, one same-run executor effect, bound Evidence for
+all criteria, sourced terminal telemetry, one durable COMPLETE RunRecord,
+non-writing replay and reconstruction-compatible readback. Failure paths retained
+PREFLIGHT or the existing completed record for incomplete/cross-run Evidence, early
+settlement and telemetry conflict. Existing cross-run task, review, admission and
+SP-00 guards ran in the same focused suite.
+
+Attempt 1 returned 21 passed and two fixture-expectation failures: a volatile
+read-time `projected_at` value was incorrectly compared as durable state, and the
+expected incomplete-Evidence reason did not use the existing reason code. Only those
+expectations were corrected. Attempt 2/final passed 23 tests with six existing
+deprecation warnings. No third run, product source change, service/browser, actual
+Day/Go, model, Watcher, credentials, spending, G7/G8 or product acceptance occurred.
+
 ## 2026-10-01 — G6 PR-02 revision 002 accepted; stopped before PR-03
 
 Applied the complete `ACCEPT` response for

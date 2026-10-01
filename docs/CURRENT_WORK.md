@@ -1,5 +1,20 @@
 # Current Work
 
+## Current checkpoint — G6 PR-03 integrated fixture passed; completion review pending (2026-10-01)
+
+Under `AUTH-G6-PR03-WORK-WINDOW-20261001-001`, PR-03 used the production
+composition root, actual FastAPI Go/GET handlers, disposable JSON stores and an
+injected deterministic Day executor. It proves one same-run effect, strict Evidence,
+terminal telemetry, one durable COMPLETE projection, non-writing exact replay and
+reconstruction-compatible readback. Incomplete/cross-run Evidence, early settlement
+and conflicting telemetry fail closed. No product source change was required.
+
+The focused command used both permitted executions: the first returned 21 passed and
+2 fixture-expectation failures; after correcting only those expectations, the final
+run passed 23 tests. The G7 handoff is fixed, but PR-03 and the returned G6 stage still
+require reviewer acceptance. Stop for PR-03 completion review. Do not operate a
+service/browser, actual Day/Go, model, Watcher, G7/G8 or product acceptance.
+
 ## Current checkpoint — G6 PR-02 revision 002 accepted; PR-03 authority pending (2026-10-01)
 
 Reviewer accepted `G6-PR02-COMPLETION-20261001-002` at reviewed commit

@@ -187,6 +187,62 @@ def _terminal_task_record(product_run_id, **updates):
     return record
 
 
+def _install_integrated_terminal_executor(engine, calls, *, evidence_mode="valid"):
+    """Inject one deterministic Day effect through the production coordinator."""
+    def execute(run_id, day):
+        contract = engine.local_llm_day_program._load_contracts()[day]
+        engine.local_llm_day_program.snapshot = LocalLLMDaySnapshot(
+            run_id=run_id,
+            selected_day=day,
+            state=LocalLLMDayState.PREFLIGHT,
+            objective=contract.objective,
+            contract=contract,
+            contract_fingerprint=engine.local_llm_day_program._contract_fingerprint(contract),
+            activity="Integrated deterministic executor entered the product boundary.",
+        )
+        all_required = sorted({
+            evidence_type
+            for criterion in contract.completion_criteria
+            for evidence_type in criterion.required_evidence
+        })
+        legacy = {
+            evidence_type: {
+                "evidence_type": evidence_type,
+                "value": _evidence_value(evidence_type),
+                "source": "PR-03 integrated fixture",
+                "verified": True,
+                "validation": {"passed": True, "validator": "deterministic fixture"},
+            }
+            for evidence_type in all_required
+        }
+        if evidence_mode == "incomplete":
+            legacy.pop(all_required[-1])
+        engine.local_llm_day_program._ingest_legacy_evidence(
+            contract,
+            legacy,
+            provider_id="pr03-integrated-executor",
+            source_fingerprint="p" * 64,
+        )
+        engine.local_llm_day_program._evaluate_contract(contract, {})
+        if evidence_mode == "cross-run":
+            criterion = contract.completion_criteria[0]
+            evidence_id = next(iter(criterion.evidence_record_ids.values()))
+            source = engine.local_llm_day_program.snapshot.evidence_store[evidence_id]
+            engine.local_llm_day_program.snapshot.evidence_store[evidence_id] = source.model_copy(
+                update={"run_id": "run-other", "criterion_id": criterion.criterion_id}
+            )
+        engine.local_llm_day_program.snapshot.state = LocalLLMDayState.COMPLETE
+        engine.local_llm_day_program.snapshot.activity = "Integrated fixture reached terminal save."
+        engine.local_llm_day_program._save()
+        engine.data["task_runs"] = [_terminal_task_record(run_id)]
+        engine._save()
+        calls.append((run_id, day))
+        settlement = engine._settle_local_llm_product_run(run_id)
+        return {"run_id": run_id, "result": "DETERMINISTIC_TERMINAL", "settlement": settlement}
+
+    engine.local_llm_run_coordinator.executor = execute
+
+
 def _satisfy_product_criteria(engine, run_id):
     record = engine.local_llm_run_store.get(run_id)
     contract = engine.local_llm_day_program.snapshot.contract
@@ -205,6 +261,113 @@ def _satisfy_product_criteria(engine, run_id):
             run_id, criterion_id=criterion.criterion_id, results=results
         )
         assert outcome["criterion_satisfied"] is True
+
+
+def test_integrated_fastapi_product_boundary_settles_once_and_survives_reconstruction(tmp_path):
+    engine, calls = _engine(tmp_path)
+    _install_integrated_terminal_executor(engine, calls)
+    client, restore = _api(engine)
+    try:
+        before = client.get("/api/local-llm/runs").json()
+        go = client.post("/api/local-llm/day/go", json={"selected_day": 6}).json()
+        run_id = go["run_id"]
+        readback = client.get("/api/local-llm/runs").json()
+        versions_before_replay = engine.local_llm_run_store.versions(run_id)
+        day_before_replay = engine.local_llm_day_program.snapshot.model_dump_json()
+        replay = engine._settle_local_llm_product_run(run_id)
+
+        assert before["selected"] is False
+        assert go["execution_started"] is True
+        assert calls == [(run_id, 6)]
+        assert go["execution"]["settlement"]["stage"] == "PROJECTED"
+        assert readback["current"]["run_id"] == run_id
+        assert readback["current"]["state"] == "COMPLETE"
+        assert readback["telemetry"]["run_id"] == run_id
+        assert readback["telemetry"]["attempt_count"]["value"] == 1
+        assert readback["telemetry"]["input_tokens"]["value"] == 528695
+        assert readback["telemetry"]["budget_decision"]["value"] == "TASK_BUDGET_EXCEEDED"
+        assert readback["telemetry"]["cost"]["value"] is None
+        assert readback["telemetry"]["cost"]["unknown_reason"]
+        assert readback["unmet_criteria"] == []
+        assert all(
+            evidence.run_id == run_id and evidence.criterion_id == criterion.criterion_id
+            for criterion in engine.local_llm_day_program.snapshot.contract.completion_criteria
+            for evidence_id in criterion.evidence_record_ids.values()
+            for evidence in [engine.local_llm_day_program.snapshot.evidence_store[evidence_id]]
+        )
+        assert replay["stage"] == "ALREADY_PROJECTED"
+        assert engine.local_llm_run_store.versions(run_id) == versions_before_replay
+        assert engine.local_llm_day_program.snapshot.model_dump_json() == day_before_replay
+
+        restarted, restarted_calls = _engine(tmp_path)
+        reconstructed = restarted.local_llm_run_read_model()
+        assert restarted_calls == []
+        assert reconstructed["projected_at"] != readback["projected_at"]
+        assert {key: value for key, value in reconstructed.items() if key != "projected_at"} == {
+            key: value for key, value in readback.items() if key != "projected_at"
+        }
+    finally:
+        restore()
+
+
+def test_integrated_settlement_failures_never_create_terminal_product_state(tmp_path):
+    for mode, reason in (
+        ("incomplete", "DAY_EVIDENCE_SOURCE_INVALID"),
+        ("cross-run", "DAY_EVIDENCE_SOURCE_BINDING_MISMATCH"),
+    ):
+        engine, calls = _engine(tmp_path / mode)
+        _install_integrated_terminal_executor(engine, calls, evidence_mode=mode)
+        client, restore = _api(engine)
+        try:
+            go = client.post("/api/local-llm/day/go", json={"selected_day": 6}).json()
+            run_id = go["run_id"]
+            settlement = go["execution"]["settlement"]
+            assert calls == [(run_id, 6)]
+            assert settlement["outcome"] == "REJECTED"
+            assert settlement["reason_code"] == reason
+            assert engine.local_llm_run_store.get(run_id).control.current_state == LocalLLMDayState.PREFLIGHT
+            assert engine.local_llm_telemetry_store.get(run_id) is None
+        finally:
+            restore()
+
+    engine, _calls = _engine(tmp_path / "ordering")
+    client, restore = _api(engine)
+    try:
+        run_id = client.post("/api/local-llm/day/go", json={"selected_day": 6}).json()["run_id"]
+        before = engine.local_llm_run_store.get(run_id)
+        early = engine.local_llm_run_product.settle_terminal_run(
+            run_id, [_terminal_task_record(run_id)]
+        )
+        assert early["control"]["current_state"] == "PREFLIGHT"
+        assert engine.local_llm_run_store.get(run_id).control.current_state == LocalLLMDayState.PREFLIGHT
+        assert engine.local_llm_telemetry_store.get(run_id) is None
+
+        _satisfy_product_criteria(engine, run_id)
+        engine.local_llm_day_program.snapshot.state = LocalLLMDayState.COMPLETE
+        engine.local_llm_day_program._save()
+        engine.data["task_runs"] = [_terminal_task_record(run_id)]
+        settled = engine._settle_local_llm_product_run(run_id)
+        complete = engine.local_llm_run_store.get(run_id)
+        conflicting = _terminal_task_record(
+            run_id,
+            codex_attempts=[{
+                "attempt": 1,
+                "gross_input_tokens": 528696,
+                "cached_input_tokens": 474112,
+                "uncached_input_tokens": 54584,
+                "output_tokens": 8131,
+            }],
+            gross_input_tokens=528696,
+            uncached_input_tokens=54584,
+        )
+        engine.data["task_runs"] = [conflicting]
+        conflict = engine._settle_local_llm_product_run(run_id)
+        assert settled["stage"] == "PROJECTED"
+        assert conflict["reason_code"] == "TELEMETRY_CONFLICT"
+        assert engine.local_llm_run_store.get(run_id) == complete
+        assert before.intent.run_id == complete.intent.run_id
+    finally:
+        restore()
 
 
 def test_terminal_settlement_orders_evidence_telemetry_projection_and_replays_once(tmp_path):
