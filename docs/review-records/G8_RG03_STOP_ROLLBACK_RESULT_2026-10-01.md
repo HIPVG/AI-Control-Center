@@ -3,7 +3,7 @@
 - **Authority:** `AUTH-G8-RG03-STOP-ROLLBACK-20261001-001`
 - **Procedure:** `G8-RG03-STOP-ROLLBACK-20261001-001`
 - **Candidate:** `AI-Control-Center-Day6-Bounded-RC1`
-- **Result:** `EVIDENCE_REPAIR_FIXED_FOR_REVIEW`
+- **Result:** `ACCEPTED_LIMITED`
 - **Extraction / start / stop:** `1 / 1 / 1`
 - **HTTP reads:** `2 / 2`
 - **Model, Day/Go, Watcher operation:** `0 / 0 / 0`
@@ -34,3 +34,9 @@ a native Windows audit log.
 
 `ARTIFACT_QUALITY_CHECK: PASS` for this evidence-limited revision of the RG-03
 boundary. RG-04, RG-06 and release remain separate; `NO_RELEASE` remains in force.
+
+Reviewer accepted the evidence-limited result in
+`G8-RG03-STOP-ROLLBACK-COMPLETION-20261001-002` at reviewed commit
+`b1dc48ed0a26dc5edd74b58f2c7ddcf6c897d58b`. No remaining gap exists within
+the stated RG-03 boundary. The acceptance does not remove any disclosed provenance
+or shutdown limitation and does not authorize another gate or release.

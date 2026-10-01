@@ -1,7 +1,7 @@
 # G8 RG-03 — Stop and Rollback Procedure and Validation
 
 - **Procedure ID:** `G8-RG03-STOP-ROLLBACK-20261001-001`
-- **Status:** `EVIDENCE_REPAIR_FIXED_FOR_REVIEW`
+- **Status:** `ACCEPTED_LIMITED`
 - **Authority:** `AUTH-G8-RG03-STOP-ROLLBACK-20261001-001`
 - **Candidate:** `AI-Control-Center-Day6-Bounded-RC1`
 - **Source commit:** `656711367ed837ddbb75e6df65234a955e44900d`
@@ -119,3 +119,9 @@ remains in force.
 exact artifact, start/stop identities, HTTP evidence, final absence observations,
 retained evidence, evidence qualifications and the non-clean launcher diagnostic are
 fixed without overclaiming graceful shutdown or native OS audit provenance.
+
+Reviewer accepted revision 002 as
+`G8-RG03-STOP-ROLLBACK-COMPLETION-20261001-002` at reviewed commit
+`b1dc48ed0a26dc5edd74b58f2c7ddcf6c897d58b`. The acceptance applies only to
+this bounded stop/rollback claim. It does not start or satisfy RG-04, RG-06,
+distribution or release.

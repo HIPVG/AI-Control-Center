@@ -1,6 +1,19 @@
 # Current Work
 
-## Current checkpoint — G8 RG-03 evidence trace repaired; revision 002 pending (2026-10-01)
+## Current checkpoint — G8 RG-03 accepted; next gate authority pending (2026-10-01)
+
+Reviewer accepted `G8-RG03-STOP-ROLLBACK-COMPLETION-20261001-002` at reviewed
+commit `b1dc48ed0a26dc5edd74b58f2c7ddcf6c897d58b`. RG-03 is complete only for the
+tested local candidate's exact-process stop and rollback to a non-listening,
+non-autostart, evidence-preserving state. The create-only trace closes revision
+001's evidence-fixation gap while retaining its post-execution transcription,
+unknown fields, non-native-audit and non-graceful-shutdown limitations.
+
+Stop under `NO_RELEASE` for a separate human decision naming the next gate input.
+Do not infer RG-04, RG-06, distribution, release, service/OS-query rerun, source
+repair or any other execution from this acceptance.
+
+## Historical checkpoint — G8 RG-03 evidence trace repaired; revision 002 pending (2026-10-01)
 
 Reviewer rejected `G8-RG03-STOP-ROLLBACK-COMPLETION-20261001-001` at reviewed
 commit `c895de003d5e6e1542a2a16242a5fa1569fb7780` only because the process,

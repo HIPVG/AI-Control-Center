@@ -1,5 +1,22 @@
 # Engineering work history
 
+## 2026-10-01 — G8 RG-03 revision 002 accepted within its limited boundary
+
+Applied the complete `ACCEPT` response for
+`G8-RG03-STOP-ROLLBACK-COMPLETION-20261001-002` at reviewed commit
+`b1dc48ed0a26dc5edd74b58f2c7ddcf6c897d58b`. The Reviewer reproduced the
+trace size, SHA-256 and Git blob and accepted its process/listener/autostart
+observations and explicit evidence qualifications.
+
+RG-03 is now `COMPLETE_LIMITED` only for the tested local candidate's exact-process
+stop/rollback boundary. The trace remains a post-execution transcription rather than
+native Windows audit evidence; unknown fields, the launcher `HostException` and the
+non-graceful stop remain disclosed. No runtime or OS query was repeated.
+
+No RG-04, RG-06, service, source change, distribution or release action was started.
+Stopped for a separate human decision naming the next gate input under
+`NO_RELEASE`.
+
 ## 2026-10-01 — G8 RG-03 revision 001 rejected; observation trace fixed
 
 Applied the complete `REJECT` response for
