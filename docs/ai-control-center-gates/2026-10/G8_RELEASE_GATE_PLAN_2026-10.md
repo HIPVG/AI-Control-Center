@@ -37,12 +37,12 @@ authority may be requested. A plan is not evidence that a condition is met.
 | Gate ID | Required condition | Evidence needed | Current status |
 |---|---|---|---|
 | RG-01 | Exact artifact and version are identified. | Immutable distributable artifact/version, source commit, content hash and provenance. | `COMPLETE_LIMITED` — local-only `AI-Control-Center-Day6-Bounded-RC1`, source commit `656711...`, 288,116 bytes and SHA-256 `6453a213...`; accepted by `G8-RG01-ARTIFACT-COMPLETION-20261001-002`. Not distributed or released. |
-| RG-02 | The accepted operating scope is explicit. | Named environment, bind address, data locations and permitted users. | `PLANNED` — local Windows, `127.0.0.1` only. |
+| RG-02 | The accepted operating scope is explicit. | Named environment, bind address, data locations and permitted users. | `REVIEW_PENDING` — fixed in `G8-LOCAL-OPERATING-ENVELOPE-20261001-001`; no deployment claim. |
 | RG-03 | Stop and rollback are usable. | Tested or otherwise approved stop/rollback procedure for the named artifact, with evidence preservation. | `INPUT_REQUIRED` — planning model exists; no operation was run. |
 | RG-04 | Review path is current and bounded. | Current Reviewer Bus/Watcher condition or an explicitly approved alternative, correlation and escalation path. | `NOT_EVALUABLE` — current Watcher liveness is not claimed. |
-| RG-05 | Cost and credential conditions are safe. | Explicit spend limit, credential owner/change rule and treatment of unavailable cost. | `PLANNED` — no spend, existing credentials unchanged, cost `UNKNOWN`. |
+| RG-05 | Cost and credential conditions are safe. | Explicit spend limit, credential owner/change rule and treatment of unavailable cost. | `REVIEW_PENDING` — zero-spend, unknown-cost and credential rules fixed in the operating envelope. |
 | RG-06 | Scope limitations are accepted. | Human decision whether A03/A04 and all-Day gaps are acceptable for the named release scope. | `INPUT_REQUIRED` — bounded Day 6 acceptance does not decide release scope. |
-| RG-07 | Ownership and recovery are assigned. | Operating owner, escalation contact, data/evidence retention and stop authority. | `PLANNED` — owner is 広瀬剛; concrete operating record is still required. |
+| RG-07 | Ownership and recovery are assigned. | Operating owner, escalation contact, data/evidence retention and stop authority. | `REVIEW_PENDING` — owner, stop authority, retention and escalation fixed in the operating envelope. |
 
 ## 4. Future authority boundary
 

@@ -1,5 +1,21 @@
 # Engineering work history
 
+## 2026-10-01 — G8 local operating envelope fixed for review
+
+広瀬剛 issued `AUTH-G8-OPERATING-ENVELOPE-20261001-001`, authorizing documentation,
+static consistency inspection and Reviewer submission for RG-02, RG-05 and RG-07
+only. Recorded the exact direct authority and fixed one envelope covering the local
+Windows owner/user, `127.0.0.1:8000`, prospective candidate/state/log locations,
+mock-mode boundary, 0 JPY/unknown-cost handling, credential restrictions, role
+ownership, retention and escalation.
+
+Inspected only the fixed candidate launch/configuration files: they use loopback,
+default port 8000, root-relative state/log paths and `codex.mode: mock`, consistent
+with the documentary boundary. No candidate extraction, test, service/Watcher,
+Day/Go, model, credential, RG-03/RG-04/RG-06, distribution or release action
+occurred. `NO_RELEASE` remains in force. Unnecessary broader work did not delay the
+checkpoint.
+
 ## 2026-10-01 — G8 RG-01 artifact accepted within local candidate boundary
 
 Applied the complete `ACCEPT` response for
