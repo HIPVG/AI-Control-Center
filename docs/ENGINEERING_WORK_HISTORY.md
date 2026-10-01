@@ -4150,3 +4150,18 @@ The plan must remain Windows-local and `127.0.0.1`-limited, name 広瀬剛 as ow
 retain no-spend/unchanged-credential rules and preserve `NO_RELEASE`. It does not
 authorize service/Watcher start, distribution, Day/Go, model execution, test,
 credential operation or any release. Existing unrelated dirty work remains preserved.
+
+## 2026-10-01 — GA-03 release-gate plan accepted; stop at `NO_RELEASE`
+
+Applied the complete external `ACCEPT` response for
+`G8-RELEASE-GATE-PLAN-20261001-001` at reviewed commit
+`2235c4c16d6f2d9650e7a491171d7a2772f7d112`. The Reviewer accepted that the plan
+does not overextend the bounded Day 6 demonstration and that RG-01 through RG-07
+form the minimum future release-decision structure.
+
+No gate was promoted to operating evidence. RG-01 artifact/version, RG-03
+stop/rollback evidence, RG-04 current reviewer transport, and RG-06 disposition of
+remaining scope limits are explicitly unfilled; RG-02/RG-05/RG-07 remain planning
+statements. `NO_RELEASE` therefore remains in force. No execution, test,
+service/browser, Day/Go, model, Watcher, credential, spending, distribution or
+release operation occurred while recording the result.

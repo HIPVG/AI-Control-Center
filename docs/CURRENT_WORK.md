@@ -1,19 +1,19 @@
 # Current Work
 
-## Current checkpoint — G8 GA-03 release-gate plan under review (2026-10-01)
+## Current checkpoint — G8 GA-03 release-gate plan accepted; `NO_RELEASE` (2026-10-01)
 
-Under direct human authority `AUTH-G8-GA03-RELEASE-GATE-20261001-001`, Codex may
-create only the GA-03 release-gate plan, acceptance conditions, authority record and
-review preparation for candidate product build
-`656711367ed837ddbb75e6df65234a955e44900d`. The plan is local-Windows/
-`127.0.0.1`-limited and names 広瀬剛 as operating owner.
+Reviewer accepted `G8-RELEASE-GATE-PLAN-20261001-001` for reviewed commit
+`2235c4c16d6f2d9650e7a491171d7a2772f7d112`. The accepted plan identifies the
+minimum future inputs for a local release decision without claiming that the Day 6
+demonstration is a release, all-Day acceptance, current Watcher evidence or measured
+cost evidence.
 
-The plan must retain `NO_RELEASE`: no distribution, continuous operation, service or
-Watcher start, Day/Go, model execution, test, credential change or spending is
-authorized. Submit the fixed plan for review preparation and stop. A later release
-decision must name a distributable artifact/version, operating environment,
-stop/rollback evidence, current reviewer transport condition, and cost/credential
-policy; it cannot be inferred from this planning authority.
+Stop under `NO_RELEASE`. RG-01 (artifact/version), RG-03 (stop/rollback evidence),
+RG-04 (current review transport) and RG-06 (human disposition of scope limitations)
+remain unfilled; RG-02/RG-05/RG-07 are planning statements, not fixed operating
+evidence. Do not collect an input, start operations, issue a release decision,
+operate a service/Watcher, run Day/Go/model/tests, alter credentials or spend funds
+without a later separate explicit authority naming that boundary.
 
 ## Current checkpoint — G8 acceptance-and-release plan under review (2026-10-01)
 
