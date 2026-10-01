@@ -1,5 +1,22 @@
 # Engineering work history
 
+## 2026-10-01 — G8 RG-04 revision 002 accepted within its limited boundary
+
+Applied the complete `ACCEPT` response for
+`G8-RG04-REVIEW-PATH-COMPLETION-20261001-002` at reviewed commit
+`cf54ba85edabe272dabd4c2e06582c65b8614aea`. The Reviewer confirmed that the
+fixed trace preserves the original CIM access denial, the separate elevated
+PowerShell readback retains direct-human provenance and zero Scheduled Task matches,
+and the report/response, one Watcher application/stop and one `NO_REPORT`
+continuation are mutually consistent.
+
+RG-04 is now `COMPLETE_LIMITED` only for that bounded current happy-path cycle and
+its fixed post-stop registration checks. Continuous Watcher operation, all failure
+paths, RG-06, distribution and release remain outside the accepted claim. No
+service, Watcher, Day/Go, model, product, credential, distribution or release action
+was started. `NO_RELEASE` remains pending separate human authority for the next
+gate input.
+
 ## 2026-10-01 — G8 RG-04 attempt 001 blocked before Watcher construction
 
 Started the versioned RG-04 validation process once as PID 19088. It exited 1 before

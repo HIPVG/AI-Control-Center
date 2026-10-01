@@ -1,6 +1,6 @@
 # Current Work
 
-## Current checkpoint — G8 RG-04 completion revision 002 prepared for review (2026-10-01)
+## Current checkpoint — G8 RG-04 accepted within its limited boundary (2026-10-01)
 
 Attempt 003 completed one current event-driven Reviewer round trip. Report comment
 5928954706 received response comment 5928970236; the isolated Watcher applied it
@@ -12,10 +12,16 @@ The harness's post-stop scheduled-task enumeration failed because Windows CIM ac
 was denied, and that observation remains preserved. 広瀬剛 then supplied an elevated
 PowerShell readback for the exact attempt-003 marker: zero scheduled-task matches at
 `2026-10-01T10:02:57.1131070Z`. This direct-human evidence closes the registration
-check without claiming that Codex performed the native OS audit. Completion pack
-`G8-RG04-REVIEW-PATH-COMPLETION-20261001-002` reviews fixed evidence commit
-`cf54ba85edabe272dabd4c2e06582c65b8614aea`. Stop for review; do not start RG-06
-or release. `NO_RELEASE` remains.
+check without claiming that Codex performed the native OS audit. Reviewer accepted
+completion pack `G8-RG04-REVIEW-PATH-COMPLETION-20261001-002` at reviewed commit
+`cf54ba85edabe272dabd4c2e06582c65b8614aea` with no unresolved gap inside that
+bounded claim.
+
+RG-04 is now `COMPLETE_LIMITED` only for the demonstrated one-report, one-response,
+one-application, one-`NO_REPORT` continuation cycle and its fixed stopped-state
+checks. Continuous operation, all failure paths, RG-06, distribution and release
+remain outside the acceptance. Stop for a separate human authority naming the next
+gate input. `NO_RELEASE` remains.
 
 ## Historical checkpoint — G8 RG-04 attempt 003 authorized (2026-10-01)
 

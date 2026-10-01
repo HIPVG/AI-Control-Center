@@ -5,8 +5,16 @@
 - **Candidate:** `AI-Control-Center-Day6-Bounded-RC1`
 - **Fixed source commit:** `656711367ed837ddbb75e6df65234a955e44900d`
 - **Probe report ID:** `G8-RG04-REVIEW-PATH-PROBE-20261001-001`
-- **State:** `INPUT_BLOCKED_PRE_WATCHER`
+- **State:** `COMPLETE_LIMITED`
 - **Release state:** `NO_RELEASE`
+
+## Acceptance
+
+Reviewer accepted `G8-RG04-REVIEW-PATH-COMPLETION-20261001-002` at reviewed
+commit `cf54ba85edabe272dabd4c2e06582c65b8614aea`. The accepted scope is one
+bounded current happy-path round trip and its fixed stopped-state registration
+checks. It is not evidence of continuous Watcher operation, all failure paths,
+RG-06, distribution or release. `NO_RELEASE` remains.
 
 ## Attempt 002 authority and correction
 
