@@ -8,16 +8,18 @@
 - **Policy:** `docs/WORKING_RULES.md` at
   `60c0fe7dcf8935fad4c6d3818256a94e95965501`
 
-## 1. Purpose and boundary
+## 1. Purpose and original planning boundary
 
-This plan defines the evidence and explicit future authority required to decide
-whether the bounded Day 6 demonstration may become a local release candidate. It
-does not release, distribute, deploy, start a service or Watcher, execute a Day/Go,
-run a model, test a product path, alter credentials or spend funds.
+When created, this plan defined the evidence and explicit future authority required
+to decide whether the bounded Day 6 demonstration might become a local release
+candidate. The planning authority itself did not release, distribute, deploy, start
+a service or Watcher, execute a Day/Go, run a model, test a product path, alter
+credentials or spend funds.
 
-The current accepted claim remains
-`ACCEPT_BOUNDED_DAY6_DEMONSTRATION`. It is not all-Day acceptance, continuous
-operation or a release decision.
+Before the later release decision, the accepted claim was
+`ACCEPT_BOUNDED_DAY6_DEMONSTRATION`; that earlier acceptance was not all-Day
+acceptance, continuous operation or a release decision. The current state after the
+later human decision is stated immediately below.
 
 ## Applied local release decision
 
@@ -36,7 +38,7 @@ externally distributed release states remain `NOT_RELEASED`.
 
 | Fixed input | Gate use | Limitation retained |
 |---|---|---|
-| Candidate build `656711...` | Identifies the source build whose Day 6 evidence was accepted. | It is not yet a named distributable artifact or release version. |
+| Candidate build `656711...` | Identifies the source build whose Day 6 evidence was accepted. | It is now the named bounded local release RC1; it is not an externally distributable or broader product release. |
 | G8 bounded acceptance record | Establishes the accepted Day 6 scope. | Does not accept Days 1–14, distribution or continuous operation. |
 | G7 Day 6 product evidence | Supports the Day 6 selection/Go, bound Evidence, terminal state and telemetry facts. | A03 actual repair and A04 current review are occurrence-level `NOT_EVALUABLE`. |
 | Current Reviewer Bus state | Establishes the intended review mechanism. | One bounded current happy-path cycle is accepted; continuous Watcher liveness and all failure paths are not proven. |
@@ -49,7 +51,7 @@ authority may be requested. A plan is not evidence that a condition is met.
 
 | Gate ID | Required condition | Evidence needed | Current status |
 |---|---|---|---|
-| RG-01 | Exact artifact and version are identified. | Immutable distributable artifact/version, source commit, content hash and provenance. | `COMPLETE_LIMITED` — local-only `AI-Control-Center-Day6-Bounded-RC1`, source commit `656711...`, 288,116 bytes and SHA-256 `6453a213...`; accepted by `G8-RG01-ARTIFACT-COMPLETION-20261001-002`. Not distributed or released. |
+| RG-01 | Exact artifact and version are identified. | Immutable distributable artifact/version, source commit, content hash and provenance. | `RELEASED_LOCAL_BOUNDED` — `AI-Control-Center-Day6-Bounded-RC1`, source commit `656711...`, 288,116 bytes and SHA-256 `6453a213...`, accepted by `G8-RG01-ARTIFACT-COMPLETION-20261001-002`, is released only for the named bounded local scope. It has not been externally distributed or published as a broader release. |
 | RG-02 | The accepted operating scope is explicit. | Named environment, bind address, data locations and permitted users. | `COMPLETE_POLICY_BOUNDARY` — accepted in `G8-OPERATING-ENVELOPE-COMPLETION-20261001-001`; no deployment claim. |
 | RG-03 | Stop and rollback are usable. | Tested or otherwise approved stop/rollback procedure for the named artifact, with evidence preservation. | `COMPLETE_LIMITED` — revision 002 was accepted at reviewed commit `b1dc48e...`. One isolated mock start/stop returned the candidate to no process/listener/service/task with evidence retained. The accepted trace remains a post-execution transcription, not native OS audit evidence, and graceful shutdown is not claimed. |
 | RG-04 | Review path is current and bounded. | Current Reviewer Bus/Watcher condition or an explicitly approved alternative, correlation and escalation path. | `COMPLETE_LIMITED` — `G8-RG04-REVIEW-PATH-COMPLETION-20261001-002` accepted one exactly correlated report/response, one Watcher application/stop and one `NO_REPORT` continuation with zero matching post-stop registrations. Continuous liveness and all failure paths are not claimed. |
@@ -73,14 +75,16 @@ That authority now exists only as decision
 `D8-LOCAL-BOUNDED-RELEASE-20261001-001` for the exact bounded local identity.
 Every broader release remains prohibited.
 
-## 5. GA-03 deliverables and stop condition
+## 5. Original GA-03 deliverables and stop condition
 
-GA-03 is complete for this planning authority when this plan and its review pack
-identify every future release input without pretending that an input is satisfied.
-After review, stop. The next action may only be a separately authorized collection
-of a named gate input or a separate human release decision; it is never automatic
-from this plan.
+GA-03 was complete for its planning authority when this plan and its review pack
+identified every future release input without pretending that an input was
+satisfied. Its original stop required a separately authorized gate-input collection
+or human release decision. Decision `D8-LOCAL-BOUNDED-RELEASE-20261001-001`
+subsequently satisfied that boundary only for the exact bounded local identity.
 
-`ARTIFACT_QUALITY_CHECK: PASS` requires the candidate identity, local boundary,
-owner, reviewer/Watcher limitation, cost/credential limitation, stop/rollback need
-and `NO_RELEASE` condition to be traceable in the plan.
+At planning review, `ARTIFACT_QUALITY_CHECK: PASS` required the candidate identity,
+local boundary, owner, reviewer/Watcher limitation, cost/credential limitation,
+stop/rollback need and then-current `NO_RELEASE` condition to be traceable. The
+current bounded release state is governed by the later applied decision section and
+gate table above.

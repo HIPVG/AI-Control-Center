@@ -1,5 +1,20 @@
 # Engineering work history
 
+## 2026-10-01 — Bounded local release record revision 001 rejected for wording conflict
+
+Applied the complete `REJECT` response for
+`G8-LOCAL-BOUNDED-RELEASE-DECISION-20261001-001` at reviewed commit
+`cc9c582acd9031b84c52fcb5fa9021f7a71ff0b9`. The Reviewer accepted the artifact
+binding, human decision scope and retained limitations, but found two contradictory
+current-tense statements in the G8 gate plan: the pre-decision claim was still
+described as not a release decision, and RG-01 still said not released.
+
+The human release decision was not rejected or rolled back. Converted the original
+planning boundary to explicit historical context and changed RG-01 to state that the
+fixed RC1 is released only within the bounded local scope, with no external
+distribution. No artifact, service, Watcher, Day/Go, model, A03/A04 event, credential
+or external action occurred.
+
 ## 2026-10-01 — Day 6 bounded local release selected and recorded
 
 広瀬剛 selected RG-06 option 1 with the direct instruction
