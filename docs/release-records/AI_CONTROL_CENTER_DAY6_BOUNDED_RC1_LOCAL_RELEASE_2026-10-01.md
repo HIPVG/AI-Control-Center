@@ -10,6 +10,9 @@
 - **Message ID / receipt time:** `UNKNOWN`
 - **Release state:** `RELEASED_LOCAL_BOUNDED`
 - **Decision date:** `2026-10-01`
+- **Decision-review closure:** `ACCEPT`, pack
+  `G8-LOCAL-BOUNDED-RELEASE-DECISION-20261001-002`, reviewed commit
+  `12dc4c322c410bfc06dda10711ac8c19a97e4f29`, applied `2026-10-02`
 
 The decision selects option 1 from the immediately preceding RG-06 explanation:
 release the fixed candidate only as a Day 6 demonstration for local use by 広瀬剛,

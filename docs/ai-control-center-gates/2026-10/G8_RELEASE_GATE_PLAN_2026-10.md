@@ -8,6 +8,14 @@
 - **Policy:** `docs/WORKING_RULES.md` at
   `60c0fe7dcf8935fad4c6d3818256a94e95965501`
 
+## Final review closure
+
+Reviewer accepted `G8-LOCAL-BOUNDED-RELEASE-DECISION-20261001-002` at reviewed
+commit `12dc4c322c410bfc06dda10711ac8c19a97e4f29`. The bounded local release
+record is internally consistent; revision 001's rejection remains preserved. No
+additional execution or evidence was required. This closes the release-decision
+review without broadening the scope below.
+
 ## 1. Purpose and original planning boundary
 
 When created, this plan defined the evidence and explicit future authority required

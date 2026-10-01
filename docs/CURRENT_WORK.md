@@ -1,6 +1,6 @@
 # Current Work
 
-## Current checkpoint — bounded release record wording correction for revision 002 (2026-10-01)
+## Current checkpoint — G8 bounded local release decision review complete (2026-10-02)
 
 広瀬剛 selected option 1 with `1。限定ローカルでリリースします`. Decision
 `D8-LOCAL-BOUNDED-RELEASE-20261001-001` designates the exact accepted artifact
@@ -21,12 +21,15 @@ G8 gate plan's contradictory current-tense wording: it retained pre-decision
 `not a release decision` and `not released` language after declaring
 `RELEASED_LOCAL_BOUNDED`.
 
-The release decision remains in force. Correct only those statements into explicit
-historical planning context and state RG-01 as released solely within the bounded
-local scope, with no external distribution. The corrected fixed commit is
-`12dc4c322c410bfc06dda10711ac8c19a97e4f29`; review pack
-`G8-LOCAL-BOUNDED-RELEASE-DECISION-20261001-002` targets it. Stop for review. Do not
-execute, rebuild, start or broaden the release.
+Reviewer accepted corrected pack
+`G8-LOCAL-BOUNDED-RELEASE-DECISION-20261001-002` at reviewed commit
+`12dc4c322c410bfc06dda10711ac8c19a97e4f29`. The decision-record review is
+closed with `UNRESOLVED_GAPS: none`.
+
+The fixed RC1 remains `RELEASED_LOCAL_BOUNDED`; RG-06 remains
+`COMPLETE_ACCEPTED_LIMITATIONS`. No service, Watcher, Day/Go, model or external
+distribution was started. Stop with the bounded release inactive. Any operational
+start or broader scope requires its applicable explicit authority.
 
 ## Historical checkpoint — G8 RG-04 accepted within its limited boundary (2026-10-01)
 

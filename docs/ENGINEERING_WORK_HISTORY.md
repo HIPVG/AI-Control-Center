@@ -1,5 +1,20 @@
 # Engineering work history
 
+## 2026-10-02 — Bounded local release decision revision 002 accepted
+
+Applied the complete `ACCEPT` response for
+`G8-LOCAL-BOUNDED-RELEASE-DECISION-20261001-002` at reviewed commit
+`12dc4c322c410bfc06dda10711ac8c19a97e4f29`. The Reviewer confirmed that the
+G8 plan now separates historical pre-decision non-release wording from the current
+`RELEASED_LOCAL_BOUNDED` state and that RG-01 consistently says the fixed RC1 is
+released only locally, without external distribution or broader product release.
+
+Revision 001's rejection remains fixed. A03/A04, other Days, continuous Watcher,
+measured JPY cost, graceful shutdown, real mode and external distribution were not
+promoted. No artifact regeneration, service/Watcher start, Day/Go, model or external
+operation occurred. The limited release-decision review is closed with no unresolved
+gap; operational start or scope expansion remains a separate authority boundary.
+
 ## 2026-10-01 — Bounded local release record revision 001 rejected for wording conflict
 
 Applied the complete `REJECT` response for
