@@ -1,5 +1,22 @@
 # Current Work
 
+## Current checkpoint — Day 7–14 operations preparation (2026-10-02)
+
+広瀬剛 instructed that subsequent work will proceed through Days 7–14 while
+improving AI Control Center and requested an operating runbook covering Watcher
+startup, UI operation and Reviewer Task setup. The canonical operator procedure is
+`docs/DAY7_14_OPERATIONS_RUNBOOK.md`.
+
+The procedure distinguishes the immutable Day 6 bounded-release candidate from the
+development workspace, records that the Watcher starts with FastAPI, and separates
+the local Watcher from the GitHub event-driven ChatGPT Reviewer Task. It also fixes
+the per-Day authority, startup, UI, reviewer transport, stop and troubleshooting
+checkpoints. This documentation work does not itself select or start Day 7, start a
+service/Watcher, run a model, change credentials or expand the bounded release.
+
+Next operational boundary: prepare the explicit Day 7 authority and execution plan;
+do not press Go until that authority and its fixed baseline/limits are recorded.
+
 ## Current checkpoint — G8 bounded local release decision review complete (2026-10-02)
 
 広瀬剛 selected option 1 with `1。限定ローカルでリリースします`. Decision

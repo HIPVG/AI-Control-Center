@@ -18,6 +18,7 @@ startup requirement.
 - Model / reasoning routing: [docs/MODEL_ROUTING.md](docs/MODEL_ROUTING.md)
 - Legacy configured-task Day Runner: [docs/AUTONOMOUS_DAY.md](docs/AUTONOMOUS_DAY.md)
 - Daily Dashboard operation: [docs/DAILY_OPERATION.md](docs/DAILY_OPERATION.md)
+- Day 7–14 operation, Watcher, UI, and Reviewer Task setup: [docs/DAY7_14_OPERATIONS_RUNBOOK.md](docs/DAY7_14_OPERATIONS_RUNBOOK.md)
 - Bounded Goal-to-Plan: [docs/GOAL_TO_PLAN.md](docs/GOAL_TO_PLAN.md)
 - Initial Codex implementation prompt: [prompts/CODEX_BOOTSTRAP.md](prompts/CODEX_BOOTSTRAP.md)
 

@@ -1,5 +1,21 @@
 # Engineering work history
 
+## 2026-10-02 — Day 7–14 operator procedure prepared
+
+Created `docs/DAY7_14_OPERATIONS_RUNBOOK.md` for the development phase that will
+execute Days 7–14 one at a time while improving Control Center. The procedure is
+grounded in the current application lifecycle and Reviewer Bus implementation:
+FastAPI starts/stops the Watcher, the Watcher polls Review Bridge PR #1 every 120
+seconds, and the separate ChatGPT Reviewer Task is event-driven from top-level PR
+comments containing `REPORT_TYPE:`.
+
+The runbook includes the one-time Task bootstrap prompt, normal `start.ps1` launch,
+Watcher health checks, UI selection/Go/Stop handling, exact report correlation,
+per-Day authority and evidence boundaries, shutdown, troubleshooting and operator
+checklists. It explicitly keeps the fixed Day 6 RC1 separate from the development
+workspace. No service, Watcher, Task, Day/Go, model, credential or external operation
+was started by this documentation change.
+
 ## 2026-10-02 — Bounded local release decision revision 002 accepted
 
 Applied the complete `ACCEPT` response for
