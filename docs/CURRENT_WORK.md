@@ -1,6 +1,23 @@
 # Current Work
 
-## Current checkpoint — G8 RG-03 stop/rollback evidence fixed; review pending (2026-10-01)
+## Current checkpoint — G8 RG-03 evidence trace repaired; revision 002 pending (2026-10-01)
+
+Reviewer rejected `G8-RG03-STOP-ROLLBACK-COMPLETION-20261001-001` at reviewed
+commit `c895de003d5e6e1542a2a16242a5fa1569fb7780` only because the process,
+listener, service and scheduled-task console observations were not fixed as public
+machine-readable evidence. The underlying single extraction/start/stop result and
+the disclosed launcher `HostException` were not rerun or reclassified.
+
+The already returned observations are now transcribed create-only at
+`docs/review-evidence/G8-RG03-STOP-ROLLBACK-20261001-001/stop-rollback-trace.json`
+(8,093 bytes; SHA-256
+`f981a085617cb47e0e597094d890afe9c19cc488df772f40d5ac50f879470bf0`).
+The trace distinguishes usable checks, a rejected self-matching query and unknown
+timestamp/image fields; it is not claimed as a native Windows audit log. Submit only
+the evidence-limited revision 002 and stop under `NO_RELEASE`. Do not rerun the
+service or OS queries, and do not begin RG-04, RG-06 or release work.
+
+## Historical checkpoint — G8 RG-03 stop/rollback evidence fixed; review pending (2026-10-01)
 
 Under `AUTH-G8-RG03-STOP-ROLLBACK-20261001-001`, the fixed candidate was extracted
 once, started once in mock mode on `127.0.0.1:8000`, read twice over HTTP and stopped

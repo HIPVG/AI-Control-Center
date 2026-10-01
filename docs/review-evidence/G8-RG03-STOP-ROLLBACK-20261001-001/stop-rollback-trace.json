@@ -1,0 +1,209 @@
+{
+  "schema": "ai-control-center.stop-rollback-trace.v1",
+  "trace_id": "G8-RG03-STOP-ROLLBACK-TRACE-20261001-001",
+  "procedure_id": "G8-RG03-STOP-ROLLBACK-20261001-001",
+  "authority_id": "AUTH-G8-RG03-STOP-ROLLBACK-20261001-001",
+  "rejected_pack_id": "G8-RG03-STOP-ROLLBACK-COMPLETION-20261001-001",
+  "rejected_reviewed_commit": "c895de003d5e6e1542a2a16242a5fa1569fb7780",
+  "candidate": {
+    "name": "AI-Control-Center-Day6-Bounded-RC1",
+    "source_commit": "656711367ed837ddbb75e6df65234a955e44900d",
+    "archive_bytes": 288116,
+    "archive_sha256": "6453a213b0a48b827bbbc83ec2bdf1036515e6d857451473402cae3fb79f6714",
+    "runtime_root": "C:\\AI-Control-Center\\state\\release-candidates\\AI-Control-Center-Day6-Bounded-RC1",
+    "mode": "mock",
+    "endpoint": "127.0.0.1:8000"
+  },
+  "provenance": {
+    "kind": "CODEX_TOOL_OUTPUT_TRANSCRIPTION",
+    "created_after_execution": true,
+    "source_description": "Create-only transcription of tool outputs already returned during the single authorized RG-03 execution and its post-stop checks.",
+    "new_runtime_or_os_query_performed_for_this_trace": false,
+    "native_os_audit_log_claimed": false,
+    "limitation": "The trace makes the saved observations reviewable and later mutation detectable; it does not retroactively turn console observations into native Windows audit records. Where the original command omitted a timestamp or executable path, the value remains null rather than inferred."
+  },
+  "timeline": {
+    "extraction_started_at_utc": "2026-10-01T08:17:34.4074685Z",
+    "extraction_finished_at_utc": "2026-10-01T08:17:35.5694863Z",
+    "service_start_at_utc": "2026-10-01T08:18:06.5169793Z",
+    "stop_requested_at_utc": "2026-10-01T08:19:02.3083990Z",
+    "evidence_capture_at_utc": "2026-10-01T08:19:28.5578935Z",
+    "post_stop_identity_query_at_utc": null,
+    "post_stop_identity_query_time_lower_bound_utc": "2026-10-01T08:19:28.5578935Z",
+    "post_stop_identity_query_time_note": "The saved command output did not emit a timestamp."
+  },
+  "preflight": {
+    "archive_exists": true,
+    "archive_bytes": 288116,
+    "archive_sha256_matched": true,
+    "runtime_root_existed": false,
+    "port_8000_listener_count": 0
+  },
+  "extraction": {
+    "execution_count": 1,
+    "initial_file_count": 124,
+    "runtime_mode_line": "mode: mock",
+    "start_loopback_check": true,
+    "start_default_port_check": true
+  },
+  "started_processes": [
+    {
+      "role": "launcher",
+      "pid": 16088,
+      "parent_pid": null,
+      "name": null,
+      "executable_path": null,
+      "invoked_artifact": "C:\\AI-Control-Center\\state\\release-candidates\\AI-Control-Center-Day6-Bounded-RC1\\scripts\\start.ps1",
+      "identity_limit": "The saved output identified the launcher PID and invoked script, but did not emit the launcher's parent PID, image name, or executable path."
+    },
+    {
+      "role": "server",
+      "pid": 1448,
+      "parent_pid": 16088,
+      "name": "python.exe",
+      "executable_path": "C:\\Users\\広瀬剛\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+      "command_line": "\"C:\\Users\\広瀬剛\\AppData\\Local\\Programs\\Python\\Python312\\python.exe\" -m uvicorn backend.app:app --host 127.0.0.1 --port 8000"
+    },
+    {
+      "role": "console_child",
+      "pid": 21468,
+      "parent_pid": 16088,
+      "name": "conhost.exe",
+      "executable_path": "C:\\WINDOWS\\system32\\conhost.exe",
+      "command_line": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4"
+    }
+  ],
+  "listener_before_stop": {
+    "address": "127.0.0.1",
+    "port": 8000,
+    "owner_pid": 1448,
+    "listener_count": 1
+  },
+  "http_reads": [
+    {
+      "url": "http://127.0.0.1:8000/",
+      "status": 200,
+      "bytes": 6654,
+      "sha256": "baa9dcb998a4277a3002b8157d622a3d02f857f9074c05b30c33da4a4cbd43ad",
+      "candidate_relative_file": "logs/rg03-http-root.response"
+    },
+    {
+      "url": "http://127.0.0.1:8000/api/local-llm/runs",
+      "status": 200,
+      "bytes": 300,
+      "sha256": "4e565ed9b60f30d3c41e606b27ef73f829d08fe230f6a1c82a818603ef853dce",
+      "candidate_relative_file": "logs/rg03-http-runs.response"
+    }
+  ],
+  "stop": {
+    "execution_count": 1,
+    "targeting_method": "captured candidate descendants followed by the captured launcher if still present",
+    "launcher_alive_after_stop": false,
+    "child_processes_alive_after_stop": 0,
+    "port_8000_listener_count_after_stop": 0,
+    "rollback_closed": true,
+    "launcher_diagnostic": "LAUNCH_EXCEPTION | reason=PYTHON_INVOCATION_FAILED type=HostException",
+    "graceful_shutdown_claimed": false
+  },
+  "post_stop_observations": {
+    "known_pid_alive": {
+      "16088": false,
+      "1448": false,
+      "21468": false
+    },
+    "candidate_path_process_count": 0,
+    "port_8000_listener_count": 0,
+    "candidate_windows_service_count": 0,
+    "candidate_scheduled_task_count": 0,
+    "runtime_root_retained": true,
+    "total_files_after_runtime": 210,
+    "state_files_retained": 2,
+    "log_files_retained": 6
+  },
+  "query_assessment": {
+    "first_non_elevated_final_query": {
+      "usable": false,
+      "reason": "Windows process/service/task access was denied; it is not used as success evidence."
+    },
+    "first_elevated_candidate_process_query": {
+      "reported_candidate_process_count": 1,
+      "usable_for_candidate_process_absence": false,
+      "reason": "The query command itself contained the full candidate path and matched its own command line; the result is retained as a disclosed self-observation, not a candidate process."
+    },
+    "self_excluding_candidate_process_query": {
+      "candidate_path_was_constructed_from_separate_segments": true,
+      "candidate_path_process_count": 0,
+      "known_pid_16088_alive": false,
+      "known_pid_1448_alive": false,
+      "known_pid_21468_alive": false,
+      "port_8000_listener_count": 0,
+      "usable": true
+    },
+    "elevated_autostart_query": {
+      "candidate_windows_service_count": 0,
+      "candidate_scheduled_task_count": 0,
+      "usable": true,
+      "observed_at_utc": null,
+      "observed_time_lower_bound_utc": "2026-10-01T08:19:28.5578935Z",
+      "time_limit": "The saved output did not emit a timestamp."
+    }
+  },
+  "watcher_state": {
+    "available": false,
+    "running": false,
+    "last_error": "DISABLED_BY_ENV",
+    "poll_seconds": 120,
+    "review_repo": "HIPVG/AI-Control-Center-Review-Bridge",
+    "review_pr": 1
+  },
+  "retained_evidence": [
+    {
+      "candidate_relative_path": "config/runtime.yaml",
+      "bytes": 138,
+      "sha256": "23e7fd06fb56aee08d8ddff71c932cc1deb060c2ad154f189f229baef400a5f6"
+    },
+    {
+      "candidate_relative_path": "scripts/start.ps1",
+      "bytes": 3387,
+      "sha256": "40ab111f0d9554fdb5996b039ba60a6129d7dd88ecbe4ff87d91c428b2b852f8"
+    },
+    {
+      "candidate_relative_path": "state/reviewer-bus-watcher.json",
+      "bytes": 185,
+      "sha256": "b26b78023178d124fd3986dff0f83f3531e0c25678a01c8bea69d8aec9fc129f"
+    },
+    {
+      "candidate_relative_path": "logs/startup.log",
+      "bytes": 283,
+      "sha256": "0a1cdd361be5168c3a1d5157916cee2b16308aa22d78ebf0f4f64663307efdd8"
+    },
+    {
+      "candidate_relative_path": "logs/rg03-service.stdout.log",
+      "bytes": 124,
+      "sha256": "e2077d8cb582bd8a2fc6d50d15a932b2ce6e7f7de48698890aecedca2397270d"
+    },
+    {
+      "candidate_relative_path": "logs/rg03-service.stderr.log",
+      "bytes": 201,
+      "sha256": "5ee4d9069714b5957becabdd5e79204e05089f3d5b0054dcefeacd10bbbe93ef"
+    },
+    {
+      "candidate_relative_path": "logs/rg03-http-root.response",
+      "bytes": 6654,
+      "sha256": "baa9dcb998a4277a3002b8157d622a3d02f857f9074c05b30c33da4a4cbd43ad"
+    },
+    {
+      "candidate_relative_path": "logs/rg03-http-runs.response",
+      "bytes": 300,
+      "sha256": "4e565ed9b60f30d3c41e606b27ef73f829d08fe230f6a1c82a818603ef853dce"
+    }
+  ],
+  "scope": {
+    "service_restarted_for_repair": false,
+    "runtime_queries_rerun_for_repair": false,
+    "rg04_started": false,
+    "rg06_started": false,
+    "release_started": false,
+    "no_release": true
+  }
+}

@@ -1,7 +1,7 @@
 # G8 RG-03 — Stop and Rollback Procedure and Validation
 
 - **Procedure ID:** `G8-RG03-STOP-ROLLBACK-20261001-001`
-- **Status:** `FIXED_FOR_REVIEW`
+- **Status:** `EVIDENCE_REPAIR_FIXED_FOR_REVIEW`
 - **Authority:** `AUTH-G8-RG03-STOP-ROLLBACK-20261001-001`
 - **Candidate:** `AI-Control-Center-Day6-Bounded-RC1`
 - **Source commit:** `656711367ed837ddbb75e6df65234a955e44900d`
@@ -73,7 +73,24 @@ inactive; state/log evidence preserved.
 | `logs/rg03-http-runs.response` | 300 | `4e565ed9b60f30d3c41e606b27ef73f829d08fe230f6a1c82a818603ef853dce` |
 
 Raw runtime evidence remains outside Git in the retained inactive candidate root.
-Only this provenance record is versioned.
+The post-execution machine-readable observation trace is versioned at
+`docs/review-evidence/G8-RG03-STOP-ROLLBACK-20261001-001/stop-rollback-trace.json`
+(8,093 bytes; SHA-256
+`f981a085617cb47e0e597094d890afe9c19cc488df772f40d5ac50f879470bf0`;
+Git blob `79f87c72fdc23ed09851f9aea46ecc7bc4a8393a`). The trace transcribes the
+already returned tool output; it did not rerun the candidate or any process,
+listener, service or scheduled-task query.
+
+The trace records the known PID/parent/command identities, listener owner, final
+known-PID and candidate-path absence, final listener zero, service/task zero and
+their timestamp limits. It also preserves two evidence qualifications: the first
+non-elevated final query was access-denied, and a first elevated path query reported
+one self-match because the query command contained the candidate path. Neither is
+used as successful absence evidence. The later self-excluding query is the source of
+the zero candidate-path process result. Because the original final queries did not
+emit a timestamp, their exact observation time remains `null` with the evidence
+capture time as a lower bound. This versioned trace makes the transcription
+tamper-evident; it is not represented as a native Windows audit log.
 
 ## 4. Disclosed stop diagnostic
 
@@ -98,6 +115,7 @@ RG-04 current Reviewer transport and RG-06 human limitation disposition remain
 unfulfilled. This result is not distribution or release authority. `NO_RELEASE`
 remains in force.
 
-`ARTIFACT_QUALITY_CHECK: PASS` for RG-03 because the exact artifact, start/stop
-identities, HTTP evidence, final absence checks, retained evidence and the non-clean
-launcher diagnostic are all traceable without overclaiming graceful shutdown.
+`ARTIFACT_QUALITY_CHECK: PASS` for the revision-002 evidence package because the
+exact artifact, start/stop identities, HTTP evidence, final absence observations,
+retained evidence, evidence qualifications and the non-clean launcher diagnostic are
+fixed without overclaiming graceful shutdown or native OS audit provenance.

@@ -1,5 +1,26 @@
 # Engineering work history
 
+## 2026-10-01 — G8 RG-03 revision 001 rejected; observation trace fixed
+
+Applied the complete `REJECT` response for
+`G8-RG03-STOP-ROLLBACK-COMPLETION-20261001-001` at reviewed commit
+`c895de003d5e6e1542a2a16242a5fa1569fb7780`. The Reviewer did not request a
+second candidate run; the sole gap was that the saved process/listener/service/task
+observations were not fixed as public machine-readable evidence.
+
+Transcribed the already returned tool observations into create-only JSON at
+`docs/review-evidence/G8-RG03-STOP-ROLLBACK-20261001-001/stop-rollback-trace.json`.
+It parses as JSON and is fixed at 8,093 bytes, SHA-256
+`f981a085617cb47e0e597094d890afe9c19cc488df772f40d5ac50f879470bf0` and Git
+blob `79f87c72fdc23ed09851f9aea46ecc7bc4a8393a`. The trace distinguishes the
+usable self-excluding query from an access-denied query and an invalid self-match,
+and preserves unknown timestamp/image fields as unknown. It explicitly disclaims
+native Windows audit-log provenance.
+
+No service or OS state query was rerun. No RG-04, RG-06, source change,
+distribution or release action occurred. Prepare only evidence-limited revision 002
+and retain `NO_RELEASE`.
+
 ## 2026-10-01 — G8 RG-03 isolated stop/rollback validation completed
 
 広瀬剛 approved `AUTH-G8-RG03-STOP-ROLLBACK-20261001-001`. Preflight confirmed the
