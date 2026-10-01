@@ -1,6 +1,21 @@
 # Current Work
 
-## Current checkpoint — G8 RG-01 local artifact fixed; review pending (2026-10-01)
+## Current checkpoint — G8 RG-01 byte-reproduction rejection repaired (2026-10-01)
+
+Reviewer rejected `G8-RG01-ARTIFACT-COMPLETION-20261001-001` only because a
+different archive environment reproduced the source tree and 124-file inventory but
+not the declared ZIP bytes. The declared primary and verification-copy artifacts
+remain unchanged at 288,116 bytes and SHA-256
+`6453a213b0a48b827bbbc83ec2bdf1036515e6d857451473402cae3fb79f6714`.
+
+The manifest now pins the actual Git for Windows 2.55.0.windows.5 build, zlib 1.3.2
+implementation and DLL hash, configuration/environment settings, default compression
+behavior and complete effective command. No third archive generation was run because
+the authorized two executions were already consumed. Submit revision 002 for this
+evidence-only repair and stop under `NO_RELEASE`; do not begin another RG gate or any
+runtime/release action.
+
+## Historical checkpoint — G8 RG-01 local artifact fixed; review pending (2026-10-01)
 
 Under `AUTH-G8-RG01-ARTIFACT-20261001-001`, fixed candidate build
 `656711367ed837ddbb75e6df65234a955e44900d` was packaged as local-only source

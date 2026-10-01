@@ -1,5 +1,23 @@
 # Engineering work history
 
+## 2026-10-01 — G8 RG-01 byte-reproduction rejection repaired
+
+Applied the complete `REJECT` response for
+`G8-RG01-ARTIFACT-COMPLETION-20261001-001` at reviewed commit
+`e0e55c52b46c2bbbb4132a75595f8007ade95761`. The Reviewer independently confirmed
+the fixed source tree and exact 124-file set but produced different ZIP bytes with an
+unfixed archive environment. The rejection is therefore limited to byte-level
+reproducibility evidence.
+
+Pinned the actual Git for Windows 2.55.0.windows.5 executable/build/hash, zlib 1.3.2
+DLL/hash, archive configuration, relevant environment, implicit default compression,
+and full effective generation command in the manifest. Re-read both preserved
+artifacts: each remains 288,116 bytes with SHA-256
+`6453a213b0a48b827bbbc83ec2bdf1036515e6d857451473402cae3fb79f6714`.
+No third archive command was run because both authorized executions had already been
+used. No source/artifact-byte change, test, runtime operation, distribution or
+release occurred; `NO_RELEASE` remains in force.
+
 ## 2026-10-01 — G6 product-run reconciliation returned stage accepted
 
 Applied the complete `ACCEPT` response for
