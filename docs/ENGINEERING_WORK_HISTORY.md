@@ -4358,6 +4358,21 @@ scheduled-task enumeration was unavailable because of a CIM access error, and is
 retained as `NOT_EVALUABLE`. No registration operation was invoked. `NO_RELEASE`
 remains pending RG-04 completion review.
 
+## 2026-10-01 — RG-04 elevated scheduled-task readback closed the evidence gap
+
+広瀬剛 ran elevated Windows PowerShell against the exact attempt-003 state-directory
+marker and supplied the complete console result. At
+`2026-10-01T10:02:57.1131070Z`, the query found zero matching scheduled tasks. The
+result is fixed as direct-human evidence; the empty result's PowerShell `[null]`
+property projections are normalized to empty arrays while preserving the reported
+zero count. The earlier harness CIM access error remains in the trace rather than
+being erased.
+
+Together with the already fixed zero process and service-registration matches, this
+closes RG-04's post-stop registration evidence gap. It does not demonstrate
+continuous Watcher operation or authorize RG-06, distribution or release.
+`NO_RELEASE` remains.
+
 ## 2026-10-01 — RG-04 revision 002 stopped on response timeout
 
 The import-path-only correction succeeded and the isolated Watcher observed report

@@ -1,6 +1,6 @@
 # Current Work
 
-## Current checkpoint — G8 RG-04 attempt 003 passed; completion review preparation (2026-10-01)
+## Current checkpoint — G8 RG-04 attempt 003 evidence closed; completion review preparation (2026-10-01)
 
 Attempt 003 completed one current event-driven Reviewer round trip. Report comment
 5928954706 received response comment 5928970236; the isolated Watcher applied it
@@ -8,10 +8,13 @@ once, ran one Codex continuation with exit code 0 and `NO_REPORT`, and stopped w
 no pending/outstanding probe. The original Watcher registry is byte-identical and no
 product/release effect occurred.
 
-The post-stop scheduled-task enumeration is `NOT_EVALUABLE` because Windows CIM
-access failed; process and service-registration matches are zero and no registration
-operation exists in the validation launcher. Fix the evidence and RG-04 completion
-pack, then stop for review. Do not start RG-06 or release. `NO_RELEASE` remains.
+The harness's post-stop scheduled-task enumeration failed because Windows CIM access
+was denied, and that observation remains preserved. 広瀬剛 then supplied an elevated
+PowerShell readback for the exact attempt-003 marker: zero scheduled-task matches at
+`2026-10-01T10:02:57.1131070Z`. This direct-human evidence closes the registration
+check without claiming that Codex performed the native OS audit. Prepare RG-04
+completion pack revision 002 and stop for review. Do not start RG-06 or release.
+`NO_RELEASE` remains.
 
 ## Historical checkpoint — G8 RG-04 attempt 003 authorized (2026-10-01)
 

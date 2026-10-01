@@ -53,11 +53,13 @@ Watcher applied it once, launched one continuation, recorded exit code 0 and
 `NO_REPORT`, cleared pending/outstanding state, and stopped. The original Watcher
 registry stayed byte-identical and no scoped product or release effect occurred.
 
-Post-stop process and service-registration checks found zero matches. Scheduled-task
-enumeration was unavailable due a CIM access error; no registration operation exists
-in the launcher or harness. Retain this host-observability limitation. The result
-supports RG-04's bounded happy-path evidence only, not continuous operation or
-release. `NO_RELEASE` remains.
+Post-stop process and service-registration checks found zero matches. The harness's
+scheduled-task query failed with a CIM access error, which remains recorded. 広瀬剛
+then performed an elevated PowerShell readback against the exact attempt-003 marker
+at `2026-10-01T10:02:57.1131070Z`; it found zero matching scheduled tasks. The
+direct-human evidence is fixed separately and does not claim Codex-executed native
+OS provenance. The result supports RG-04's bounded happy-path evidence only, not
+continuous operation or release. `NO_RELEASE` remains.
 
 ## Objective
 

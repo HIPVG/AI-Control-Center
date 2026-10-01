@@ -17,13 +17,18 @@ probe. The Watcher stopped once; its process is absent. The original project Wat
 registry remained byte-identical. No Day/Go, model, product-state, credential,
 distribution, RG-06 or release effect occurred.
 
-## Evidence limitation
+## Elevated readback closure
 
-The harness's post-stop scheduled-task enumeration returned a CIM access error.
-Independent readback confirmed zero validation processes and zero matching Windows
-service registrations, but scheduled-task enumeration remains `NOT_EVALUABLE` on
-this host. Neither the launcher nor harness invokes a task/service registration
-operation. This limitation is disclosed rather than converted into OS-query proof.
+The harness's post-stop scheduled-task enumeration returned a CIM access error; that
+original observation remains preserved. 広瀬剛 subsequently ran an elevated Windows
+PowerShell readback against the exact attempt-003 state-directory marker at
+`2026-10-01T10:02:57.1131070Z`. It returned zero matching scheduled tasks. The
+directly supplied console result is transcribed without upgrading its provenance to
+a Codex-executed native OS audit at
+`docs/review-evidence/G8-RG04-REVIEW-PATH-VALIDATION-20261001-003/elevated-scheduled-task-readback.json`.
+The pasted `[null]` property arrays are normalized to empty arrays because the
+reported match count is zero. Together with the fixed zero process and service
+matches, the RG-04 post-stop registration condition is now satisfied.
 
 ## Fixed evidence
 

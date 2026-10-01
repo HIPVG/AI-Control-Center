@@ -1,0 +1,15 @@
+{
+  "schema": "ai-control-center.rg04-scheduled-task-readback.v1",
+  "source_class": "RECORDED_DIRECT_CONVERSATION",
+  "operator": "広瀬剛",
+  "shell": "Windows PowerShell (elevated, human-reported)",
+  "checked_at": "2026-10-01T10:02:57.1131070Z",
+  "marker": "C:\\AI-Control-Center\\state\\rg04-review-path-validation-20261001-003",
+  "scheduled_task_matches": 0,
+  "matching_task_paths": [],
+  "matching_task_names": [],
+  "normalization_note": "The pasted PowerShell rendered property expansions as [null] when the match collection was empty; these fields are normalized to empty arrays because scheduled_task_matches is 0.",
+  "provenance_note": "This file is a faithful transcription of direct human-provided elevated PowerShell output. It is not a Codex-executed native OS audit.",
+  "message_id": "UNKNOWN",
+  "receipt_time": "UNKNOWN"
+}

@@ -53,7 +53,12 @@
   "stop_checks": {
     "validation_process_matches": 0,
     "service_registration_matches": 0,
-    "scheduled_task_registration": "NOT_EVALUABLE_CIM_ACCESS_ERROR",
+    "harness_scheduled_task_query": "ERROR_CIM_ACCESS_DENIED",
+    "scheduled_task_registration": "NO_MATCHES_HUMAN_ELEVATED_READBACK",
+    "scheduled_task_matches": 0,
+    "scheduled_task_readback_checked_at": "2026-10-01T10:02:57.1131070Z",
+    "scheduled_task_readback_source": "docs/review-evidence/G8-RG04-REVIEW-PATH-VALIDATION-20261001-003/elevated-scheduled-task-readback.json",
+    "scheduled_task_readback_provenance": "RECORDED_DIRECT_CONVERSATION",
     "registration_action_invoked_by_harness_or_launcher": false
   },
   "scope_effects": {
