@@ -1,5 +1,17 @@
 # Current Work
 
+## Current checkpoint — G7 verification PASS; human exit decision pending (2026-10-01)
+
+Reviewer accepted `G7-STAGE-RESULT-20261001-002` at reviewed commit
+`0600bcd0e01208b00c77c35047cfa0dcb86d3efb`. G7 is `PASS` within its verification
+scope. A01/A02/A05/A06 have accepted product evidence; A03 actual repair and A04
+current review remain occurrence-level `NOT_EVALUABLE` because the successful run
+needed neither path. They are not hidden or promoted to executed product evidence.
+
+Stop for 広瀬剛's separate G7 exit/G8-boundary decision. Reviewer acceptance alone
+does not authorize G8, another Day/Go, model execution, service or Watcher operation,
+credential change, spending or product acceptance.
+
 ## Current checkpoint — G7 bounded product result accepted; stage review pending (2026-10-01)
 
 Reviewer accepted `G7-PRODUCT-E2E-20261001-009` for fixed product build
