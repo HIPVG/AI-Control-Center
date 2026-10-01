@@ -4035,3 +4035,17 @@ Watcher, credential, G8 or product-acceptance action occurred. A01/A02/A05/A06 a
 proposed `PASS`; A03/A04-current remain `NOT_EVALUABLE`. The repeated-composition-gap
 condition for a G4/G5 return was not observed. Evidence is fixed at
 `docs/review-evidence/G7-DAY6-PRODUCT-REVALIDATION-20261001-001/`.
+
+## 2026-10-01 — G7 revision 008 rejected on evidence-byte traceability
+
+Applied the complete `REJECT` response for `G7-PRODUCT-E2E-20261001-008`. The
+Reviewer accepted the one-Go/one-model counts and same-run terminal consistency but
+could not reproduce the Grant authority hash from the longer public authority record.
+The runtime worktree had hashed a shorter runtime-relative authority file, which was
+retained locally but omitted from the public evidence package.
+
+The capture manifest also described Windows working-tree bytes. Git text normalization
+published LF blobs for ten CRLF captures, so the capture hashes were not direct Git
+blob hashes. The bounded correction publishes the exact runtime authority original
+and adds an explicit capture-to-Git transport manifest. No product execution, test,
+implementation, Watcher, credential, G8 or product-acceptance action is performed.

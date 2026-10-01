@@ -66,5 +66,13 @@ and SHA-256 values in `manifest.json`. The package includes startup, authority,
 preflight, initial and terminal RunRecords, full Day state, run API and UI readback,
 service/access logs, telemetry, Control Center state and the four generated artifacts.
 
+The runtime-relative authority file whose bytes were hashed into the Grant is fixed
+separately as `authority-record-runtime.md`; its SHA-256 is
+`2598e32f33266f9805daed5ec5cd396090efe1a3ba905b8becb43949f4879eab`.
+The longer repository authority record preserves the exact human instruction and is
+not the byte source of the Grant field. `manifest.json` retains capture-time Windows
+bytes. `transport-manifest.json` maps those bytes to the Git-published blob bytes and
+identifies CRLF-to-LF normalization explicitly.
+
 `ARTIFACT_QUALITY_CHECK: PASS` for this bounded validation record and evidence
 package. This is not a G7 exit decision, G8 authorization, or product acceptance.

@@ -1,5 +1,17 @@
 # Current Work
 
+## Current checkpoint — G7 product result rejected on evidence transport bytes (2026-10-01)
+
+Reviewer rejected `G7-PRODUCT-E2E-20261001-008` without disputing the one-Go,
+one-model, same-run COMPLETE or telemetry facts. The two evidence-only gaps are:
+the Grant-hashed runtime authority bytes were not published, and the capture manifest
+describes Windows CRLF bytes while Git published normalized LF blobs for text files.
+
+Fix only evidence provenance: publish the exact runtime authority original and a
+dual capture/Git-blob manifest that identifies exact matches and CRLF-to-LF
+normalization. Preserve revision 008 as REJECT and submit revision 009. Do not start
+a service, Go, model, test, implementation repair, Watcher, G8 or product acceptance.
+
 ## Current checkpoint — Day 6 product revalidation fixed for review (2026-10-01)
 
 Under `AUTH-G7-DAY6-PRODUCT-REVALIDATION-20261001-001`, fixed product build
