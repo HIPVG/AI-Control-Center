@@ -1,5 +1,31 @@
 # Engineering work history
 
+## 2026-10-02 — Local-only data and historical stashes organized
+
+広瀬剛 explicitly approved preservation-first cleanup after inspection found that
+the apparent unpushed inventory was dominated by retained runtime state, nested test
+repositories, a PoC virtual environment/models/vendor tree, private exports and
+machine-specific configuration. None of those local files was deleted or uploaded.
+
+Expanded `.gitignore` for disposable `.pytest-*` workspaces, all runtime `state/`
+except its tracked placeholder, `output/`, the local `poc/` sandbox and `docs.zip`.
+Moved the current machine's Codex executable path into ignored
+`config/runtime.local.yaml`; tracked `config/runtime.yaml` and its example now use
+the portable `codex` command. The existing local `mode: real` setting was preserved,
+not promoted into repository defaults.
+
+Before clearing the local stash list, pushed and read back all three exact stash
+commits at dedicated remote archive branches:
+
+- `c1ff599d837ca965374a6f30e0788151bb0f2c46` as
+  `codex/archive-autostash-20260924`
+- `0bcf15fade953ff2ba64773e24f3937e008a04de` as
+  `codex/archive-reviewer-loop-bootstrap-20260924`
+- `22f65f117abe8950d131e13ffebbc6ccd6d2899b` as
+  `codex/archive-policy-sync-history-20260924`
+
+No service, Watcher, Task, Day/Go, model, credential or product operation occurred.
+
 ## 2026-10-02 — Day 7–14 operator procedure prepared
 
 Created `docs/DAY7_14_OPERATIONS_RUNBOOK.md` for the development phase that will

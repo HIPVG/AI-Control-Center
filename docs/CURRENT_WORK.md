@@ -1,5 +1,28 @@
 # Current Work
 
+## Current checkpoint — repository hygiene complete locally (2026-10-02)
+
+広瀬剛 authorized preservation-first repository cleanup and requested that no
+pushable work remain local-only. Generated pytest workspaces, `state/`, `output/`,
+the local `poc/` sandbox and `docs.zip` are now explicit local-only categories in
+`.gitignore`; no retained file was deleted. The machine-specific Codex executable
+was moved to the already-ignored `config/runtime.local.yaml`, while tracked runtime
+defaults and the example now use the portable `codex` command.
+
+Three historical stashes were preserved verbatim at remote archive branches before
+the local stash list was cleared:
+
+- `codex/archive-autostash-20260924` at
+  `c1ff599d837ca965374a6f30e0788151bb0f2c46`
+- `codex/archive-reviewer-loop-bootstrap-20260924` at
+  `0bcf15fade953ff2ba64773e24f3937e008a04de`
+- `codex/archive-policy-sync-history-20260924` at
+  `22f65f117abe8950d131e13ffebbc6ccd6d2899b`
+
+The archive refs were read back from `origin` before the local stash refs were
+removed. This cleanup does not start a service, Watcher, Task, Day/Go or model.
+The next operational boundary remains explicit Day 7 authority and planning.
+
 ## Current checkpoint — Day 7–14 operations preparation (2026-10-02)
 
 広瀬剛 instructed that subsequent work will proceed through Days 7–14 while

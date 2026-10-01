@@ -2,12 +2,17 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .pytest-tmp/
+# Disposable pytest workspaces, including nested Git fixtures.
+.pytest-*/
 .venv/
-state/*.json
-state/codex-sqlite/
-state/smoke/
+# Runtime state and retained local evidence stay on the operator host.
+state/**
+!state/.gitkeep
 logs/*
+# Local exports and experimental dependency/model sandboxes are not product source.
+output/
+poc/
+docs.zip
 config/runtime.local.yaml
 config/budget.local.yaml
-!state/.gitkeep
 !logs/.gitkeep
