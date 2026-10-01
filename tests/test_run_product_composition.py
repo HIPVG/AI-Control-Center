@@ -187,6 +187,95 @@ def _terminal_task_record(product_run_id, **updates):
     return record
 
 
+def _satisfy_product_criteria(engine, run_id):
+    record = engine.local_llm_run_store.get(run_id)
+    contract = engine.local_llm_day_program.snapshot.contract
+    for criterion in contract.completion_criteria:
+        results = [
+            _evidence(
+                run_id,
+                criterion.criterion_id,
+                evidence_type,
+                record.intent.config_fingerprint,
+                _evidence_value(evidence_type),
+            )
+            for evidence_type in criterion.required_evidence
+        ]
+        outcome = engine.local_llm_run_product.execution.evaluate_criterion(
+            run_id, criterion_id=criterion.criterion_id, results=results
+        )
+        assert outcome["criterion_satisfied"] is True
+
+
+def test_terminal_settlement_orders_evidence_telemetry_projection_and_replays_once(tmp_path):
+    engine, _calls = _engine(tmp_path)
+    client, restore = _api(engine)
+    try:
+        run_id = client.post("/api/local-llm/day/go", json={"selected_day": 6}).json()["run_id"]
+        _satisfy_product_criteria(engine, run_id)
+        engine.local_llm_day_program.snapshot.state = LocalLLMDayState.COMPLETE
+        engine.local_llm_day_program.snapshot.activity = "Terminal Day snapshot saved."
+        engine.local_llm_day_program._save()
+        engine.data["task_runs"] = [_terminal_task_record(run_id)]
+
+        original_project = engine.local_llm_run_product.execution.project_day_state
+        observed_order = []
+
+        def project_after_reconciliation(value):
+            observed_order.append("projection")
+            assert engine.local_llm_telemetry_store.get(value) is not None
+            assert engine.local_llm_run_product.execution._completion_ready(
+                engine.local_llm_run_store.get(value)
+            )
+            return original_project(value)
+
+        engine.local_llm_run_product.execution.project_day_state = project_after_reconciliation
+        settled = engine._settle_local_llm_product_run(run_id)
+        fixed = engine.local_llm_run_store.get(run_id)
+        replay = engine._settle_local_llm_product_run(run_id)
+
+        assert settled["outcome"] == "ACCEPTED"
+        assert settled["stage"] == "PROJECTED"
+        assert observed_order == ["projection"]
+        assert fixed.control.current_state == LocalLLMDayState.COMPLETE
+        assert replay["stage"] == "ALREADY_PROJECTED"
+        assert replay["telemetry_replay"] is True
+        assert engine.local_llm_run_store.get(run_id) == fixed
+        assert all(
+            evidence.run_id == run_id and evidence.criterion_id == criterion.criterion_id
+            for criterion in engine.local_llm_day_program.snapshot.contract.completion_criteria
+            for evidence_id in criterion.evidence_record_ids.values()
+            for evidence in [engine.local_llm_day_program.snapshot.evidence_store[evidence_id]]
+        )
+    finally:
+        restore()
+
+
+def test_terminal_settlement_rejects_missing_same_run_task_before_projection(tmp_path):
+    engine, _calls = _engine(tmp_path)
+    client, restore = _api(engine)
+    try:
+        run_id = client.post("/api/local-llm/day/go", json={"selected_day": 6}).json()["run_id"]
+        _satisfy_product_criteria(engine, run_id)
+        engine.local_llm_day_program.snapshot.state = LocalLLMDayState.COMPLETE
+        engine.local_llm_day_program._save()
+        engine.data["task_runs"] = [_terminal_task_record("run-other")]
+        before = engine.local_llm_run_store.get(run_id)
+
+        rejected = engine._settle_local_llm_product_run(run_id)
+
+        assert rejected == {
+            "outcome": "REJECTED",
+            "reason_code": "TERMINAL_TASK_RECORDS_MISSING",
+            "run_id": run_id,
+            "stage": "TELEMETRY",
+        }
+        assert engine.local_llm_run_store.get(run_id) == before
+        assert engine.local_llm_telemetry_store.get(run_id) is None
+    finally:
+        restore()
+
+
 def test_terminal_task_telemetry_reconciles_same_run_and_survives_restart(tmp_path):
     engine, _calls = _engine(tmp_path)
     client, restore = _api(engine)

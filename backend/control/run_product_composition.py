@@ -84,6 +84,59 @@ class RunProductComposition:
             return {"outcome": "REJECTED", "reason_code": str(exc), "run_id": run_id}
         return self.record_telemetry(run_id, telemetry)
 
+    def settle_terminal_run(
+        self, run_id: str, task_records: list[object]
+    ) -> dict[str, object]:
+        """Reconcile one already-saved terminal Day without repeating an effect."""
+        if self.program.snapshot.state != LocalLLMDayState.COMPLETE:
+            return self.execution.project_day_state(run_id)
+        evidence = self.execution.bind_day_evidence(run_id)
+        if evidence.get("outcome") != "ACCEPTED":
+            return {
+                "outcome": "REJECTED",
+                "reason_code": evidence.get("reason_code", "EVIDENCE_RECONCILIATION_FAILED"),
+                "run_id": run_id,
+                "stage": "EVIDENCE",
+            }
+        telemetry = self.reconcile_terminal_telemetry(run_id, task_records)
+        if telemetry.get("outcome") != "ACCEPTED":
+            return {
+                "outcome": "REJECTED",
+                "reason_code": telemetry.get("reason_code", "TELEMETRY_RECONCILIATION_FAILED"),
+                "run_id": run_id,
+                "stage": "TELEMETRY",
+            }
+        current = self.run_store.current()
+        if (
+            telemetry.get("replay") is True
+            and current is not None
+            and current.intent.run_id == run_id
+            and current.control.current_state == LocalLLMDayState.COMPLETE
+        ):
+            return {
+                "outcome": "ACCEPTED",
+                "run_id": run_id,
+                "stage": "ALREADY_PROJECTED",
+                "telemetry_replay": True,
+                "run_record": current.model_dump(mode="json"),
+            }
+        projection = self.execution.project_day_state(run_id)
+        if projection.get("outcome") != "ACCEPTED":
+            return {
+                "outcome": "REJECTED",
+                "reason_code": projection.get("reason_code", "DAY_STATE_PROJECTION_FAILED"),
+                "run_id": run_id,
+                "stage": "PROJECTION",
+                "telemetry_replay": bool(telemetry.get("replay")),
+            }
+        return {
+            "outcome": "ACCEPTED",
+            "run_id": run_id,
+            "stage": "PROJECTED",
+            "telemetry_replay": bool(telemetry.get("replay")),
+            "run_record": projection.get("run_record"),
+        }
+
     @staticmethod
     def _terminal_telemetry(intent: RunIntent, task_records: list[object]) -> RunTelemetry:
         if not task_records:

@@ -85,6 +85,7 @@ class CodexAttemptResult(BaseModel):
 
 class TaskRunResult(BaseModel):
     run_id: str
+    product_run_id: str | None = Field(default=None, min_length=1, max_length=120)
     task_id: str
     project_id: str
     source_repo_path: str | None = None

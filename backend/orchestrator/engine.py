@@ -240,7 +240,7 @@ class ControlCenterEngine:
             self.local_llm_preflight_fact_store,
         )
         self.local_llm_day_program.bind_settlement_notifier(
-            self.local_llm_run_product.execution.project_day_state
+            self._settle_local_llm_product_run
         )
         self.local_llm_run_coordinator = RunCoordinator(
             self.local_llm_day_program,
@@ -868,6 +868,14 @@ class ControlCenterEngine:
             "day_result": self.local_llm_day_program.start(day, run_id=run_id),
         }
 
+    def _settle_local_llm_product_run(self, run_id: str) -> dict[str, object]:
+        """Supply only server-persisted task facts bound to the settled product run."""
+        task_records = [
+            item for item in self.data.get("task_runs", [])
+            if isinstance(item, dict) and item.get("product_run_id") == run_id
+        ]
+        return self.local_llm_run_product.settle_terminal_run(run_id, task_records)
+
     def resume_local_llm_day(self) -> dict[str, object]:
         return self.local_llm_day_program.resume()
 
@@ -949,7 +957,11 @@ class ControlCenterEngine:
                 )
             except (ValueError, TypeError):
                 return {"final_result": "FAILED", "error_code": "DAY_DYNAMIC_WORK_ORDER_REJECTED", "issue_classification": "IMPLEMENTATION_DEFECT"}
-            result = self.run_task(dynamic.task_id, task_definition=task)
+            result = self.run_task(
+                dynamic.task_id,
+                task_definition=task,
+                product_run_id=self.local_llm_day_program.snapshot.run_id,
+            )
             task_id = dynamic.task_id
         elif kind == "ENGINE_WORK_ORDER":
             task_id = work_order.get("engine_task_id")
@@ -991,7 +1003,10 @@ class ControlCenterEngine:
         except (ValueError, TypeError):
             return {"final_result": "FAILED", "error_code": "DAY_COUNTERMEASURE_REJECTED", "issue_classification": "IMPLEMENTATION_DEFECT"}
         review = {"diagnosis": str(getattr(proposal, "diagnosis", ""))[:500], "edits": [{"path": edit.path, "find": edit.find, "replace": edit.replace} for edit in edits]}
-        result = self.run_task(dynamic.task_id, task_definition=task, repair_proposal=review)
+        result = self.run_task(
+            dynamic.task_id, task_definition=task, repair_proposal=review,
+            product_run_id=self.local_llm_day_program.snapshot.run_id,
+        )
         return self._adapt_day_repair(dynamic.task_id, result)
 
     def _execute_codex_expert_solver(self, work_order: dict[str, object]) -> dict[str, object]:
@@ -1010,7 +1025,10 @@ class ControlCenterEngine:
             )
         except (ValueError, TypeError):
             return {"final_result": "FAILED", "error_code": "DAY_EXPERT_SOLVER_REJECTED", "issue_classification": "IMPLEMENTATION_DEFECT"}
-        result = self.run_task(dynamic.task_id, task_definition=task)
+        result = self.run_task(
+            dynamic.task_id, task_definition=task,
+            product_run_id=self.local_llm_day_program.snapshot.run_id,
+        )
         return {**self._adapt_day_repair(dynamic.task_id, result), "expert_solver": "INDEPENDENT"}
 
     def _execute_external_review_builder(self, work_order: dict[str, object]) -> dict[str, object]:
@@ -1045,7 +1063,10 @@ class ControlCenterEngine:
             "expected_behavior": str(review.get("expected_behavior", ""))[:1600],
             "cautions": [str(value)[:400] for value in review.get("cautions", [])[:8]],
         }
-        result = self.run_task(dynamic.task_id, task_definition=task, repair_proposal=bounded_guidance)
+        result = self.run_task(
+            dynamic.task_id, task_definition=task, repair_proposal=bounded_guidance,
+            product_run_id=self.local_llm_day_program.snapshot.run_id,
+        )
         return {**self._adapt_day_repair(dynamic.task_id, result), "expert_solver": "EXTERNAL_REVIEW_GUIDED"}
 
     def _adapt_day_repair(self, task_id: str, result: dict) -> dict:
@@ -1068,7 +1089,12 @@ class ControlCenterEngine:
         # adapters may consume this bounded instruction in a later integration.
         # Codex CLI capability mapping is intentionally not guessed. The
         # DayRunner selector is invoked only after deterministic CODE_FIX triage.
-        return self.run_task(task_id, max_codex_attempts=max_codex_attempts, codex_routing_selector=codex_routing_selector)
+        return self.run_task(
+            task_id,
+            max_codex_attempts=max_codex_attempts,
+            codex_routing_selector=codex_routing_selector,
+            product_run_id=self.local_llm_day_program.snapshot.run_id,
+        )
 
     def _save_day_state(self, snapshot: dict[str, Any]) -> None:
         self.data["day_orchestration"] = snapshot
@@ -1778,7 +1804,7 @@ class ControlCenterEngine:
             snapshot[path] = f"{line[:2]}:{digest}"
         return snapshot
 
-    def run_task(self, task_id: str, *, max_codex_attempts: int | None = None, codex_routing_selector: Callable[[int, int], object | None] | None = None, task_definition: ConfiguredTask | None = None, repair_proposal: dict[str, object] | None = None) -> dict[str, Any]:
+    def run_task(self, task_id: str, *, max_codex_attempts: int | None = None, codex_routing_selector: Callable[[int, int], object | None] | None = None, task_definition: ConfiguredTask | None = None, repair_proposal: dict[str, object] | None = None, product_run_id: str | None = None) -> dict[str, Any]:
         """Execute a registered task or an already validated dynamic task in a worktree."""
         started = datetime.now(timezone.utc)
         run_id = uuid4().hex
@@ -1791,6 +1817,7 @@ class ControlCenterEngine:
         project = self.projects.get(task.project_id)
         common = {
             "run_id": run_id, "task_id": task.task_id, "project_id": task.project_id,
+            "product_run_id": product_run_id,
             "start_time": started, "allowed_files": task.allowed_files,
         }
         if project is None:

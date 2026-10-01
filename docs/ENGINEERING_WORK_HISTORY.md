@@ -1,5 +1,26 @@
 # Engineering work history
 
+## 2026-10-01 — G6 PR-01 accepted; PR-02 ordered settlement fixture passed
+
+Applied the complete `ACCEPT` response for
+`G6-PR01-COMPLETION-20261001-001` at
+`04db6d925deaeb2ac004dd42c0237d4eb6b33786`. Selected PR-02 under the
+previously approved dependency order.
+
+Reused the SP-00 post-save notifier as the single settlement boundary. COMPLETE now
+orders strict Evidence binding, same-run terminal telemetry and the existing guarded
+RunRecord projection. Persisted Day task results receive a server-owned product-run
+binding; the callback filters on that binding rather than inferring task ownership.
+Non-COMPLETE SP-00 state projection remains intact. Exact replay avoids a second
+RunRecord transition, while missing same-run tasks stop before projection.
+
+The declared focused suite passed 117 tests on attempt 1. Artifact inspection added
+one assertion that the server-owned product-run ID survives task persistence; the
+second/final execution passed 118 tests. Both runs reported the same six existing
+FastAPI/Starlette deprecation warnings. No third execution, PR-03, service/browser,
+Day/Go, model, Watcher, credential, spending, G7/G8 or product-acceptance action
+occurred.
+
 ## 2026-10-01 — G6 PR-00 accepted; PR-01 telemetry reconciliation fixture passed
 
 Applied the complete `ACCEPT` response for

@@ -1,5 +1,21 @@
 # Current Work
 
+## Current checkpoint — G6 PR-02 fixed for review (2026-10-01)
+
+Reviewer accepted `G6-PR01-COMPLETION-20261001-001` at reviewed commit
+`04db6d925deaeb2ac004dd42c0237d4eb6b33786`. PR-01 is complete within its
+terminal telemetry boundary, and PR-02 was selected under the existing stage
+authority.
+
+PR-02 now uses the existing SP-00 post-save notification for the ordered same-run
+settlement: strict Evidence binding, terminal telemetry reconciliation, guarded state
+projection and readback. Persisted Day task results carry a server-owned product run
+binding. Exact replay does not produce a second RunRecord transition; missing or
+conflicting same-run facts stop before terminal projection. The focused command passed
+117 tests on attempt 1 and 118 on the second/final execution after adding the persisted
+task-binding assertion. Fix PR-02 and publish its completion pack, then stop for
+review. Do not begin PR-03 before acceptance.
+
 ## Current checkpoint — G6 PR-01 fixed for review (2026-10-01)
 
 Reviewer accepted `G6-PR00-COMPLETION-20261001-002` at reviewed commit

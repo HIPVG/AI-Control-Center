@@ -75,7 +75,12 @@ class DayActionExecutor:
             allowed_files=list(template.allowed_output_scope), context_files=list(template.context_scope),
             precheck=TaskCommand(argv=[sys.executable, "-c", "raise SystemExit(1)"]),
             postcheck=TaskCommand(argv=argv), max_retry=0, requires_codex=True)
-        result = self.engine.run_task(task.task_id, task_definition=task, max_codex_attempts=1)
+        result = self.engine.run_task(
+            task.task_id,
+            task_definition=task,
+            max_codex_attempts=1,
+            product_run_id=self.engine.local_llm_day_program.snapshot.run_id,
+        )
         adapted = self.adapt_engine_result(strategy, result)
         if adapted.get("final_result") not in {"COMPLETE", "COMPLETE_NO_CHANGE"}:
             adapted["dynamic_work_order"] = {"task_id": task.task_id, "allowed_files": task.allowed_files,

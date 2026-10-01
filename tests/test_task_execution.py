@@ -133,6 +133,18 @@ def test_precheck_pass_completes_without_codex_and_source_remains_unchanged(tmp_
     assert result["task_branch"].startswith("agent/pc-001-a-")
 
 
+def test_server_owned_product_run_id_is_persisted_with_day_task_result(tmp_path):
+    runner = TaskWriter()
+    engine, _ = engine_for(tmp_path, runner)
+    command_results(engine, [{"exit_code": 0, "passed": True, "stdout": "ok"}])
+
+    result = engine.run_task("PC-001-A", product_run_id="product-run-001")
+
+    assert result["product_run_id"] == "product-run-001"
+    assert engine.data["task_runs"][-1]["product_run_id"] == "product-run-001"
+    assert runner.called == 0
+
+
 def test_dynamic_day_engineering_work_uses_guarded_worktree_without_manufacturing_criterion_evidence(tmp_path):
     runner = TaskWriter()
     engine, _ = engine_for(tmp_path, runner)
