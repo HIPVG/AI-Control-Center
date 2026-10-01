@@ -1,6 +1,20 @@
 # Current Work
 
-## Current checkpoint — G8 RG-04 revision 002 timed out; new authority required (2026-10-01)
+## Current checkpoint — G8 RG-04 attempt 003 authorized (2026-10-01)
+
+広瀬剛 authorized a new attempt with 「許可します。実施してください。」 after
+confirming that the GitHub event-triggered Reviewer task was created and run. Use
+decision `AUTH-G8-RG04-REVIEW-PATH-RETRY-20261001-002`, report
+`G8-RG04-REVIEW-PATH-PROBE-20261001-003`, and create-only runtime directory
+`state/rg04-review-path-validation-20261001-003/`.
+
+On the one fully matching response, the fresh continuation must make no file,
+product or external change and return only `NO_REPORT`. Stop after one application
+or the first failure. Do not repair or retry a failure. Preserve the existing
+Watcher registry byte-for-byte. RG-06 and release remain unauthorized;
+`NO_RELEASE` remains.
+
+## Historical checkpoint — G8 RG-04 revision 002 timed out; new authority required (2026-10-01)
 
 Revision 002 corrected the import path, started the production Watcher once and
 observed report `G8-RG04-REVIEW-PATH-PROBE-20261001-002`. No matching response

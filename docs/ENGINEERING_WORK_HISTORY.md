@@ -4356,3 +4356,14 @@ summary helper falsely listed the report itself as a response because its body
 contained the expected response example; the production Watcher did not apply it.
 No retry, repair or broader action followed. RG-04 remains incomplete under
 `NO_RELEASE` pending a new human authority.
+
+## 2026-10-01 — RG-04 attempt 003 authorized after Reviewer task setup
+
+広瀬剛 confirmed that the GitHub event-triggered Reviewer task was created and run,
+then authorized the next attempt with 「許可します。実施してください。」. Recorded
+decision `AUTH-G8-RG04-REVIEW-PATH-RETRY-20261001-002` permits one new report,
+Watcher start/stop and `NO_REPORT` continuation using create-only attempt-003 state.
+
+The validation helper now excludes the report comment itself from response-summary
+candidates. Product source, historical Watcher state, Day/Go, model, credentials,
+RG-06, distribution and release remain excluded. `NO_RELEASE` remains.

@@ -33,6 +33,18 @@ The evidence-summary helper also matched the literal response example embedded i
 the report body. The production Watcher did not apply that text; retain this as a
 trace-helper limitation. RG-04 remains incomplete and `NO_RELEASE` remains.
 
+## Attempt 003 authority
+
+広瀬剛 authorized `AUTH-G8-RG04-REVIEW-PATH-RETRY-20261001-002` after confirming
+that the GitHub event-triggered Reviewer task was created and run. Attempt 003 uses
+new report ID `G8-RG04-REVIEW-PATH-PROBE-20261001-003` and create-only runtime
+directory `state/rg04-review-path-validation-20261001-003/`.
+
+The evidence helper excludes the report comment itself from response candidates.
+All other one-report, one-Watcher, one-`NO_REPORT` continuation and no-product-effect
+boundaries remain unchanged. Failure stops without another repair. `NO_RELEASE`
+remains.
+
 ## Objective
 
 Establish whether the current GitHub Review Bridge PR #1, production
