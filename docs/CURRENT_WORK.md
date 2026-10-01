@@ -1,6 +1,19 @@
 # Current Work
 
-## Current checkpoint — G8 RG-03 stop/rollback validation authorized (2026-10-01)
+## Current checkpoint — G8 RG-03 stop/rollback evidence fixed; review pending (2026-10-01)
+
+Under `AUTH-G8-RG03-STOP-ROLLBACK-20261001-001`, the fixed candidate was extracted
+once, started once in mock mode on `127.0.0.1:8000`, read twice over HTTP and stopped
+once by captured process identity. Final candidate process, listener, service and
+scheduled-task counts are zero. The inactive root, state, logs and response bytes are
+retained with hashes.
+
+The launcher logged `PYTHON_INVOCATION_FAILED type=HostException` when the child was
+deliberately terminated; retain this fact and do not claim graceful shutdown. Submit
+the limited exact-process stop/rollback result for review, then stop under
+`NO_RELEASE`. Do not begin RG-04, RG-06 or release work.
+
+## Historical checkpoint — G8 RG-03 stop/rollback validation authorized (2026-10-01)
 
 広瀬剛 approved `AUTH-G8-RG03-STOP-ROLLBACK-20261001-001`. Validate only the fixed
 RG-01 candidate at the RG-02 path: preflight target absence and free port 8000,

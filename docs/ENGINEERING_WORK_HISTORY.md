@@ -1,5 +1,25 @@
 # Engineering work history
 
+## 2026-10-01 — G8 RG-03 isolated stop/rollback validation completed
+
+広瀬剛 approved `AUTH-G8-RG03-STOP-ROLLBACK-20261001-001`. Preflight confirmed the
+accepted 288,116-byte archive hash, absent target and free port 8000. Extracted once
+to the fixed candidate root; the initial 124 files, mock mode, loopback and default
+port matched the accepted boundary.
+
+Started packaged `scripts/start.ps1` once with Reviewer Bus disabled. Launcher PID
+16088 created server PID 1448 listening only on `127.0.0.1:8000`. The two authorized
+read-only GETs returned 200 and their raw bytes were retained. Stopped the captured
+candidate process tree once. Final known-PID, candidate-path process, listener,
+Windows service and scheduled-task counts were zero; candidate state/logs remain.
+
+The blocking launcher recorded `PYTHON_INVOCATION_FAILED type=HostException` when its
+child was deliberately terminated. Preserved that diagnostic rather than calling the
+shutdown graceful. No retry, implementation repair, browser, Day/Go, model, Watcher,
+credential, external exposure, distribution, RG-04/RG-06 or release action occurred.
+RG-03 is proposed complete only for exact-process stop and return to an inactive,
+non-listening, non-autostart, evidence-preserving state. `NO_RELEASE` remains in force.
+
 ## 2026-10-01 — G8 RG-02/RG-05/RG-07 operating envelope accepted
 
 Applied the complete `ACCEPT` response for
