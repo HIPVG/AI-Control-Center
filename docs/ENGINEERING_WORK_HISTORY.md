@@ -4122,3 +4122,17 @@ service/browser, Day/Go, model, Watcher, credential, spending or release operati
 was performed. Work stops for `D8-ACCEPTANCE-SCOPE-20261001-001`: 広瀬剛 must select
 exactly one of bounded Day 6 acceptance, acceptance deferral, or acceptance-claim
 rejection, with the chosen scope and effects recorded directly.
+
+## 2026-10-01 — G8 bounded Day 6 demonstration accepted; release remains blocked
+
+広瀬剛 made the direct decision `D8-ACCEPTANCE-SCOPE-20261001-001`:
+`ACCEPT_BOUNDED_DAY6_DEMONSTRATION` — 「Day 6の限定実証だけを受理。全Day・
+リリース・Watcher稼働等は含めません。」 The direct conversation is recorded as
+`RECORDED_DIRECT_CONVERSATION`; message ID and exact receipt time are `UNKNOWN`.
+
+The decision accepts only the evidence-backed Day 6 demonstration. It does not
+promote A03 actual repair or A04 current review, nor authorize all-Day acceptance,
+current Watcher operation, measured JPY cost, continuous operation, distribution or
+release. `NO_RELEASE` remains in force. No execution, test, service/browser, Day/Go,
+model, Watcher, credential, spending or release action was performed while recording
+this decision.

@@ -1,18 +1,17 @@
 # Current Work
 
-## Current checkpoint — G8 recommendation accepted; GA-02 human scope selection pending (2026-10-01)
+## Current checkpoint — G8 bounded Day 6 demonstration accepted; no release (2026-10-01)
 
-Reviewer accepted `G8-ACCEPTANCE-RECOMMENDATION-20261001-001` for reviewed commit
-`6ae3ea49425d56a28946d20071678bfa85aa50b8`. GA-00 and GA-01 map existing evidence
-only. `ACCEPT_BOUNDED_DAY6_DEMONSTRATION` is the maximum supportable claim: it is
-limited to the fixed Day 6 product flow and does not accept all Days, release,
-continuous operation or unattended review.
+Under direct human decision `D8-ACCEPTANCE-SCOPE-20261001-001`, 広瀬剛 selected
+`ACCEPT_BOUNDED_DAY6_DEMONSTRATION`. The accepted product claim is only the fixed,
+evidence-backed Day 6 demonstration: selection/Go, typed completion Evidence,
+same-run terminal state/dashboard readback, and run attempt/token/budget telemetry.
 
-Stop for D8-ACCEPTANCE-SCOPE-20261001-001. 広瀬剛 must explicitly select exactly
-one of `ACCEPT_BOUNDED_DAY6_DEMONSTRATION`, `DEFER_PRODUCT_ACCEPTANCE`, or
-`REJECT_ACCEPTANCE_CLAIM`. No product acceptance, release, service/Watcher operation,
-Day/Go, model execution, tests, credential changes or spending has occurred or is
-authorized by the Reviewer acceptance.
+This decision does not accept all Days, actual repair success, current live review or
+Watcher operation, measured JPY cost, continuous operation, distribution or release.
+`NO_RELEASE` remains in force. G8's decision-only scope is complete; do not start a
+new operation, Day/Go, model, service/Watcher action, test, credential change or
+spending without a later explicit authority.
 
 ## Current checkpoint — G8 acceptance-and-release plan under review (2026-10-01)
 
