@@ -150,6 +150,104 @@ def test_complete_day_state_cannot_project_without_all_validator_evidence(tmp_pa
     assert store.get(intent.run_id) == before
 
 
+def test_day_evidence_binding_creates_distinct_run_and_criterion_records(tmp_path):
+    composition, program, _store, contract, intent = _fixture(tmp_path)
+    all_required = sorted({
+        evidence_type
+        for criterion in contract.completion_criteria
+        for evidence_type in criterion.required_evidence
+    })
+    legacy = {
+        evidence_type: {
+            "evidence_type": evidence_type,
+            "value": _value(evidence_type),
+            "source": "day-6-fixture",
+            "verified": True,
+            "validation": {"passed": True, "validator": "fixture"},
+        }
+        for evidence_type in all_required
+    }
+    program._ingest_legacy_evidence(
+        contract, legacy, provider_id="day-6-fixture", source_fingerprint="s" * 64
+    )
+    program._evaluate_contract(contract, {})
+    legacy_ids = set(program.snapshot.evidence_store)
+    legacy_records = {
+        record_id: program.snapshot.evidence_store[record_id].model_copy(deep=True)
+        for record_id in legacy_ids
+    }
+
+    result = composition.bind_day_evidence(intent.run_id)
+
+    assert result["outcome"] == "ACCEPTED"
+    assert set(result["criterion_ids"]) == {
+        criterion.criterion_id for criterion in contract.completion_criteria
+    }
+    bound = {
+        criterion.criterion_id: {
+            evidence_type: program.snapshot.evidence_store[record_id]
+            for evidence_type, record_id in criterion.evidence_record_ids.items()
+        }
+        for criterion in contract.completion_criteria
+    }
+    assert all(
+        record.run_id == intent.run_id and record.criterion_id == criterion_id
+        for criterion_id, records in bound.items() for record in records.values()
+    )
+    schema_ids = {
+        records["schema_contract"].record_id
+        for records in bound.values() if "schema_contract" in records
+    }
+    assert len(schema_ids) == 2
+    assert all(program.snapshot.evidence_store[key] == value for key, value in legacy_records.items())
+    assert all(value.run_id is None and value.criterion_id is None for value in legacy_records.values())
+
+    restored = LocalLLMDayProgram(
+        FIXTURE_ROOT, saved=program.view()
+    )
+    restored_contract = restored.snapshot.contract
+    assert restored_contract is not None
+    assert all(
+        restored.snapshot.evidence_store[record_id].run_id == intent.run_id
+        and restored.snapshot.evidence_store[record_id].criterion_id == criterion.criterion_id
+        for criterion in restored_contract.completion_criteria
+        for record_id in criterion.evidence_record_ids.values()
+    )
+
+
+def test_day_evidence_binding_is_atomic_when_one_source_is_invalid(tmp_path):
+    composition, program, store, contract, intent = _fixture(tmp_path)
+    all_required = sorted({
+        evidence_type
+        for criterion in contract.completion_criteria
+        for evidence_type in criterion.required_evidence
+    })
+    legacy = {
+        evidence_type: {
+            "evidence_type": evidence_type,
+            "value": _value(evidence_type),
+            "source": "day-6-fixture",
+            "verified": True,
+            "validation": {"passed": True, "validator": "fixture"},
+        }
+        for evidence_type in all_required
+    }
+    program._ingest_legacy_evidence(
+        contract, legacy, provider_id="day-6-fixture", source_fingerprint="s" * 64
+    )
+    program._evaluate_contract(contract, {})
+    invalid_id = contract.completion_criteria[-1].evidence_record_ids["architecture_check"]
+    program.snapshot.evidence_store[invalid_id].validator_result = False
+    before_snapshot = program.snapshot.model_copy(deep=True)
+    before_record = store.get(intent.run_id)
+
+    result = composition.bind_day_evidence(intent.run_id)
+
+    assert result["reason_code"] == "DAY_EVIDENCE_SOURCE_INVALID"
+    assert program.snapshot == before_snapshot
+    assert store.get(intent.run_id) == before_record
+
+
 def test_complete_day_state_rejects_unverified_required_review_without_mutation(tmp_path):
     composition, program, store, contract, intent = _fixture(tmp_path)
     for criterion in contract.completion_criteria:

@@ -1413,6 +1413,18 @@ class LocalLLMDayProgram:
                               if record.day == contract.day and record.contract_version == contract.version
                               and (contract.day != 1 or record.observation_fingerprint == self._inventory_fingerprint(inventory))
                               and record.evidence_type == evidence_type and self._evidence_record_valid(evidence_type, record)]
+                exact = [record for record in candidates
+                         if self.snapshot.run_id is not None
+                         and record.run_id == self.snapshot.run_id
+                         and record.criterion_id == criterion.criterion_id]
+                if exact:
+                    candidates = exact
+                else:
+                    # Nullable records are retained for legacy Day compatibility.
+                    # Once strict records exist for this criterion, a record bound
+                    # to another run or criterion can never be selected instead.
+                    candidates = [record for record in candidates
+                                  if record.run_id is None and record.criterion_id is None]
                 if candidates:
                     selected = sorted(candidates, key=lambda record: record.collected_at)[-1]
                     references[evidence_type] = selected.record_id

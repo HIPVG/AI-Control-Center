@@ -116,6 +116,96 @@ class RunExecutionComposition:
             self.program._save()
             return evaluation
 
+    def bind_day_evidence(self, run_id: str) -> dict[str, object]:
+        """Create strict per-criterion records from already validated Day evidence.
+
+        The Day controller may retain nullable legacy records for compatibility.
+        Product completion never relabels those records: it revalidates their value
+        and provenance through the strict Result Adapter under server-owned run and
+        criterion identities, then applies all bindings atomically to the snapshot.
+        """
+        with self._lock:
+            record = self._record(run_id)
+            current = self.store.current()
+            if current is None or current.intent.run_id != run_id:
+                return self._rejected(record, "RUN_NOT_CURRENT")
+            snapshot = self.program.snapshot
+            if snapshot.run_id != run_id:
+                return self._rejected(record, "DAY_SNAPSHOT_RUN_ID_MISMATCH")
+            contract = snapshot.contract
+            if contract is None or contract.day != record.intent.selected_day:
+                return self._rejected(record, "DAY_CONTRACT_MISMATCH")
+            if self.program._contract_fingerprint(contract) != record.intent.contract_fingerprint:
+                return self._rejected(record, "CONTRACT_FINGERPRINT_MISMATCH")
+
+            pending: list[tuple[object, dict[str, object], dict[str, EvidenceRecord]]] = []
+            for criterion in contract.completion_criteria:
+                results: list[dict[str, object]] = []
+                for evidence_type in criterion.required_evidence:
+                    source_id = criterion.evidence_record_ids.get(evidence_type)
+                    source = snapshot.evidence_store.get(source_id) if source_id else None
+                    if not self.program._evidence_record_valid(evidence_type, source):
+                        return self._rejected(record, "DAY_EVIDENCE_SOURCE_INVALID")
+                    assert source is not None
+                    results.append({
+                        "run_id": run_id,
+                        "criterion_id": criterion.criterion_id,
+                        "evidence_type": evidence_type,
+                        "provider_id": source.provider_id,
+                        "provider_version": source.provider_version,
+                        "source_fingerprint": source.source_fingerprint,
+                        "configuration_fingerprint": record.intent.config_fingerprint,
+                        "value": source.value,
+                        "source_paths": source.source_paths,
+                        "source_revision": source.source_revision,
+                        "source_hashes": source.source_hashes,
+                        "retained_artifact_reference": source.retained_artifact_reference,
+                    })
+                evaluation = self.evaluator.evaluate_criterion(
+                    intent=record.intent,
+                    contract=contract,
+                    criterion_id=criterion.criterion_id,
+                    results=results,
+                )
+                if not evaluation["criterion_satisfied"]:
+                    return self._rejected(record, "DAY_EVIDENCE_BINDING_INCOMPLETE")
+                records = {
+                    key: EvidenceRecord.model_validate(value)
+                    for key, value in evaluation["evidence_records"].items()
+                }
+                if any(
+                    item.run_id != run_id or item.criterion_id != criterion.criterion_id
+                    for item in records.values()
+                ):
+                    return self._rejected(record, "EVIDENCE_IDENTITY_MISMATCH")
+                pending.append((criterion, evaluation, records))
+
+            for criterion, evaluation, records in pending:
+                snapshot.evidence_store.update(records)
+                criterion.evidence_record_ids = dict(evaluation["evidence_record_ids"])
+                criterion.evidence = dict(evaluation["evidence_record_ids"])
+                criterion.satisfied = True
+            contract.satisfied_criteria = [
+                criterion.criterion_id for criterion in contract.completion_criteria
+                if criterion.satisfied
+            ]
+            contract.remaining_gaps = [
+                criterion.criterion_id for criterion in contract.completion_criteria
+                if not criterion.satisfied
+            ]
+            self.program._save()
+            return {
+                "outcome": "ACCEPTED",
+                "run_id": run_id,
+                "selected_day": record.intent.selected_day,
+                "criterion_ids": [item[0].criterion_id for item in pending],
+                "evidence_record_ids": {
+                    item[0].criterion_id: dict(item[1]["evidence_record_ids"])
+                    for item in pending
+                },
+                "day_execution_started": False,
+            }
+
     def begin_repair(self, run_id: str, *, allowed_paths: set[str]) -> dict[str, object]:
         with self._lock:
             record = self._record(run_id)
