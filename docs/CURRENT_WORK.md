@@ -1,5 +1,17 @@
 # Current Work
 
+## Current checkpoint — G8 acceptance-and-release plan under review (2026-10-01)
+
+広瀬剛 authorized `AUTH-G8-PLANNING-20261001-001`: create only the G8 decision
+plan. The plan distinguishes bounded Day 6 demonstration acceptance from all-Day
+product acceptance or release. It retains A03 actual repair and A04 current review
+as `NOT_EVALUABLE`, and defaults to `NO_RELEASE` unless a later explicit authority
+names an operating/release boundary.
+
+Submit the G8 plan for review and stop. Do not perform product acceptance, release,
+service or Watcher operation, Day/Go, model execution, tests, credential changes,
+spending, `main` changes or destructive Git operations.
+
 ## Current checkpoint — G7 verification PASS; human exit decision pending (2026-10-01)
 
 Reviewer accepted `G7-STAGE-RESULT-20261001-002` at reviewed commit

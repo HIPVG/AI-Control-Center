@@ -4080,3 +4080,15 @@ the exit. No execution, test, implementation or external operation was performed
 while applying the review. Stopped for 広瀬剛's separate G7 exit/G8-boundary decision;
 G8, another Day/Go, model, service, Watcher, credentials, spending and product
 acceptance remain unauthorized.
+
+## 2026-10-01 — G7 exit authorized; G8 decision planning started
+
+広瀬剛 authorized `AUTH-G8-PLANNING-20261001-001` with the exact instruction
+「G7出口を承認し、G8の計画作成を許可します」. The authority is recorded as a direct
+conversation and is limited to G8 planning, records and review preparation.
+
+The G8 plan separates a bounded Day 6 demonstration decision from all-Day acceptance
+and release. It carries forward A03 actual repair and A04 current review as
+`NOT_EVALUABLE`, offers explicit human outcomes, and makes release a later separate
+authority. No test, service/browser, Day/Go, model, Watcher, credential, spending,
+release or product-acceptance action occurred.
