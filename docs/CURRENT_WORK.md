@@ -1,6 +1,23 @@
 # Current Work
 
-## Current checkpoint — G8 RG-04 live review-path validation authorized (2026-10-01)
+## Current checkpoint — G8 RG-04 blocked before Watcher start; retry authority required (2026-10-01)
+
+The first RG-04 validation process exited before constructing
+`ReviewerBusWatcher`: Python did not include the canonical project root in the
+versioned probe script's import path and raised
+`ModuleNotFoundError: No module named 'backend'`. This is a validation-harness launch
+defect, not a production Watcher result.
+
+Watcher starts/stops, PR probe posts, responses and Codex continuations are all zero.
+No probe-ID comment exists on PR #1; the failed PID is absent and no validation
+service/task registration exists. Evidence is fixed in
+`docs/review-evidence/G8-RG04-REVIEW-PATH-VALIDATION-20261001-001/preflight-failure-trace.json`.
+
+The authority required stopping without repair when a problem was found. Do not
+correct or retry the harness without a new explicit human authority. RG-04 remains
+incomplete; do not start RG-06 or release. `NO_RELEASE` remains in force.
+
+## Historical checkpoint — G8 RG-04 live review-path validation authorized (2026-10-01)
 
 広瀬剛 authorized `AUTH-G8-RG04-REVIEW-PATH-VALIDATION-20261001-001` for one
 no-effect report, one Watcher start/stop and one exactly correlated Codex

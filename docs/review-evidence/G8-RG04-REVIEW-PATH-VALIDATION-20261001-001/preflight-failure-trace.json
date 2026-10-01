@@ -1,0 +1,59 @@
+{
+  "schema": "ai-control-center.rg04-review-path-preflight-failure.v1",
+  "validation_id": "G8-RG04-REVIEW-PATH-VALIDATION-20261001-001",
+  "authority_id": "AUTH-G8-RG04-REVIEW-PATH-VALIDATION-20261001-001",
+  "candidate": "AI-Control-Center-Day6-Bounded-RC1",
+  "result": "INPUT_BLOCKED_PRE_WATCHER",
+  "failure_class": "VALIDATION_HARNESS_IMPORT_PATH",
+  "failure_observed_at_utc": "2026-10-01T08:51:20.6734811Z",
+  "probe_process": {
+    "pid": 19088,
+    "exit_code": 1,
+    "alive_after_failure": false,
+    "python_module_error": "ModuleNotFoundError: No module named 'backend'"
+  },
+  "cause": {
+    "observed": "Python set sys.path[0] to the versioned validation-script directory; the canonical project root was the working directory but was not on the import path.",
+    "failed_import": "from backend.control.reviewer_bus import REPORT_ID_RE, ReviewerBusWatcher",
+    "product_or_watcher_defect_claimed": false,
+    "repair_attempted": false,
+    "retry_attempted": false
+  },
+  "authorized_effect_counts": {
+    "watcher_start": 0,
+    "watcher_stop": 0,
+    "probe_report_post": 0,
+    "matching_response": 0,
+    "codex_continuation": 0,
+    "followup_report_post": 0,
+    "day_go": 0,
+    "model_execution": 0,
+    "product_state_change": 0,
+    "credential_change": 0,
+    "release": 0
+  },
+  "retained_local_logs": [
+    {
+      "path": "state/rg04-review-path-validation-20261001-001/probe.stdout.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "state/rg04-review-path-validation-20261001-001/probe.stderr.log",
+      "bytes": 298,
+      "sha256": "0787f3f8e5c36bbdd0398d7766886462d73f9ba96886f52b4f56ce3264995d80"
+    }
+  ],
+  "post_failure_observations": {
+    "observed_at_utc": "2026-10-01T08:52:29.9791059Z",
+    "pr_report_or_reply_mentions": 0,
+    "probe_pid_alive": false,
+    "validation_windows_service_count": 0,
+    "validation_scheduled_task_count": 0,
+    "original_registry_path": "state/reviewer-bus-watcher.json",
+    "original_registry_bytes": 52873,
+    "original_registry_sha256": "03046bd17adbf6ad20aea1d773171a8a163b74246203d80b3ad7af23520fe848"
+  },
+  "stop_reason": "The human authority required evidence preservation and stop without repair when a problem was found.",
+  "release_state": "NO_RELEASE"
+}

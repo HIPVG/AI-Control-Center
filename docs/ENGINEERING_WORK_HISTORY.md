@@ -1,5 +1,19 @@
 # Engineering work history
 
+## 2026-10-01 — G8 RG-04 attempt 001 blocked before Watcher construction
+
+Started the versioned RG-04 validation process once as PID 19088. It exited 1 before
+importing `ReviewerBusWatcher` because Python used the probe-script directory as its
+module root and could not resolve the project `backend` package. Classified this as
+a validation-harness import-path defect, not a product/Watcher failure.
+
+The explicit stop-on-problem rule was applied: no correction or retry occurred.
+Watcher start/stop, PR post, response and Codex continuation counts are zero. The
+failed process is absent, the probe ID is absent from PR #1 and no service/task
+registration references the validation path. Local stderr is retained and a
+machine-readable failure trace is versioned. RG-04 remains incomplete pending new
+human retry authority; `NO_RELEASE` remains.
+
 ## 2026-10-01 — G8 RG-04 current review-path validation authorized
 
 広瀬剛 issued `AUTH-G8-RG04-REVIEW-PATH-VALIDATION-20261001-001` for one

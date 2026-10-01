@@ -5,7 +5,7 @@
 - **Candidate:** `AI-Control-Center-Day6-Bounded-RC1`
 - **Fixed source commit:** `656711367ed837ddbb75e6df65234a955e44900d`
 - **Probe report ID:** `G8-RG04-REVIEW-PATH-PROBE-20261001-001`
-- **State:** `AUTHORIZED_NOT_STARTED`
+- **State:** `INPUT_BLOCKED_PRE_WATCHER`
 - **Release state:** `NO_RELEASE`
 
 ## Objective
@@ -58,3 +58,16 @@ branch are identical:
 
 Any failed condition stops the validation without repair. The evidence may support
 RG-04 review but cannot itself authorize RG-06 or release.
+
+## Attempt 001 result
+
+The validation process exited before constructing the Watcher because the versioned
+probe script could not import the project `backend` package from its script-relative
+module path. Watcher starts, probe posts, responses and Codex continuations therefore
+all remain zero. The failure is fixed at
+`docs/review-evidence/G8-RG04-REVIEW-PATH-VALIDATION-20261001-001/preflight-failure-trace.json`.
+The trace is 2,333 bytes with SHA-256
+`c90ff21181d061dbb1bb6303f73c23723fe8d9347f0d5951eb1e8e81b0edb146`.
+
+Per the authority's stop-on-problem condition, no import-path correction or retry was
+performed. RG-04 remains incomplete and requires a new human retry authority.
