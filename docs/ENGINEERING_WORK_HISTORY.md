@@ -15,6 +15,10 @@ fixed RC1 is released only within the bounded local scope, with no external
 distribution. No artifact, service, Watcher, Day/Go, model, A03/A04 event, credential
 or external action occurred.
 
+The corrected gate record is fixed at
+`12dc4c322c410bfc06dda10711ac8c19a97e4f29`. Revision 002 requests review only of
+the temporal/current-state wording correction and preserves revision 001's rejection.
+
 ## 2026-10-01 — Day 6 bounded local release selected and recorded
 
 広瀬剛 selected RG-06 option 1 with the direct instruction

@@ -23,7 +23,9 @@ G8 gate plan's contradictory current-tense wording: it retained pre-decision
 
 The release decision remains in force. Correct only those statements into explicit
 historical planning context and state RG-01 as released solely within the bounded
-local scope, with no external distribution. Prepare revision 002 and stop. Do not
+local scope, with no external distribution. The corrected fixed commit is
+`12dc4c322c410bfc06dda10711ac8c19a97e4f29`; review pack
+`G8-LOCAL-BOUNDED-RELEASE-DECISION-20261001-002` targets it. Stop for review. Do not
 execute, rebuild, start or broaden the release.
 
 ## Historical checkpoint — G8 RG-04 accepted within its limited boundary (2026-10-01)
