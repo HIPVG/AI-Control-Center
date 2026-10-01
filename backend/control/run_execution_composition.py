@@ -220,6 +220,64 @@ class RunExecutionComposition:
                 "day_execution_started": False,
             }
 
+    def verify_bound_day_evidence(self, run_id: str) -> dict[str, object]:
+        """Verify an already-bound completion snapshot without mutating or saving it."""
+        with self._lock:
+            record = self._record(run_id)
+            current = self.store.current()
+            if current is None or current.intent.run_id != run_id:
+                return self._rejected(record, "RUN_NOT_CURRENT")
+            snapshot = self.program.snapshot
+            contract = snapshot.contract
+            if snapshot.run_id != run_id:
+                return self._rejected(record, "DAY_SNAPSHOT_RUN_ID_MISMATCH")
+            if contract is None or contract.day != record.intent.selected_day:
+                return self._rejected(record, "DAY_CONTRACT_MISMATCH")
+            if self.program._contract_fingerprint(contract) != record.intent.contract_fingerprint:
+                return self._rejected(record, "CONTRACT_FINGERPRINT_MISMATCH")
+            for criterion in contract.completion_criteria:
+                results: list[dict[str, object]] = []
+                for evidence_type in criterion.required_evidence:
+                    source_id = criterion.evidence_record_ids.get(evidence_type)
+                    source = snapshot.evidence_store.get(source_id) if source_id else None
+                    if not self.program._evidence_record_valid(evidence_type, source):
+                        return self._rejected(record, "BOUND_EVIDENCE_INVALID")
+                    assert source is not None
+                    if (
+                        source.run_id != run_id
+                        or source.criterion_id != criterion.criterion_id
+                        or source.day != contract.day
+                        or source.contract_version != contract.version
+                        or source.configuration_fingerprint != record.intent.config_fingerprint
+                    ):
+                        return self._rejected(record, "BOUND_EVIDENCE_IDENTITY_MISMATCH")
+                    results.append({
+                        "run_id": run_id,
+                        "criterion_id": criterion.criterion_id,
+                        "evidence_type": evidence_type,
+                        "provider_id": source.provider_id,
+                        "provider_version": source.provider_version,
+                        "source_fingerprint": source.source_fingerprint,
+                        "configuration_fingerprint": source.configuration_fingerprint,
+                        "value": source.value,
+                        "source_paths": source.source_paths,
+                        "source_revision": source.source_revision,
+                        "source_hashes": source.source_hashes,
+                        "retained_artifact_reference": source.retained_artifact_reference,
+                    })
+                evaluation = self.evaluator.evaluate_criterion(
+                    intent=record.intent,
+                    contract=contract,
+                    criterion_id=criterion.criterion_id,
+                    results=results,
+                )
+                if (
+                    not evaluation["criterion_satisfied"]
+                    or evaluation["evidence_record_ids"] != criterion.evidence_record_ids
+                ):
+                    return self._rejected(record, "BOUND_EVIDENCE_CONFLICT")
+            return {"outcome": "ACCEPTED", "run_id": run_id, "day_execution_started": False}
+
     def begin_repair(self, run_id: str, *, allowed_paths: set[str]) -> dict[str, object]:
         with self._lock:
             record = self._record(run_id)

@@ -232,6 +232,7 @@ def test_terminal_settlement_orders_evidence_telemetry_projection_and_replays_on
         engine.local_llm_run_product.execution.project_day_state = project_after_reconciliation
         settled = engine._settle_local_llm_product_run(run_id)
         fixed = engine.local_llm_run_store.get(run_id)
+        snapshot_before_replay = engine.local_llm_day_program.snapshot.model_dump_json()
         replay = engine._settle_local_llm_product_run(run_id)
 
         assert settled["outcome"] == "ACCEPTED"
@@ -241,12 +242,44 @@ def test_terminal_settlement_orders_evidence_telemetry_projection_and_replays_on
         assert replay["stage"] == "ALREADY_PROJECTED"
         assert replay["telemetry_replay"] is True
         assert engine.local_llm_run_store.get(run_id) == fixed
+        assert engine.local_llm_day_program.snapshot.model_dump_json() == snapshot_before_replay
         assert all(
             evidence.run_id == run_id and evidence.criterion_id == criterion.criterion_id
             for criterion in engine.local_llm_day_program.snapshot.contract.completion_criteria
             for evidence_id in criterion.evidence_record_ids.values()
             for evidence in [engine.local_llm_day_program.snapshot.evidence_store[evidence_id]]
         )
+
+        conflicting = _terminal_task_record(
+            run_id,
+            codex_attempts=[{
+                "attempt": 1,
+                "gross_input_tokens": 528696,
+                "cached_input_tokens": 474112,
+                "uncached_input_tokens": 54584,
+                "output_tokens": 8131,
+            }],
+            gross_input_tokens=528696,
+            uncached_input_tokens=54584,
+        )
+        engine.data["task_runs"] = [conflicting]
+        conflict = engine._settle_local_llm_product_run(run_id)
+        assert conflict["reason_code"] == "TELEMETRY_CONFLICT"
+        assert engine.local_llm_day_program.snapshot.model_dump_json() == snapshot_before_replay
+        assert engine.local_llm_run_store.get(run_id) == fixed
+
+        engine.data["task_runs"] = [_terminal_task_record(run_id)]
+        criterion = engine.local_llm_day_program.snapshot.contract.completion_criteria[0]
+        evidence_id = next(iter(criterion.evidence_record_ids.values()))
+        source = engine.local_llm_day_program.snapshot.evidence_store[evidence_id]
+        engine.local_llm_day_program.snapshot.evidence_store[evidence_id] = source.model_copy(
+            update={"source_fingerprint": "x" * 64, "observation_fingerprint": "x" * 64}
+        )
+        conflicting_snapshot = engine.local_llm_day_program.snapshot.model_dump_json()
+        evidence_conflict = engine._settle_local_llm_product_run(run_id)
+        assert evidence_conflict["reason_code"] == "BOUND_EVIDENCE_CONFLICT"
+        assert engine.local_llm_day_program.snapshot.model_dump_json() == conflicting_snapshot
+        assert engine.local_llm_run_store.get(run_id) == fixed
     finally:
         restore()
 

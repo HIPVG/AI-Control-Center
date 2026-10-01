@@ -1,5 +1,19 @@
 # Current Work
 
+## Current checkpoint — G6 PR-02 replay rejection repaired (2026-10-01)
+
+Reviewer rejected `G6-PR02-COMPLETION-20261001-001` because exact replay regenerated
+and saved Evidence before reaching `ALREADY_PROJECTED`. Human authority
+`AUTH-G6-PR02-REVALIDATION-RETRY-20261001-001` granted the bounded repair, ten
+additional active minutes and one additional execution of the existing focused
+command at 0 JPY.
+
+Completed-run replay now verifies bound Evidence and candidate telemetry without
+writing before returning `ALREADY_PROJECTED`. Exact replay preserves the serialized
+Day snapshot and RunRecord; conflicting Evidence or telemetry is rejected with both
+unchanged. The one authorized additional focused execution passed 118 tests. Fix the
+repair and revision-002 pack, then stop for review. PR-03 remains unauthorized.
+
 ## Current checkpoint — G6 PR-02 fixed for review (2026-10-01)
 
 Reviewer accepted `G6-PR01-COMPLETION-20261001-001` at reviewed commit

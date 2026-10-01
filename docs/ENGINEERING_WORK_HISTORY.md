@@ -1,5 +1,22 @@
 # Engineering work history
 
+## 2026-10-01 — G6 PR-02 immutable-replay rejection repaired
+
+Applied the complete rejection of `G6-PR02-COMPLETION-20261001-001`. The prior replay
+guard protected the RunRecord but ran after strict Evidence rebinding, allowing the
+same deterministic Evidence IDs to be saved with new collection times.
+
+広瀬剛 authorized the exact bounded repair, ten additional active minutes and one
+additional execution of the existing focused command under
+`AUTH-G6-PR02-REVALIDATION-RETRY-20261001-001`. Completed-run replay now validates
+already-bound Evidence and reconstructs candidate telemetry read-only before accepting
+exact equality. Evidence-ID or telemetry conflicts fail closed before writes.
+
+Assertions compare serialized Day snapshot and RunRecord across exact replay and both
+conflict paths. The single authorized additional execution passed 118 tests with six
+existing dependency warnings. No PR-03, service/browser, Day/Go, model, Watcher,
+credential, spending, G7/G8 or product-acceptance action occurred.
+
 ## 2026-10-01 — G6 PR-01 accepted; PR-02 ordered settlement fixture passed
 
 Applied the complete `ACCEPT` response for
