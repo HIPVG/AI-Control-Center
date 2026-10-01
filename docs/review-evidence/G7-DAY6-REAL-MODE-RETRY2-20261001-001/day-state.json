@@ -1,0 +1,1089 @@
+{
+  "week": 1,
+  "validation_day": 3,
+  "calendar_day": 5,
+  "overall_progress": 58,
+  "day_progress": 63,
+  "progress_basis": {
+    "overall": {
+      "completed": 58,
+      "total": 100
+    },
+    "day": {
+      "completed": 63,
+      "total": 100
+    }
+  },
+  "progress_tracking_version": 1,
+  "token_usage_tracking_version": 1,
+  "project_smoke_results": [],
+  "task_runs": [
+    {
+      "run_id": "a8dce10961cf44bfb38ef75e92d7ff2c",
+      "task_id": "day-6-d6-temporal-state-design",
+      "project_id": "local_llm_lab",
+      "source_repo_path": "C:\\AI-Control-Center\\state\\g7-local-llm-clean-20260930",
+      "source_head_sha": "e33b0a410fb8647711f02ae4e6e0b66472e6eff0",
+      "worktree_path": "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c",
+      "task_branch": "agent/day-6-d6-temporal-state-design-a8dce109",
+      "state": "COMPLETE",
+      "start_time": "2026-10-01T00:12:57.733726Z",
+      "end_time": "2026-10-01T00:15:59.646968Z",
+      "precheck_result": "FAIL",
+      "precheck": {
+        "argv": [
+          "C:\\Users\\広瀬剛\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+          "-c",
+          "raise SystemExit(1)"
+        ],
+        "cwd": "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c",
+        "exit_code": 1,
+        "passed": false,
+        "stdout": null,
+        "stderr": null,
+        "error_code": null
+      },
+      "triage_result": "CODE_FIX",
+      "codex_invoked": true,
+      "codex_attempts": [
+        {
+          "attempt": 1,
+          "exit_code": 0,
+          "thread_started": true,
+          "turn_started": true,
+          "turn_completed": true,
+          "gross_input_tokens": 528695,
+          "cached_input_tokens": 474112,
+          "uncached_input_tokens": 54583,
+          "output_tokens": 8131,
+          "error_code": null
+        }
+      ],
+      "codex_exit_code": 0,
+      "thread_started": true,
+      "turn_started": true,
+      "turn_completed": true,
+      "allowed_files": [
+        "schemas/temporal-state.json",
+        "scripts/eval/temporal_state.py",
+        "tests/test_temporal_state.py",
+        "docs/architecture/temporal-state.md"
+      ],
+      "changed_files": [
+        "docs/architecture/temporal-state.md",
+        "schemas/temporal-state.json",
+        "scripts/eval/temporal_state.py",
+        "tests/test_temporal_state.py"
+      ],
+      "out_of_scope_files": [],
+      "scope_guard_result": "PASS",
+      "postcheck_result": "PASS",
+      "postcheck": {
+        "argv": [
+          "C:\\Users\\広瀬剛\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/test_temporal_state.py"
+        ],
+        "cwd": "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c",
+        "exit_code": 0,
+        "passed": true,
+        "stdout": "......                                                                   [100%]\n6 passed in 0.05s\n",
+        "stderr": null,
+        "error_code": null
+      },
+      "context_character_count": 10740,
+      "context_byte_count": 12186,
+      "gross_input_tokens": 528695,
+      "cached_input_tokens": 474112,
+      "uncached_input_tokens": 54583,
+      "output_tokens": 8131,
+      "budget_warning": "TASK_BUDGET_EXCEEDED",
+      "final_result": "COMPLETE",
+      "human_review_reason": null,
+      "error_code": null
+    }
+  ],
+  "day_orchestration": {},
+  "task_discoveries": [],
+  "fault_repair_runs": [],
+  "experiment_runs": [],
+  "goal_plans": [],
+  "escalation_validations": [],
+  "git_completions": [],
+  "zero_touch_runs": [],
+  "runtime_readiness": null,
+  "week1_days": [],
+  "local_llm_day_runner": {
+    "run_id": "run-8b9fb7cac4c948098af3e9aa7dfeaf8d",
+    "selected_day": 6,
+    "state": "COMPLETE",
+    "objective": "Define deterministic temporal state contracts without making the LLM a state owner.",
+    "contract": {
+      "day": 6,
+      "title": "Temporal-state design",
+      "version": "2026-09-22-v2-evidence-contract",
+      "objective": "Define deterministic temporal state contracts without making the LLM a state owner.",
+      "completion_criteria": [
+        {
+          "criterion_id": "d6-state_representations",
+          "statement": "Planned, actual, forecast, and snapshot/as-of state are explicitly represented",
+          "required_evidence": [
+            "schema_contract",
+            "source_check"
+          ],
+          "satisfied": true,
+          "evidence": {
+            "schema_contract": "819c35e33c5144169fb6cbe6ef6c09af",
+            "source_check": "c564ba28075bdd008aed810886ec4a74"
+          },
+          "evidence_record_ids": {
+            "schema_contract": "819c35e33c5144169fb6cbe6ef6c09af",
+            "source_check": "c564ba28075bdd008aed810886ec4a74"
+          }
+        },
+        {
+          "criterion_id": "d6-temporal_provenance",
+          "statement": "Required temporal facts and provenance are defined",
+          "required_evidence": [
+            "schema_contract",
+            "provenance_test"
+          ],
+          "satisfied": true,
+          "evidence": {
+            "schema_contract": "819c35e33c5144169fb6cbe6ef6c09af",
+            "provenance_test": "c96fbb2f67ac5e4075e9a37d8d965e43"
+          },
+          "evidence_record_ids": {
+            "schema_contract": "819c35e33c5144169fb6cbe6ef6c09af",
+            "provenance_test": "c96fbb2f67ac5e4075e9a37d8d965e43"
+          }
+        },
+        {
+          "criterion_id": "d6-fail_closed_temporal",
+          "statement": "Contradictory or missing temporal facts fail closed",
+          "required_evidence": [
+            "deterministic_tests"
+          ],
+          "satisfied": true,
+          "evidence": {
+            "deterministic_tests": "66d1b14da4a2447eb3eb718c2489712b"
+          },
+          "evidence_record_ids": {
+            "deterministic_tests": "66d1b14da4a2447eb3eb718c2489712b"
+          }
+        },
+        {
+          "criterion_id": "d6-architecture_consistency",
+          "statement": "Contracts remain consistent with architecture principles and deterministic state ownership",
+          "required_evidence": [
+            "architecture_check"
+          ],
+          "satisfied": true,
+          "evidence": {
+            "architecture_check": "29bee5626ccd37ef5434f759cf206b98"
+          },
+          "evidence_record_ids": {
+            "architecture_check": "29bee5626ccd37ef5434f759cf206b98"
+          }
+        }
+      ],
+      "constraints": [
+        "Preserve generated artifacts, models, datasets, results, and failed research evidence.",
+        "Python and deterministic validation own facts, state, and completion evidence.",
+        "Do not change research conditions, install software, use cloud services, or push main.",
+        "LocalLLM proposals are advisory only and never directly edit source or decide completion."
+      ],
+      "authoritative_sources": [
+        "docs/runbooks/work-plan-day1-14.md",
+        "docs/README.md",
+        "docs/architecture/decision-reasoning-architecture.md",
+        "docs/handoff/handoff-2026-09-18.md"
+      ],
+      "satisfied_criteria": [
+        "d6-state_representations",
+        "d6-temporal_provenance",
+        "d6-fail_closed_temporal",
+        "d6-architecture_consistency"
+      ],
+      "remaining_gaps": []
+    },
+    "contract_fingerprint": "766eab4ab5fe77a2ee4095713b6010320a0f732343d4c5bab5393f5c7d853f03",
+    "activity": "Completion criteria are supported by persisted evidence.",
+    "progress": 100,
+    "completed_steps": [],
+    "work_items": [],
+    "smoke_report": null,
+    "repair_deadline_seconds": 300,
+    "repair_attempted": false,
+    "repair_knowledge": [],
+    "repair_episode_ids": [],
+    "codex_handoff": null,
+    "issue_classification": null,
+    "gap_diagnoses": [
+      {
+        "criterion_id": "d6-state_representations",
+        "classification": "PRODUCE_DAY_EVIDENCE",
+        "reason": "schema_contract has no compatible validated Evidence Record: NOT_YET_PRODUCED.",
+        "failure_reason": "NOT_YET_PRODUCED",
+        "required_evidence": [
+          "schema_contract"
+        ],
+        "input_fingerprint": "df8872eb84cbeed8821e1cc484577735c7315bb1d713fb107b8f07e1f8c9cfd6",
+        "action_fingerprint": "39f07ab9784ca704157dd5d7c2ba8342a9ec6d0726a1ee98fdb547de7a663b76",
+        "evidence_type": "schema_contract",
+        "strategy_id": "D6_SCHEMA_CONTRACT",
+        "authority_basis": null,
+        "expected_information_gain": "Registered evidence record",
+        "expected_state_change": "Produce validated evidence",
+        "attempted_action_fingerprints": []
+      },
+      {
+        "criterion_id": "d6-state_representations",
+        "classification": "PRODUCE_DAY_EVIDENCE",
+        "reason": "source_check has no compatible validated Evidence Record: NOT_YET_PRODUCED.",
+        "failure_reason": "NOT_YET_PRODUCED",
+        "required_evidence": [
+          "source_check"
+        ],
+        "input_fingerprint": "df8872eb84cbeed8821e1cc484577735c7315bb1d713fb107b8f07e1f8c9cfd6",
+        "action_fingerprint": "b82be018d670795dbddb3c5153b91eef844bdfb22d554f16e02f9f4ea8bc6a05",
+        "evidence_type": "source_check",
+        "strategy_id": "D6_SOURCE_CHECK",
+        "authority_basis": null,
+        "expected_information_gain": "Registered evidence record",
+        "expected_state_change": "Produce validated evidence",
+        "attempted_action_fingerprints": []
+      },
+      {
+        "criterion_id": "d6-temporal_provenance",
+        "classification": "PRODUCE_DAY_EVIDENCE",
+        "reason": "schema_contract has no compatible validated Evidence Record: NOT_YET_PRODUCED.",
+        "failure_reason": "NOT_YET_PRODUCED",
+        "required_evidence": [
+          "schema_contract"
+        ],
+        "input_fingerprint": "df8872eb84cbeed8821e1cc484577735c7315bb1d713fb107b8f07e1f8c9cfd6",
+        "action_fingerprint": "ce102ba5e33725797478d4bc8b362c0ae14c8d6728ca999b4a88923301c470df",
+        "evidence_type": "schema_contract",
+        "strategy_id": "D6_SCHEMA_CONTRACT",
+        "authority_basis": null,
+        "expected_information_gain": "Registered evidence record",
+        "expected_state_change": "Produce validated evidence",
+        "attempted_action_fingerprints": []
+      },
+      {
+        "criterion_id": "d6-temporal_provenance",
+        "classification": "PRODUCE_DAY_EVIDENCE",
+        "reason": "provenance_test has no compatible validated Evidence Record: NOT_YET_PRODUCED.",
+        "failure_reason": "NOT_YET_PRODUCED",
+        "required_evidence": [
+          "provenance_test"
+        ],
+        "input_fingerprint": "df8872eb84cbeed8821e1cc484577735c7315bb1d713fb107b8f07e1f8c9cfd6",
+        "action_fingerprint": "b2ef59ee94c9bf42db21d359a6b017ea779082b3b2e749fe05388d491f7fcd65",
+        "evidence_type": "provenance_test",
+        "strategy_id": "D6_PROVENANCE_TEST",
+        "authority_basis": null,
+        "expected_information_gain": "Registered evidence record",
+        "expected_state_change": "Produce validated evidence",
+        "attempted_action_fingerprints": []
+      },
+      {
+        "criterion_id": "d6-fail_closed_temporal",
+        "classification": "PRODUCE_DAY_EVIDENCE",
+        "reason": "deterministic_tests has no compatible validated Evidence Record: NOT_YET_PRODUCED.",
+        "failure_reason": "NOT_YET_PRODUCED",
+        "required_evidence": [
+          "deterministic_tests"
+        ],
+        "input_fingerprint": "df8872eb84cbeed8821e1cc484577735c7315bb1d713fb107b8f07e1f8c9cfd6",
+        "action_fingerprint": "13d4b4c15ba0c304c20f02ae5f54d5f583520168af6e999eafccba1aaf67d1ae",
+        "evidence_type": "deterministic_tests",
+        "strategy_id": "D6_DETERMINISTIC_TESTS",
+        "authority_basis": null,
+        "expected_information_gain": "Registered evidence record",
+        "expected_state_change": "Produce validated evidence",
+        "attempted_action_fingerprints": []
+      },
+      {
+        "criterion_id": "d6-architecture_consistency",
+        "classification": "PRODUCE_DAY_EVIDENCE",
+        "reason": "architecture_check has no compatible validated Evidence Record: NOT_YET_PRODUCED.",
+        "failure_reason": "NOT_YET_PRODUCED",
+        "required_evidence": [
+          "architecture_check"
+        ],
+        "input_fingerprint": "df8872eb84cbeed8821e1cc484577735c7315bb1d713fb107b8f07e1f8c9cfd6",
+        "action_fingerprint": "783f5fabb565d91734f6c65401d7f884dfa9dca21a18d15c4a636ea8d8a2a182",
+        "evidence_type": "architecture_check",
+        "strategy_id": "D6_ARCHITECTURE_CHECK",
+        "authority_basis": null,
+        "expected_information_gain": "Registered evidence record",
+        "expected_state_change": "Produce validated evidence",
+        "attempted_action_fingerprints": []
+      }
+    ],
+    "evidence_store": {
+      "819c35e33c5144169fb6cbe6ef6c09af": {
+        "record_id": "819c35e33c5144169fb6cbe6ef6c09af",
+        "run_id": null,
+        "criterion_id": null,
+        "project_id": "local_llm_lab",
+        "day": 6,
+        "contract_version": "2026-09-22-v2-evidence-contract",
+        "evidence_type": "schema_contract",
+        "provider_id": "D6_ARCHITECTURE_CHECK",
+        "provider_version": "v1",
+        "validator_id": "evidence-registry:schema_contract",
+        "validator_version": "v1",
+        "source_paths": [
+          "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c\\schemas\\temporal-state.json",
+          "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c\\scripts\\eval\\temporal_state.py",
+          "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c\\tests\\test_temporal_state.py",
+          "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c\\docs\\architecture\\temporal-state.md"
+        ],
+        "source_revision": "unknown",
+        "source_fingerprint": "1fab2e3e4579a5afe94c0311385c4f4f905ee78688cb836fd45ad7e89cc59525",
+        "configuration_fingerprint": "df8872eb84cbeed8821e1cc484577735c7315bb1d713fb107b8f07e1f8c9cfd6",
+        "collected_at": "2026-10-01T00:15:59.653061Z",
+        "value": {
+          "schema_path": "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c\\schemas\\temporal-state.json",
+          "schema_version": "https://json-schema.org/draft/2020-12/schema"
+        },
+        "status": "VALID",
+        "validator_result": true,
+        "validator_failure_reason": null,
+        "compatibility_result": true,
+        "retained_artifact_reference": null,
+        "source_hashes": {
+          "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c\\schemas\\temporal-state.json": "9aed012025e16fb25ad5bbec9f16af4df9123033a4e7dc43e37b4d4ee9e257ca",
+          "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c\\scripts\\eval\\temporal_state.py": "ffa740063ae2e6970785e20fb03c47a5696d35e5c0c6198b39f1ba1cfa750c04",
+          "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c\\tests\\test_temporal_state.py": "4764ac4731fd41bf5a8d5bc8b426a046c7c22a54d0662d2c510ad1e36b5c05d9",
+          "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c\\docs\\architecture\\temporal-state.md": "c0333bd531bbeb492eccb6c971324b3302a2464400aeeede4b11338986823509"
+        },
+        "observation_fingerprint": "df8872eb84cbeed8821e1cc484577735c7315bb1d713fb107b8f07e1f8c9cfd6"
+      },
+      "c564ba28075bdd008aed810886ec4a74": {
+        "record_id": "c564ba28075bdd008aed810886ec4a74",
+        "run_id": null,
+        "criterion_id": null,
+        "project_id": "local_llm_lab",
+        "day": 6,
+        "contract_version": "2026-09-22-v2-evidence-contract",
+        "evidence_type": "source_check",
+        "provider_id": "D6_ARCHITECTURE_CHECK",
+        "provider_version": "v1",
+        "validator_id": "evidence-registry:source_check",
+        "validator_version": "v1",
+        "source_paths": [
+          "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c\\schemas\\temporal-state.json",
+          "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c\\scripts\\eval\\temporal_state.py",
+          "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c\\tests\\test_temporal_state.py",
+          "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c\\docs\\architecture\\temporal-state.md"
+        ],
+        "source_revision": "unknown",
+        "source_fingerprint": "e3b2c0786205653481f56af24fb84ba931d0c9d9f4a9e8a3d4269f82ae6fe3d0",
+        "configuration_fingerprint": "df8872eb84cbeed8821e1cc484577735c7315bb1d713fb107b8f07e1f8c9cfd6",
+        "collected_at": "2026-10-01T00:15:59.653061Z",
+        "value": {
+          "checked_paths": [
+            "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c\\scripts\\eval\\temporal_state.py"
+          ],
+          "assertions": [
+            "Python syntax and configured deterministic tests validated"
+          ]
+        },
+        "status": "VALID",
+        "validator_result": true,
+        "validator_failure_reason": null,
+        "compatibility_result": true,
+        "retained_artifact_reference": null,
+        "source_hashes": {
+          "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c\\schemas\\temporal-state.json": "9aed012025e16fb25ad5bbec9f16af4df9123033a4e7dc43e37b4d4ee9e257ca",
+          "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c\\scripts\\eval\\temporal_state.py": "ffa740063ae2e6970785e20fb03c47a5696d35e5c0c6198b39f1ba1cfa750c04",
+          "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c\\tests\\test_temporal_state.py": "4764ac4731fd41bf5a8d5bc8b426a046c7c22a54d0662d2c510ad1e36b5c05d9",
+          "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c\\docs\\architecture\\temporal-state.md": "c0333bd531bbeb492eccb6c971324b3302a2464400aeeede4b11338986823509"
+        },
+        "observation_fingerprint": "df8872eb84cbeed8821e1cc484577735c7315bb1d713fb107b8f07e1f8c9cfd6"
+      },
+      "c96fbb2f67ac5e4075e9a37d8d965e43": {
+        "record_id": "c96fbb2f67ac5e4075e9a37d8d965e43",
+        "run_id": null,
+        "criterion_id": null,
+        "project_id": "local_llm_lab",
+        "day": 6,
+        "contract_version": "2026-09-22-v2-evidence-contract",
+        "evidence_type": "provenance_test",
+        "provider_id": "D6_ARCHITECTURE_CHECK",
+        "provider_version": "v1",
+        "validator_id": "evidence-registry:provenance_test",
+        "validator_version": "v1",
+        "source_paths": [
+          "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c\\schemas\\temporal-state.json",
+          "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c\\scripts\\eval\\temporal_state.py",
+          "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c\\tests\\test_temporal_state.py",
+          "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c\\docs\\architecture\\temporal-state.md"
+        ],
+        "source_revision": "unknown",
+        "source_fingerprint": "11d28069605babfa03eea6a2a17dbe04ce54b2200a18d75923a0eccbe453d6e1",
+        "configuration_fingerprint": "df8872eb84cbeed8821e1cc484577735c7315bb1d713fb107b8f07e1f8c9cfd6",
+        "collected_at": "2026-10-01T00:15:59.653061Z",
+        "value": {
+          "commands": [
+            [
+              "C:\\Users\\広瀬剛\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+              "-m",
+              "pytest",
+              "-q",
+              "tests/test_temporal_state.py"
+            ]
+          ],
+          "exit_code": 0,
+          "passed": 6,
+          "failed": 0
+        },
+        "status": "VALID",
+        "validator_result": true,
+        "validator_failure_reason": null,
+        "compatibility_result": true,
+        "retained_artifact_reference": null,
+        "source_hashes": {
+          "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c\\schemas\\temporal-state.json": "9aed012025e16fb25ad5bbec9f16af4df9123033a4e7dc43e37b4d4ee9e257ca",
+          "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c\\scripts\\eval\\temporal_state.py": "ffa740063ae2e6970785e20fb03c47a5696d35e5c0c6198b39f1ba1cfa750c04",
+          "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c\\tests\\test_temporal_state.py": "4764ac4731fd41bf5a8d5bc8b426a046c7c22a54d0662d2c510ad1e36b5c05d9",
+          "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c\\docs\\architecture\\temporal-state.md": "c0333bd531bbeb492eccb6c971324b3302a2464400aeeede4b11338986823509"
+        },
+        "observation_fingerprint": "df8872eb84cbeed8821e1cc484577735c7315bb1d713fb107b8f07e1f8c9cfd6"
+      },
+      "66d1b14da4a2447eb3eb718c2489712b": {
+        "record_id": "66d1b14da4a2447eb3eb718c2489712b",
+        "run_id": null,
+        "criterion_id": null,
+        "project_id": "local_llm_lab",
+        "day": 6,
+        "contract_version": "2026-09-22-v2-evidence-contract",
+        "evidence_type": "deterministic_tests",
+        "provider_id": "D6_ARCHITECTURE_CHECK",
+        "provider_version": "v1",
+        "validator_id": "evidence-registry:deterministic_tests",
+        "validator_version": "v1",
+        "source_paths": [
+          "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c\\schemas\\temporal-state.json",
+          "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c\\scripts\\eval\\temporal_state.py",
+          "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c\\tests\\test_temporal_state.py",
+          "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c\\docs\\architecture\\temporal-state.md"
+        ],
+        "source_revision": "unknown",
+        "source_fingerprint": "11d28069605babfa03eea6a2a17dbe04ce54b2200a18d75923a0eccbe453d6e1",
+        "configuration_fingerprint": "df8872eb84cbeed8821e1cc484577735c7315bb1d713fb107b8f07e1f8c9cfd6",
+        "collected_at": "2026-10-01T00:15:59.653061Z",
+        "value": {
+          "commands": [
+            [
+              "C:\\Users\\広瀬剛\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+              "-m",
+              "pytest",
+              "-q",
+              "tests/test_temporal_state.py"
+            ]
+          ],
+          "exit_code": 0,
+          "passed": 6,
+          "failed": 0
+        },
+        "status": "VALID",
+        "validator_result": true,
+        "validator_failure_reason": null,
+        "compatibility_result": true,
+        "retained_artifact_reference": null,
+        "source_hashes": {
+          "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c\\schemas\\temporal-state.json": "9aed012025e16fb25ad5bbec9f16af4df9123033a4e7dc43e37b4d4ee9e257ca",
+          "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c\\scripts\\eval\\temporal_state.py": "ffa740063ae2e6970785e20fb03c47a5696d35e5c0c6198b39f1ba1cfa750c04",
+          "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c\\tests\\test_temporal_state.py": "4764ac4731fd41bf5a8d5bc8b426a046c7c22a54d0662d2c510ad1e36b5c05d9",
+          "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c\\docs\\architecture\\temporal-state.md": "c0333bd531bbeb492eccb6c971324b3302a2464400aeeede4b11338986823509"
+        },
+        "observation_fingerprint": "df8872eb84cbeed8821e1cc484577735c7315bb1d713fb107b8f07e1f8c9cfd6"
+      },
+      "29bee5626ccd37ef5434f759cf206b98": {
+        "record_id": "29bee5626ccd37ef5434f759cf206b98",
+        "run_id": null,
+        "criterion_id": null,
+        "project_id": "local_llm_lab",
+        "day": 6,
+        "contract_version": "2026-09-22-v2-evidence-contract",
+        "evidence_type": "architecture_check",
+        "provider_id": "D6_ARCHITECTURE_CHECK",
+        "provider_version": "v1",
+        "validator_id": "evidence-registry:architecture_check",
+        "validator_version": "v1",
+        "source_paths": [
+          "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c\\schemas\\temporal-state.json",
+          "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c\\scripts\\eval\\temporal_state.py",
+          "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c\\tests\\test_temporal_state.py",
+          "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c\\docs\\architecture\\temporal-state.md"
+        ],
+        "source_revision": "unknown",
+        "source_fingerprint": "0eac98261bdb0ee75ed87395de90caa2073cd7d3c7845eef6f866d116f8f60d8",
+        "configuration_fingerprint": "df8872eb84cbeed8821e1cc484577735c7315bb1d713fb107b8f07e1f8c9cfd6",
+        "collected_at": "2026-10-01T00:15:59.653061Z",
+        "value": {
+          "checked_documents": [
+            "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c\\docs\\runbooks\\work-plan-day1-14.md",
+            "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c\\docs\\architecture\\decision-reasoning-architecture.md"
+          ],
+          "assertions": [
+            "Configured deterministic contract checks passed"
+          ]
+        },
+        "status": "VALID",
+        "validator_result": true,
+        "validator_failure_reason": null,
+        "compatibility_result": true,
+        "retained_artifact_reference": null,
+        "source_hashes": {
+          "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c\\schemas\\temporal-state.json": "9aed012025e16fb25ad5bbec9f16af4df9123033a4e7dc43e37b4d4ee9e257ca",
+          "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c\\scripts\\eval\\temporal_state.py": "ffa740063ae2e6970785e20fb03c47a5696d35e5c0c6198b39f1ba1cfa750c04",
+          "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c\\tests\\test_temporal_state.py": "4764ac4731fd41bf5a8d5bc8b426a046c7c22a54d0662d2c510ad1e36b5c05d9",
+          "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c\\docs\\architecture\\temporal-state.md": "c0333bd531bbeb492eccb6c971324b3302a2464400aeeede4b11338986823509"
+        },
+        "observation_fingerprint": "df8872eb84cbeed8821e1cc484577735c7315bb1d713fb107b8f07e1f8c9cfd6"
+      }
+    },
+    "action_attempts": [
+      {
+        "action_fingerprint": "783f5fabb565d91734f6c65401d7f884dfa9dca21a18d15c4a636ea8d8a2a182",
+        "strategy_id": "D6_ARCHITECTURE_CHECK",
+        "criterion_id": "d6-architecture_consistency",
+        "evidence_type": "architecture_check",
+        "input_fingerprint": "df8872eb84cbeed8821e1cc484577735c7315bb1d713fb107b8f07e1f8c9cfd6",
+        "outcome": "COMPLETE",
+        "action_template_id": "D6_TEMPORAL_STATE_DESIGN",
+        "action_input": {},
+        "observed_classification": "INSUFFICIENT_EVIDENCE",
+        "failure_reason": "ACTION_OUTPUT_FAILED_EVIDENCE_VALIDATION",
+        "attempted_at": "2026-10-01T00:12:57.732659Z"
+      }
+    ],
+    "authority_blocker": null,
+    "active_action": null,
+    "last_action": {
+      "strategy_id": "D6_ARCHITECTURE_CHECK",
+      "template_id": "D6_TEMPORAL_STATE_DESIGN",
+      "evidence_type": "architecture_check",
+      "criterion_id": "d6-architecture_consistency",
+      "execution_mode": "ENGINEERING_WORKTREE"
+    },
+    "state_history": [
+      "PREFLIGHT",
+      "LOADING_CONTRACT",
+      "INVENTORY",
+      "VALIDATING",
+      "DIAGNOSING_GAP",
+      "EXECUTING_DAY_WORK",
+      "REVALIDATING",
+      "VALIDATING",
+      "COMPLETE"
+    ],
+    "baseline_checkpoint": null,
+    "authority_resolution_fingerprint": "",
+    "research_execution_plans": {},
+    "phase": "COMPLETE",
+    "replan_count": 0,
+    "replan_fingerprints": [],
+    "evidence_cache": {},
+    "report": {
+      "day": 6,
+      "objective": "Define deterministic temporal state contracts without making the LLM a state owner.",
+      "result": "DAY_COMPLETE",
+      "summary": "Completion criteria are supported by persisted evidence.",
+      "evidence": {
+        "satisfied_criteria": [
+          "d6-state_representations",
+          "d6-temporal_provenance",
+          "d6-fail_closed_temporal",
+          "d6-architecture_consistency"
+        ],
+        "inventory": {
+          "branch": "",
+          "head": "e33b0a410fb8647711f02ae4e6e0b66472e6eff0",
+          "origin": "https://github.com/HIPVG/LocalLLM-Lab.git",
+          "working_tree_clean": true,
+          "status_count": 0,
+          "tracked_context_files": [
+            "config/benchmark-plan.yaml",
+            "config/business-evaluation.yaml",
+            "config/canonical-master.yaml",
+            "config/decision-generalization-benchmark-v2.json",
+            "config/decision-generalization-benchmark-v3.json",
+            "config/decision-generalization-benchmark-v4.json",
+            "config/decision-generalization-benchmark.json",
+            "config/decision-reasoning-prototype.json",
+            "config/decision-reasoning-v0.4.json",
+            "config/decision-reasoning-v0.5.json",
+            "config/engines.yaml",
+            "config/enum-authority-test.json",
+            "config/experiment-result-schema.json",
+            "config/generator-settings.json",
+            "config/model-matrix.json",
+            "config/models.yaml",
+            "config/mutation-authority-benchmark.json",
+            "config/pre-generator-gate.json",
+            "config/process-consistency-smoke.json",
+            "config/run-profiles.json",
+            "config/scenario-refinement.json",
+            "docs/README.md",
+            "docs/action-contract-integrity-audit.md",
+            "docs/architecture/README.md",
+            "docs/architecture/decision-reasoning-architecture.md",
+            "docs/automation-plan.md",
+            "docs/backup-current-test-result.json",
+            "docs/backup-isolated-test-result.json",
+            "docs/backup-production-verification.json",
+            "docs/company-profile.md",
+            "docs/data-generation-policy.md",
+            "docs/day0-runbook.md",
+            "docs/decision-generalization-benchmark-v2.md",
+            "docs/decision-generalization-benchmark.md",
+            "docs/decision-reasoning-prototype.md",
+            "docs/environment-baseline.md",
+            "docs/evaluation-metrics.md",
+            "docs/exception-reasoning.md",
+            "docs/experiment-stop-go-criteria.md",
+            "docs/experiments/README.md",
+            "docs/generator-v1.1.md",
+            "docs/generator-v1.md",
+            "docs/handoff/README.md",
+            "docs/handoff/handoff-2026-09-18.md",
+            "docs/local-backup-test-results.md",
+            "docs/local-backup.md",
+            "docs/local-state-before-cleanup.md",
+            "docs/model-comparison-report-template.md",
+            "docs/model-installation-checklist.md",
+            "docs/phase1.5-comparison-telemetry.md",
+            "docs/process-consistency-cases.md",
+            "docs/process-consistency-smoke-runner.md",
+            "docs/project-handover.md",
+            "docs/prompts/data-and-decision-validation-next-step.md",
+            "docs/repository-inventory.md",
+            "docs/research-director-day2-checkpoint.md",
+            "docs/runbooks/work-plan-day1-14.md",
+            "docs/scaling-strategy.md",
+            "docs/strategy/local-ai-manufacturing-business-strategy.md",
+            "docs/teacher-reference-protocol.md",
+            "docs/test-plan.md",
+            "docs/troubleshooting.md",
+            "docs/week1-plan.md",
+            "docs/week1-runbook.md",
+            "docs/work-plan.md",
+            "scripts/action_contract_integrity_audit.py",
+            "scripts/build_canonical_business_state.py",
+            "scripts/build_process_consistency_cases.py",
+            "scripts/build_process_consistency_review_set.py",
+            "scripts/compare_teacher_results.py",
+            "scripts/compare_teacher_results_v2.py",
+            "scripts/decision_generalization_benchmark.py",
+            "scripts/decision_generalization_benchmark_v2.py",
+            "scripts/decision_generalization_benchmark_v3.py",
+            "scripts/decision_generalization_benchmark_v4.py",
+            "scripts/decision_reasoning_prototype.py",
+            "scripts/decision_reasoning_v4.py",
+            "scripts/decision_reasoning_v5.py",
+            "scripts/enum_authority_test.py",
+            "scripts/eval/__init__.py"
+          ],
+          "source_presence": {
+            "docs/runbooks/work-plan-day1-14.md": true,
+            "docs/README.md": true,
+            "docs/architecture/decision-reasoning-architecture.md": true,
+            "docs/handoff/handoff-2026-09-18.md": true
+          },
+          "source_fingerprint": "c4846dcb97261e309426d80bcfe7be02021a409ea98816dd3e1877233de82f07",
+          "configuration_fingerprint": "85572858e965b182ecfffe19d31bae37119208f815e150586f647e99aac59bc9",
+          "missing_sources": [],
+          "retained_evidence": {}
+        }
+      },
+      "completed_at": "2026-10-01T00:16:00.081578Z"
+    },
+    "stop_reason": null,
+    "updated_at": "2026-10-01T00:16:00.083687Z"
+  },
+  "task_start_completed": {
+    "PC-014": 18
+  },
+  "task_progress": 82,
+  "current_task": {
+    "task_id": "PC-014",
+    "title": "Evidence Grounding",
+    "completed": 18,
+    "total": 22,
+    "retry": 0,
+    "max_retry": 2
+  },
+  "summary": {
+    "pass": 12,
+    "fail": 1,
+    "review": 0
+  },
+  "agent_activity": {
+    "Architect": "DONE",
+    "Gate": "WAITING",
+    "Codex": "WAITING",
+    "Tests": "WAITING",
+    "Evaluator": "WAITING"
+  },
+  "metrics": {
+    "groundedness": 4.8,
+    "process_consistency": 4.7,
+    "instruction_fit": 4.9,
+    "information_capacity": 4.6
+  },
+  "days": [
+    {
+      "day": 0,
+      "title": "Environment",
+      "progress": 100,
+      "current": false
+    },
+    {
+      "day": 1,
+      "title": "Baseline",
+      "progress": 100,
+      "current": false
+    },
+    {
+      "day": 2,
+      "title": "Adaptability",
+      "progress": 100,
+      "current": false
+    },
+    {
+      "day": 3,
+      "title": "Process",
+      "progress": 63,
+      "current": true
+    },
+    {
+      "day": 4,
+      "title": "Capacity",
+      "progress": 0,
+      "current": false
+    },
+    {
+      "day": 5,
+      "title": "Comparison",
+      "progress": 0,
+      "current": false
+    },
+    {
+      "day": 6,
+      "title": "Scenario",
+      "progress": 0,
+      "current": false
+    },
+    {
+      "day": 7,
+      "title": "Review",
+      "progress": 0,
+      "current": false
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": "PC-014",
+      "title": "Evidence Grounding",
+      "state": "IDLE",
+      "progress": 82
+    }
+  ],
+  "run_state": {
+    "state": "COMPLETE",
+    "task_id": "day-6-d6-temporal-state-design",
+    "retry_count": 0,
+    "reason": "deterministic postcheck passed"
+  },
+  "timeline": [
+    {
+      "timestamp": "2026-10-01T00:12:57.246977Z",
+      "task_id": "LOCAL_LLM_DAY",
+      "event_type": "LOCAL_LLM_DAY_STARTED",
+      "message": "LocalLLM Day runner: LOCAL_LLM_DAY_STARTED",
+      "from_state": null,
+      "to_state": null,
+      "details": {
+        "day": 6,
+        "objective": "Define deterministic temporal state contracts without making the LLM a state owner."
+      }
+    },
+    {
+      "timestamp": "2026-10-01T00:12:57.854997Z",
+      "task_id": "day-6-d6-temporal-state-design",
+      "event_type": "STATE_TRANSITION",
+      "message": "IDLE → PLANNING: configured deterministic task started",
+      "from_state": "IDLE",
+      "to_state": "PLANNING",
+      "details": {
+        "reason": "configured deterministic task started"
+      }
+    },
+    {
+      "timestamp": "2026-10-01T00:12:58.250543Z",
+      "task_id": "day-6-d6-temporal-state-design",
+      "event_type": "SMOKE_STARTED",
+      "message": "day-6-d6-temporal-state-design WORKTREE CREATED",
+      "from_state": null,
+      "to_state": null,
+      "details": {
+        "worktree": "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c",
+        "branch": "agent/day-6-d6-temporal-state-design-a8dce109",
+        "source_head_sha": "e33b0a410fb8647711f02ae4e6e0b66472e6eff0",
+        "source_dirty_file_count": 0
+      }
+    },
+    {
+      "timestamp": "2026-10-01T00:12:58.251547Z",
+      "task_id": "day-6-d6-temporal-state-design",
+      "event_type": "STATE_TRANSITION",
+      "message": "PLANNING → PRECHECK: targeted deterministic precheck",
+      "from_state": "PLANNING",
+      "to_state": "PRECHECK",
+      "details": {
+        "reason": "targeted deterministic precheck"
+      }
+    },
+    {
+      "timestamp": "2026-10-01T00:12:58.292449Z",
+      "task_id": "day-6-d6-temporal-state-design",
+      "event_type": "DETERMINISTIC_CHECK",
+      "message": "day-6-d6-temporal-state-design PRECHECK FAIL",
+      "from_state": null,
+      "to_state": null,
+      "details": {
+        "argv": [
+          "C:\\Users\\広瀬剛\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+          "-c",
+          "raise SystemExit(1)"
+        ],
+        "cwd": "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c",
+        "exit_code": 1,
+        "passed": false,
+        "stdout": null,
+        "stderr": null,
+        "error_code": null
+      }
+    },
+    {
+      "timestamp": "2026-10-01T00:12:58.292449Z",
+      "task_id": "day-6-d6-temporal-state-design",
+      "event_type": "STATE_TRANSITION",
+      "message": "PRECHECK → RUNNING_TEST: precheck failed",
+      "from_state": "PRECHECK",
+      "to_state": "RUNNING_TEST",
+      "details": {
+        "reason": "precheck failed"
+      }
+    },
+    {
+      "timestamp": "2026-10-01T00:12:58.292449Z",
+      "task_id": "day-6-d6-temporal-state-design",
+      "event_type": "TRIAGE",
+      "message": "day-6-d6-temporal-state-design TRIAGE CODE_FIX",
+      "from_state": null,
+      "to_state": null,
+      "details": {
+        "precheck_exit_code": 1
+      }
+    },
+    {
+      "timestamp": "2026-10-01T00:12:58.292449Z",
+      "task_id": "day-6-d6-temporal-state-design",
+      "event_type": "STATE_TRANSITION",
+      "message": "RUNNING_TEST → TRIAGE: deterministic triage classified CODE_FIX",
+      "from_state": "RUNNING_TEST",
+      "to_state": "TRIAGE",
+      "details": {
+        "reason": "deterministic triage classified CODE_FIX"
+      }
+    },
+    {
+      "timestamp": "2026-10-01T00:12:58.426593Z",
+      "task_id": "day-6-d6-temporal-state-design",
+      "event_type": "STATE_TRANSITION",
+      "message": "TRIAGE → CODEX_FIX: Codex attempt 1 authorized",
+      "from_state": "TRIAGE",
+      "to_state": "CODEX_FIX",
+      "details": {
+        "reason": "Codex attempt 1 authorized"
+      }
+    },
+    {
+      "timestamp": "2026-10-01T00:12:58.426593Z",
+      "task_id": "day-6-d6-temporal-state-design",
+      "event_type": "CONTEXT_CREATED",
+      "message": "day-6-d6-temporal-state-design minimal context package built",
+      "from_state": null,
+      "to_state": null,
+      "details": {
+        "context_character_count": 10740,
+        "context_byte_count": 12186,
+        "context_files": [
+          "docs/runbooks/work-plan-day1-14.md",
+          "docs/architecture/decision-reasoning-architecture.md"
+        ]
+      }
+    },
+    {
+      "timestamp": "2026-10-01T00:12:58.426593Z",
+      "task_id": "day-6-d6-temporal-state-design",
+      "event_type": "SMOKE_STARTED",
+      "message": "Codex attempt 1 STARTED",
+      "from_state": null,
+      "to_state": null,
+      "details": {
+        "working_directory": "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c"
+      }
+    },
+    {
+      "timestamp": "2026-10-01T00:15:58.708572Z",
+      "task_id": "day-6-d6-temporal-state-design",
+      "event_type": "TOKEN_BUDGET_WARNING",
+      "message": "Codex completed over configured budget: TASK_BUDGET_EXCEEDED.",
+      "from_state": null,
+      "to_state": null,
+      "details": {
+        "budget_decision": "TASK_BUDGET_EXCEEDED",
+        "token_usage": {
+          "input_tokens": 528695,
+          "cached_input_tokens": 474112,
+          "gross_input_tokens": 528695,
+          "uncached_input_tokens": 54583,
+          "output_tokens": 8131,
+          "available": true
+        }
+      }
+    },
+    {
+      "timestamp": "2026-10-01T00:15:58.708572Z",
+      "task_id": "day-6-d6-temporal-state-design",
+      "event_type": "SMOKE_RESULT",
+      "message": "Codex attempt 1 COMPLETE exit=0",
+      "from_state": null,
+      "to_state": null,
+      "details": {
+        "attempt": {
+          "attempt": 1,
+          "exit_code": 0,
+          "thread_started": true,
+          "turn_started": true,
+          "turn_completed": true,
+          "gross_input_tokens": 528695,
+          "cached_input_tokens": 474112,
+          "uncached_input_tokens": 54583,
+          "output_tokens": 8131,
+          "error_code": null
+        },
+        "status": "completed"
+      }
+    },
+    {
+      "timestamp": "2026-10-01T00:15:58.836295Z",
+      "task_id": "day-6-d6-temporal-state-design",
+      "event_type": "CODEX_RESULT",
+      "message": "Scope Guard PASS",
+      "from_state": null,
+      "to_state": null,
+      "details": {
+        "changed_files": [
+          "docs/architecture/temporal-state.md",
+          "schemas/temporal-state.json",
+          "scripts/eval/temporal_state.py",
+          "tests/test_temporal_state.py"
+        ]
+      }
+    },
+    {
+      "timestamp": "2026-10-01T00:15:58.836295Z",
+      "task_id": "day-6-d6-temporal-state-design",
+      "event_type": "STATE_TRANSITION",
+      "message": "CODEX_FIX → RUNNING_TEST: scope guard passed",
+      "from_state": "CODEX_FIX",
+      "to_state": "RUNNING_TEST",
+      "details": {
+        "reason": "scope guard passed"
+      }
+    },
+    {
+      "timestamp": "2026-10-01T00:15:59.646968Z",
+      "task_id": "day-6-d6-temporal-state-design",
+      "event_type": "TEST_RESULT",
+      "message": "Deterministic POSTCHECK PASS",
+      "from_state": null,
+      "to_state": null,
+      "details": {
+        "argv": [
+          "C:\\Users\\広瀬剛\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/test_temporal_state.py"
+        ],
+        "cwd": "C:\\Users\\広瀬剛\\.codex\\worktrees\\g7-day6-real-retry2\\AI-Control-Center\\state\\worktrees\\a8dce10961cf44bfb38ef75e92d7ff2c",
+        "exit_code": 0,
+        "passed": true,
+        "stdout": "......                                                                   [100%]\n6 passed in 0.05s\n",
+        "stderr": null,
+        "error_code": null
+      }
+    },
+    {
+      "timestamp": "2026-10-01T00:15:59.646968Z",
+      "task_id": "day-6-d6-temporal-state-design",
+      "event_type": "STATE_TRANSITION",
+      "message": "RUNNING_TEST → COMPLETE: deterministic postcheck passed",
+      "from_state": "RUNNING_TEST",
+      "to_state": "COMPLETE",
+      "details": {
+        "reason": "deterministic postcheck passed"
+      }
+    },
+    {
+      "timestamp": "2026-10-01T00:15:59.646968Z",
+      "task_id": "day-6-d6-temporal-state-design",
+      "event_type": "EVALUATION_RESULT",
+      "message": "day-6-d6-temporal-state-design COMPLETE",
+      "from_state": null,
+      "to_state": null,
+      "details": {
+        "deterministic": true,
+        "evaluator_invoked": false
+      }
+    },
+    {
+      "timestamp": "2026-10-01T00:16:00.081578Z",
+      "task_id": "LOCAL_LLM_DAY",
+      "event_type": "LOCAL_LLM_DAY_COMPLETE",
+      "message": "LocalLLM Day runner: LOCAL_LLM_DAY_COMPLETE",
+      "from_state": null,
+      "to_state": null,
+      "details": {
+        "day": 6,
+        "criteria": [
+          "d6-state_representations",
+          "d6-temporal_provenance",
+          "d6-fail_closed_temporal",
+          "d6-architecture_consistency"
+        ]
+      }
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 528695,
+    "cached_input_tokens": 474112,
+    "gross_input_tokens": 528695,
+    "uncached_input_tokens": 54583,
+    "output_tokens": 8131,
+    "available": true
+  }
+}

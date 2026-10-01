@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Temporal state",
+  "description": "A time-partitioned state. Facts in one partition must not be treated as facts in another.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["planned_time", "actual_time", "forecast_time", "snapshot_time"],
+  "properties": {
+    "planned_time": {"$ref": "#/$defs/partition"},
+    "actual_time": {"$ref": "#/$defs/partition"},
+    "forecast_time": {"$ref": "#/$defs/partition"},
+    "snapshot_time": {"$ref": "#/$defs/partition"}
+  },
+  "$defs": {
+    "partition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["as_of", "facts"],
+      "properties": {
+        "as_of": {"type": "string", "format": "date-time"},
+        "facts": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/fact"}
+        }
+      }
+    },
+    "fact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fact_id", "value", "unit", "source_record_ids"],
+      "properties": {
+        "fact_id": {"type": "string", "minLength": 1},
+        "value": {"type": ["string", "number", "integer", "boolean", "null"]},
+        "unit": {"type": "string"},
+        "source_record_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  }
+}
