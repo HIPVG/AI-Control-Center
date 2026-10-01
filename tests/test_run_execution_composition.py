@@ -248,6 +248,70 @@ def test_day_evidence_binding_is_atomic_when_one_source_is_invalid(tmp_path):
     assert store.get(intent.run_id) == before_record
 
 
+def test_day_evidence_binding_rejects_source_identity_relabeling_without_mutation(tmp_path):
+    composition, program, store, contract, intent = _fixture(tmp_path)
+    all_required = sorted({
+        evidence_type
+        for criterion in contract.completion_criteria
+        for evidence_type in criterion.required_evidence
+    })
+    legacy = {
+        evidence_type: {
+            "evidence_type": evidence_type,
+            "value": _value(evidence_type),
+            "source": "day-6-fixture",
+            "verified": True,
+            "validation": {"passed": True, "validator": "fixture"},
+        }
+        for evidence_type in all_required
+    }
+    program._ingest_legacy_evidence(
+        contract, legacy, provider_id="day-6-fixture", source_fingerprint="s" * 64
+    )
+    program._evaluate_contract(contract, {})
+    baseline = program.snapshot.model_copy(deep=True)
+    criterion = contract.completion_criteria[0]
+    evidence_type = criterion.required_evidence[0]
+    source_id = criterion.evidence_record_ids[evidence_type]
+    scenarios = (
+        (
+            {"run_id": "run-other", "criterion_id": criterion.criterion_id},
+            "DAY_EVIDENCE_SOURCE_BINDING_MISMATCH",
+        ),
+        (
+            {"run_id": intent.run_id, "criterion_id": "criterion-other"},
+            "DAY_EVIDENCE_SOURCE_BINDING_MISMATCH",
+        ),
+        (
+            {"run_id": intent.run_id, "criterion_id": None},
+            "DAY_EVIDENCE_SOURCE_BINDING_MISMATCH",
+        ),
+        ({"day": 5}, "DAY_EVIDENCE_SOURCE_CONTRACT_MISMATCH"),
+        ({"contract_version": "version-other"}, "DAY_EVIDENCE_SOURCE_CONTRACT_MISMATCH"),
+        (
+            {
+                "run_id": intent.run_id,
+                "criterion_id": criterion.criterion_id,
+                "configuration_fingerprint": "x" * 64,
+            },
+            "DAY_EVIDENCE_SOURCE_CONFIG_MISMATCH",
+        ),
+    )
+
+    for updates, expected_reason in scenarios:
+        program.snapshot = baseline.model_copy(deep=True)
+        source = program.snapshot.evidence_store[source_id]
+        program.snapshot.evidence_store[source_id] = source.model_copy(update=updates)
+        before_snapshot = program.snapshot.model_copy(deep=True)
+        before_record = store.get(intent.run_id)
+
+        result = composition.bind_day_evidence(intent.run_id)
+
+        assert result["reason_code"] == expected_reason
+        assert program.snapshot == before_snapshot
+        assert store.get(intent.run_id) == before_record
+
+
 def test_complete_day_state_rejects_unverified_required_review_without_mutation(tmp_path):
     composition, program, store, contract, intent = _fixture(tmp_path)
     for criterion in contract.completion_criteria:

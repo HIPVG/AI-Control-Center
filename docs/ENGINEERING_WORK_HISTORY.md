@@ -1,5 +1,23 @@
 # Engineering work history
 
+## 2026-10-01 — G6 PR-00 review rejection repaired and validated
+
+Read the complete `REJECT` response for `G6-PR00-COMPLETION-20261001-001` and
+limited the response to its identified Evidence-input boundary. Added pre-relabel
+checks requiring exact Day and contract version, either a wholly nullable legacy
+binding or the exact product run/criterion binding, and exact product configuration
+for an already bound record. Added one focused assertion covering another run,
+another criterion, a partial binding, another Day, another contract version and a
+bound configuration mismatch; each case requires unchanged Day snapshot and
+RunRecord.
+
+The original two executions remained preserved. Under the separate direct authority
+`AUTH-G6-PR00-VALIDATION-RETRY-20261001-001`, the exact focused command was run one
+additional time and returned `13 passed in 1.70s`, exit `0`. No further execution
+occurred or is authorized. PR-01 did not start. No service, browser, Day/Go, model,
+Watcher, credential, spending, G7/G8 or product-acceptance action occurred.
+Unnecessary broader work did not delay the checkpoint.
+
 ## 2026-10-01 — G6 PR-00 strict Evidence binding fixed for review
 
 Recorded human authority `AUTH-G6-PRODUCT-RUN-RECONCILIATION-20261001-001` for

@@ -1,5 +1,21 @@
 # Current Work
 
+## Current checkpoint — G6 PR-00 bounded repair validated for resubmission (2026-10-01)
+
+Reviewer rejected `G6-PR00-COMPLETION-20261001-001` at reviewed commit
+`8dad7084e146dd1d1e9305e3f7c4ae3b888753af`. The isolated defect is that
+`bind_day_evidence()` relabelled a source record without first checking an existing
+run/criterion binding and its Day/contract identity.
+
+The minimum repair and one non-mutation assertion are complete: nullable
+legacy records are accepted only when both bindings are absent; bound records must
+match the exact run, criterion and product configuration; every source must match
+the active Day and contract version. Under
+`AUTH-G6-PR00-VALIDATION-RETRY-20261001-001`, the one authorized additional
+execution of `python -m pytest -q tests/test_run_execution_composition.py` passed
+all 13 tests. No further execution is authorized. Fix and publish a revision 002
+completion pack, then stop for its review; do not begin PR-01 before acceptance.
+
 ## Current checkpoint — G6 PR-00 fixed for review (2026-10-01)
 
 Under `AUTH-G6-PRODUCT-RUN-RECONCILIATION-20261001-001`, PR-00 strict

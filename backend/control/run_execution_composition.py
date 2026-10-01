@@ -147,6 +147,20 @@ class RunExecutionComposition:
                     if not self.program._evidence_record_valid(evidence_type, source):
                         return self._rejected(record, "DAY_EVIDENCE_SOURCE_INVALID")
                     assert source is not None
+                    if source.day != contract.day or source.contract_version != contract.version:
+                        return self._rejected(record, "DAY_EVIDENCE_SOURCE_CONTRACT_MISMATCH")
+                    legacy_unbound = source.run_id is None and source.criterion_id is None
+                    exact_binding = (
+                        source.run_id == run_id
+                        and source.criterion_id == criterion.criterion_id
+                    )
+                    if not legacy_unbound and not exact_binding:
+                        return self._rejected(record, "DAY_EVIDENCE_SOURCE_BINDING_MISMATCH")
+                    if (
+                        exact_binding
+                        and source.configuration_fingerprint != record.intent.config_fingerprint
+                    ):
+                        return self._rejected(record, "DAY_EVIDENCE_SOURCE_CONFIG_MISMATCH")
                     results.append({
                         "run_id": run_id,
                         "criterion_id": criterion.criterion_id,
