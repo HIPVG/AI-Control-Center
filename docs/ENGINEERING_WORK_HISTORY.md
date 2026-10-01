@@ -1,5 +1,26 @@
 # Engineering work history
 
+## 2026-10-01 — G6 PR-00 accepted; PR-01 telemetry reconciliation fixture passed
+
+Applied the complete `ACCEPT` response for
+`G6-PR00-COMPLETION-20261001-002` at
+`b681e712bc07808592ed6e6e96f6d1a08486b89f` and recorded its limited scope.
+Selected PR-01 under the previously approved dependency order.
+
+Implemented terminal task-to-run telemetry reconciliation with schema v1 read
+compatibility and schema v2 token split/budget-decision fields. The adapter requires
+exact product-run binding, unique and terminal task records, consistent per-attempt
+and aggregate token totals, sourced times, and all-or-unknown cost availability.
+Exact replay is non-writing; conflicting replay fails closed. Added the minimum WC-08
+compatibility clarification without changing G4 semantics.
+
+The focused suite passed 24 tests on attempt 1. Artifact inspection added explicit
+terminal-result, known measured cost and partial-cost rejection assertions; the
+second/final execution again passed 24 tests. Both runs reported the same six existing
+FastAPI/Starlette deprecation warnings. No third execution, PR-02, service/browser,
+Day/Go, model, Watcher, credential, spending, G7/G8 or product-acceptance action
+occurred. Unnecessary broader work did not delay the checkpoint.
+
 ## 2026-10-01 — G6 PR-00 review rejection repaired and validated
 
 Read the complete `REJECT` response for `G6-PR00-COMPLETION-20261001-001` and

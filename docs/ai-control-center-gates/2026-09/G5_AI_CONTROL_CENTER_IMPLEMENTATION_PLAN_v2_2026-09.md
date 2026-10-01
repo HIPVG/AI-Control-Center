@@ -216,6 +216,14 @@ VC-11の実actor検証は既存配送権限と個別前提が揃う範囲だけ�
 | 結果・受領証跡／検証 | 理由なし介入拒否、run混在拒否、上限と実測・出所の分離、unknown保持をモデルテストで確認する。 |
 | 停止・判断／後始末・次状態 | 権威ある出所を定められない値はunknownのまま停止する。実runを作らず`WC-08_VALIDATED`へ。 |
 
+PR-01 compatibility clarification (2026-10-01): existing schema v1 telemetry remains
+readable without inferring absent values. New terminal task reconciliation writes
+schema v2 only; v2 adds sourced cached/uncached input metrics and a sourced or
+explicitly unknown budget decision. Gross input must equal cached plus uncached input.
+Measured cost is retained only when the terminal task records expose it; otherwise
+cost remains unknown with a reason. This extension does not change G4 roles or treat
+the configured zero-cost limit as measured cost.
+
 ### WC-09 — read-only current/historical API
 
 | 項目 | 内容 |

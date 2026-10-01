@@ -164,6 +164,130 @@ def _metric(value, unit, source):
     return TelemetryMetric(value=value, unit=unit, source=source, observed_at=NOW)
 
 
+def _terminal_task_record(product_run_id, **updates):
+    record = {
+        "product_run_id": product_run_id,
+        "run_id": "task-run-day6",
+        "end_time": NOW.isoformat(),
+        "final_result": "COMPLETE",
+        "codex_attempts": [{
+            "attempt": 1,
+            "gross_input_tokens": 528695,
+            "cached_input_tokens": 474112,
+            "uncached_input_tokens": 54583,
+            "output_tokens": 8131,
+        }],
+        "gross_input_tokens": 528695,
+        "cached_input_tokens": 474112,
+        "uncached_input_tokens": 54583,
+        "output_tokens": 8131,
+        "budget_warning": "TASK_BUDGET_EXCEEDED",
+    }
+    record.update(updates)
+    return record
+
+
+def test_terminal_task_telemetry_reconciles_same_run_and_survives_restart(tmp_path):
+    engine, _calls = _engine(tmp_path)
+    client, restore = _api(engine)
+    try:
+        run_id = client.post("/api/local-llm/day/go", json={"selected_day": 6}).json()["run_id"]
+        engine.local_llm_day_program.snapshot.state = LocalLLMDayState.COMPLETE
+        engine.local_llm_day_program._save()
+        record = _terminal_task_record(run_id)
+        known_cost = engine.local_llm_run_product._terminal_telemetry(
+            engine.local_llm_run_store.get(run_id).intent,
+            [_terminal_task_record(run_id, measured_cost=0.25, cost_currency="JPY")],
+        )
+
+        result = engine.local_llm_run_product.reconcile_terminal_telemetry(run_id, [record])
+        readback = client.get("/api/local-llm/runs").json()["telemetry"]
+        replay = engine.local_llm_run_product.reconcile_terminal_telemetry(run_id, [record])
+
+        assert result == {"outcome": "ACCEPTED", "run_id": run_id, "replay": False}
+        assert known_cost.cost.value == 0.25
+        assert known_cost.cost.unit == "JPY"
+        assert known_cost.cost.source.startswith("terminal task records:")
+        assert replay == {"outcome": "ACCEPTED", "run_id": run_id, "replay": True}
+        assert readback["schema_version"] == 2
+        assert readback["run_id"] == run_id
+        assert readback["attempt_count"]["value"] == 1
+        assert readback["attempt_limit"]["value"] == 2
+        assert readback["input_tokens"]["value"] == 528695
+        assert readback["cached_input_tokens"]["value"] == 474112
+        assert readback["uncached_input_tokens"]["value"] == 54583
+        assert readback["output_tokens"]["value"] == 8131
+        assert readback["budget_decision"]["value"] == "TASK_BUDGET_EXCEEDED"
+        assert readback["cost"]["value"] is None
+        assert readback["cost"]["unknown_reason"] == (
+            "terminal task records did not expose measured cost"
+        )
+        assert readback["attempt_count"]["source"].startswith("terminal task records:")
+
+        restarted, restarted_calls = _engine(tmp_path)
+        restarted_readback = restarted.local_llm_run_read_model()["telemetry"]
+        assert restarted_calls == []
+        assert restarted_readback == readback
+
+        conflicting = _terminal_task_record(
+            run_id,
+            codex_attempts=[{
+                "attempt": 1,
+                "gross_input_tokens": 528696,
+                "cached_input_tokens": 474112,
+                "uncached_input_tokens": 54584,
+                "output_tokens": 8131,
+            }],
+            gross_input_tokens=528696,
+            uncached_input_tokens=54584,
+        )
+        conflict = engine.local_llm_run_product.reconcile_terminal_telemetry(
+            run_id, [conflicting]
+        )
+        assert conflict["reason_code"] == "TELEMETRY_CONFLICT"
+        assert client.get("/api/local-llm/runs").json()["telemetry"] == readback
+    finally:
+        restore()
+
+
+def test_terminal_task_telemetry_rejects_cross_run_and_inconsistent_facts(tmp_path):
+    engine, _calls = _engine(tmp_path)
+    client, restore = _api(engine)
+    try:
+        run_id = client.post("/api/local-llm/day/go", json={"selected_day": 6}).json()["run_id"]
+        engine.local_llm_day_program.snapshot.state = LocalLLMDayState.COMPLETE
+        engine.local_llm_day_program._save()
+
+        wrong_run = engine.local_llm_run_product.reconcile_terminal_telemetry(
+            run_id, [_terminal_task_record("run-other")]
+        )
+        inconsistent = engine.local_llm_run_product.reconcile_terminal_telemetry(
+            run_id, [_terminal_task_record(run_id, gross_input_tokens=1)]
+        )
+        duplicate = engine.local_llm_run_product.reconcile_terminal_telemetry(
+            run_id, [_terminal_task_record(run_id), _terminal_task_record(run_id)]
+        )
+        nonterminal = engine.local_llm_run_product.reconcile_terminal_telemetry(
+            run_id, [_terminal_task_record(run_id, final_result="RUNNING")]
+        )
+        incomplete_cost = engine.local_llm_run_product.reconcile_terminal_telemetry(
+            run_id,
+            [
+                _terminal_task_record(run_id, run_id="task-one", measured_cost=0, cost_currency="JPY"),
+                _terminal_task_record(run_id, run_id="task-two"),
+            ],
+        )
+
+        assert wrong_run["reason_code"] == "TERMINAL_TASK_RUN_ID_MISMATCH"
+        assert inconsistent["reason_code"] == "TERMINAL_TASK_TOKEN_TOTAL_INVALID"
+        assert duplicate["reason_code"] == "TERMINAL_TASK_ID_INVALID_OR_DUPLICATE"
+        assert nonterminal["reason_code"] == "TERMINAL_TASK_NOT_TERMINAL"
+        assert incomplete_cost["reason_code"] == "TERMINAL_TASK_COST_INCOMPLETE"
+        assert engine.local_llm_telemetry_store.get(run_id) is None
+    finally:
+        restore()
+
+
 def test_actual_api_to_evidence_telemetry_terminal_readback_uses_one_run(tmp_path):
     engine, calls = _engine(tmp_path)
     client, restore = _api(engine)

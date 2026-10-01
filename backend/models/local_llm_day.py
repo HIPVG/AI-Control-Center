@@ -138,6 +138,32 @@ class TelemetryMetric(BaseModel):
         return self
 
 
+class TelemetryDecision(BaseModel):
+    """One observed categorical decision or an explicit unknown with provenance."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+    value: str | None = Field(default=None, min_length=1, max_length=160)
+    source: str | None = Field(default=None, min_length=1, max_length=240)
+    observed_at: datetime
+    unknown_reason: str | None = Field(default=None, min_length=1, max_length=500)
+
+    @field_validator("observed_at")
+    @classmethod
+    def require_observation_timezone(cls, value: datetime) -> datetime:
+        return RunIntent.require_timezone(value)
+
+    @model_validator(mode="after")
+    def known_or_unknown(self) -> "TelemetryDecision":
+        if self.value is None:
+            if not self.unknown_reason:
+                raise ValueError("Unknown telemetry decision requires a reason")
+        elif not self.source:
+            raise ValueError("Known telemetry decision requires an authoritative source")
+        elif self.unknown_reason is not None:
+            raise ValueError("Known telemetry decision cannot carry an unknown reason")
+        return self
+
+
 class RunInterventionType(str, Enum):
     MANUAL_RELAY = "MANUAL_RELAY"
     HUMAN_INTERVENTION = "HUMAN_INTERVENTION"
@@ -164,14 +190,17 @@ class RunTelemetry(BaseModel):
     """Immutable WC-08 telemetry snapshot; it never proves Day execution."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
-    schema_version: Literal[1] = 1
+    schema_version: Literal[1, 2] = 1
     run_id: str = Field(min_length=1, max_length=120)
     manual_relay_count: TelemetryMetric
     interventions: tuple[RunIntervention, ...] = ()
     attempt_count: TelemetryMetric
     attempt_limit: TelemetryMetric
     input_tokens: TelemetryMetric
+    cached_input_tokens: TelemetryMetric | None = None
+    uncached_input_tokens: TelemetryMetric | None = None
     output_tokens: TelemetryMetric
+    budget_decision: TelemetryDecision | None = None
     cost: TelemetryMetric
     captured_at: datetime
 
@@ -197,6 +226,10 @@ class RunTelemetry(BaseModel):
             "input_tokens": self.input_tokens,
             "output_tokens": self.output_tokens,
         }
+        if self.cached_input_tokens is not None:
+            integer_metrics["cached_input_tokens"] = self.cached_input_tokens
+        if self.uncached_input_tokens is not None:
+            integer_metrics["uncached_input_tokens"] = self.uncached_input_tokens
         for name, metric in integer_metrics.items():
             if metric.value is not None and not isinstance(metric.value, int):
                 raise ValueError(f"{name} must be an integer when known")
@@ -207,6 +240,22 @@ class RunTelemetry(BaseModel):
         )
         if self.manual_relay_count.value is not None and self.manual_relay_count.value != relay_count:
             raise ValueError("Manual relay count does not match intervention records")
+        extension = (self.cached_input_tokens, self.uncached_input_tokens, self.budget_decision)
+        if self.schema_version == 1 and any(item is not None for item in extension):
+            raise ValueError("Telemetry schema v1 cannot carry v2 fields")
+        if self.schema_version == 2 and any(item is None for item in extension):
+            raise ValueError("Telemetry schema v2 requires token split and budget decision")
+        if (
+            self.schema_version == 2
+            and self.input_tokens.value is not None
+            and self.cached_input_tokens is not None
+            and self.cached_input_tokens.value is not None
+            and self.uncached_input_tokens is not None
+            and self.uncached_input_tokens.value is not None
+            and self.input_tokens.value
+            != self.cached_input_tokens.value + self.uncached_input_tokens.value
+        ):
+            raise ValueError("Input token split does not match gross input tokens")
         return self
 
 

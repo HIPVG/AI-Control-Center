@@ -49,6 +49,10 @@ def test_json_round_trip_and_create_only_store_preserve_one_run(tmp_path):
     original = telemetry()
     restored = RunTelemetry.model_validate_json(original.model_dump_json())
     assert restored == original
+    assert restored.schema_version == 1
+    assert restored.cached_input_tokens is None
+    assert restored.uncached_input_tokens is None
+    assert restored.budget_decision is None
     assert restored.attempt_count.value == 2
     assert restored.attempt_limit.value == 3
     assert restored.attempt_count.source != restored.attempt_limit.source

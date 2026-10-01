@@ -1,5 +1,20 @@
 # Current Work
 
+## Current checkpoint — G6 PR-01 fixed for review (2026-10-01)
+
+Reviewer accepted `G6-PR00-COMPLETION-20261001-002` at reviewed commit
+`b681e712bc07808592ed6e6e96f6d1a08486b89f`. PR-00 is complete within its
+Evidence-binding boundary, and PR-01 was selected under the existing stage authority.
+
+PR-01 now reconciles terminal task facts into same-run telemetry schema v2 while
+reading schema v1 unchanged. It retains actual gross/cached/uncached/output tokens,
+attempt actual/RunIntent limit, observed budget decision and measured cost or an
+explicit unknown reason. Wrong-run, inconsistent, duplicate, nonterminal and
+conflicting replay inputs fail closed. The focused command passed 24 tests on both
+permitted executions; the final run includes measured/partial-cost and terminal-task
+assertions. Fix PR-01 and publish its completion pack, then stop for review. Do not
+begin PR-02 before acceptance.
+
 ## Current checkpoint — G6 PR-00 bounded repair validated for resubmission (2026-10-01)
 
 Reviewer rejected `G6-PR00-COMPLETION-20261001-001` at reviewed commit
