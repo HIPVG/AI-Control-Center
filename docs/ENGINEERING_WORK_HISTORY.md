@@ -4107,3 +4107,18 @@ remain explicit limitations. No execution, test, service/browser, Day/Go, model,
 Watcher, credential, spending, release or product-acceptance action occurred. The
 next boundary is reviewer review of the ledger/recommendation followed by one
 explicit human scope decision.
+
+## 2026-10-01 — G8 bounded acceptance recommendation accepted; human scope decision pending
+
+Applied the complete external `ACCEPT` response for
+`G8-ACCEPTANCE-RECOMMENDATION-20261001-001` at reviewed commit
+`6ae3ea49425d56a28946d20071678bfa85aa50b8`. The Reviewer confirmed that
+`ACCEPT_BOUNDED_DAY6_DEMONSTRATION` is the maximum claim supported by the fixed
+evidence, without promoting A03 actual repair, A04 current review, all-Day evidence,
+measured cost, review relay, current Watcher liveness, or release conditions.
+
+No product acceptance decision was inferred from the review. No execution, test,
+service/browser, Day/Go, model, Watcher, credential, spending or release operation
+was performed. Work stops for `D8-ACCEPTANCE-SCOPE-20261001-001`: 広瀬剛 must select
+exactly one of bounded Day 6 acceptance, acceptance deferral, or acceptance-claim
+rejection, with the chosen scope and effects recorded directly.
