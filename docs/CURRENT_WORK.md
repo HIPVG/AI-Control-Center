@@ -1,17 +1,19 @@
 # Current Work
 
-## Current checkpoint — G8 bounded Day 6 demonstration accepted; no release (2026-10-01)
+## Current checkpoint — G8 GA-03 release-gate plan under review (2026-10-01)
 
-Under direct human decision `D8-ACCEPTANCE-SCOPE-20261001-001`, 広瀬剛 selected
-`ACCEPT_BOUNDED_DAY6_DEMONSTRATION`. The accepted product claim is only the fixed,
-evidence-backed Day 6 demonstration: selection/Go, typed completion Evidence,
-same-run terminal state/dashboard readback, and run attempt/token/budget telemetry.
+Under direct human authority `AUTH-G8-GA03-RELEASE-GATE-20261001-001`, Codex may
+create only the GA-03 release-gate plan, acceptance conditions, authority record and
+review preparation for candidate product build
+`656711367ed837ddbb75e6df65234a955e44900d`. The plan is local-Windows/
+`127.0.0.1`-limited and names 広瀬剛 as operating owner.
 
-This decision does not accept all Days, actual repair success, current live review or
-Watcher operation, measured JPY cost, continuous operation, distribution or release.
-`NO_RELEASE` remains in force. G8's decision-only scope is complete; do not start a
-new operation, Day/Go, model, service/Watcher action, test, credential change or
-spending without a later explicit authority.
+The plan must retain `NO_RELEASE`: no distribution, continuous operation, service or
+Watcher start, Day/Go, model execution, test, credential change or spending is
+authorized. Submit the fixed plan for review preparation and stop. A later release
+decision must name a distributable artifact/version, operating environment,
+stop/rollback evidence, current reviewer transport condition, and cost/credential
+policy; it cannot be inferred from this planning authority.
 
 ## Current checkpoint — G8 acceptance-and-release plan under review (2026-10-01)
 

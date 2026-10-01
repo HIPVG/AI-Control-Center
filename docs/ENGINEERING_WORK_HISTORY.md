@@ -4136,3 +4136,17 @@ current Watcher operation, measured JPY cost, continuous operation, distribution
 release. `NO_RELEASE` remains in force. No execution, test, service/browser, Day/Go,
 model, Watcher, credential, spending or release action was performed while recording
 this decision.
+
+## 2026-10-01 — GA-03 release-gate planning authorized
+
+広瀬剛 approved the fully specified authority
+`AUTH-G8-GA03-RELEASE-GATE-20261001-001` with the direct message
+「承認します。進めてください。」 The approval is recorded as
+`RECORDED_DIRECT_CONVERSATION`; its exact message ID and receipt time are `UNKNOWN`.
+It permits only GA-03 release-gate planning, its authority record and review
+preparation for product build `656711367ed837ddbb75e6df65234a955e44900d`.
+
+The plan must remain Windows-local and `127.0.0.1`-limited, name 広瀬剛 as owner,
+retain no-spend/unchanged-credential rules and preserve `NO_RELEASE`. It does not
+authorize service/Watcher start, distribution, Day/Go, model execution, test,
+credential operation or any release. Existing unrelated dirty work remains preserved.
