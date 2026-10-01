@@ -1,5 +1,20 @@
 # Engineering work history
 
+## 2026-10-01 — G6 returned-stage completion rejected on one state-conflict guard
+
+Applied the complete `REJECT` response for
+`G6-PRODUCT-RUN-RECONCILIATION-STAGE-COMPLETION-20261001-001` at reviewed commit
+`33774514309495ca0dd353ea6240ef653ff96ab2`. PR-00 through PR-03 acceptance
+correlation remains valid; the rejected claim was full DoD coverage.
+
+The Reviewer identified one unmet part of invariant 9: a durable COMPLETE RunRecord
+can encounter a later non-COMPLETE Day snapshot, and the current settlement method
+can project that conflict because it branches on the snapshot first. Recorded the
+minimum repair as an early completed-record conflict guard plus a non-mutation
+assertion. Because the PR-03 command limit is exhausted, no implementation or test
+occurred. No service/browser, Day/Go, model, Watcher, G7/G8 or product acceptance
+occurred.
+
 ## 2026-10-01 — G6 PR-03 accepted; returned-stage evidence reconciled
 
 Applied the complete `ACCEPT` response for

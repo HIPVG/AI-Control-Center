@@ -1,5 +1,19 @@
 # Current Work
 
+## Current checkpoint — G6 returned-stage review rejected on terminal-state conflict (2026-10-01)
+
+Reviewer rejected
+`G6-PRODUCT-RUN-RECONCILIATION-STAGE-COMPLETION-20261001-001` at reviewed commit
+`33774514309495ca0dd353ea6240ef653ff96ab2`. The sole unmatched invariant is that
+`settle_terminal_run()` checks the Day snapshot before recognizing an already
+`COMPLETE` durable RunRecord, allowing a later conflicting Day state to reach
+projection. A bounded guard and a RunRecord non-mutation assertion are required.
+
+PR-03 already used both permitted focused executions. Stop for separate human
+authority covering only this guard, assertion and one additional execution of the
+existing focused command. Do not modify source or run tests yet; do not operate
+service/browser, actual Day/Go, model, Watcher, G7/G8 or product acceptance.
+
 ## Current checkpoint — G6 PR-03 accepted; returned-stage completion review pending (2026-10-01)
 
 Reviewer accepted `G6-PR03-COMPLETION-20261001-001` at reviewed commit
