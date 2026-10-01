@@ -1,5 +1,17 @@
 # Current Work
 
+## Current checkpoint — G8 evidence ledger and recommendation review pending (2026-10-01)
+
+Reviewer accepted the G8 plan `G8-ACCEPTANCE-PLAN-20261001-001`. GA-00 and GA-01
+now map existing evidence only: the recommendation is
+`ACCEPT_BOUNDED_DAY6_DEMONSTRATION`. It supports the fixed Day 6 product flow but
+does not accept all Days, release, continuous operation or unattended review.
+
+Submit the ledger and recommendation for review, then stop for D8-ACCEPTANCE-SCOPE-
+20261001-001: 広瀬剛 must choose bounded demonstration acceptance, deferment or
+rejection. Do not perform product acceptance, release, service/Watcher operation,
+Day/Go, model execution, tests, credential changes or spending.
+
 ## Current checkpoint — G8 acceptance-and-release plan under review (2026-10-01)
 
 広瀬剛 authorized `AUTH-G8-PLANNING-20261001-001`: create only the G8 decision

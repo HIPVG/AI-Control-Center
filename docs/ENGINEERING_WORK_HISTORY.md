@@ -4092,3 +4092,18 @@ and release. It carries forward A03 actual repair and A04 current review as
 `NOT_EVALUABLE`, offers explicit human outcomes, and makes release a later separate
 authority. No test, service/browser, Day/Go, model, Watcher, credential, spending,
 release or product-acceptance action occurred.
+
+## 2026-10-01 — G8 plan accepted; bounded recommendation prepared
+
+Applied the complete `ACCEPT` response for `G8-ACCEPTANCE-PLAN-20261001-001` at
+reviewed commit `549593f036e88f57f7bf2e2d40e12c7512ee7d3e`. Following the accepted
+minimum next action, created GA-00's evidence/scope ledger and GA-01's recommendation
+from existing fixed evidence only.
+
+The recommendation is `ACCEPT_BOUNDED_DAY6_DEMONSTRATION`, not all-Day acceptance,
+release, continuous operation or unattended-review acceptance. A03 actual repair,
+A04 current review, all-Day product proof, measured JPY cost and release conditions
+remain explicit limitations. No execution, test, service/browser, Day/Go, model,
+Watcher, credential, spending, release or product-acceptance action occurred. The
+next boundary is reviewer review of the ledger/recommendation followed by one
+explicit human scope decision.
