@@ -1,5 +1,21 @@
 # Engineering work history
 
+## 2026-10-01 — G6 PR-03 accepted; returned-stage evidence reconciled
+
+Applied the complete `ACCEPT` response for
+`G6-PR03-COMPLETION-20261001-001` at reviewed commit
+`c5eacb1952dea645998bf3a4bfb1089ad864f46c`. The Reviewer confirmed the production
+composition/FastAPI fixture's one same-run effect, strict Evidence, sourced terminal
+telemetry, single durable COMPLETE projection, non-writing duplicate reconciliation,
+reconstruction and named fail-closed paths.
+
+Reconciled the accepted PR-00 through PR-03 commits against every DoD item in the
+accepted G6 product-run-reconciliation repair plan. All items have accepted
+deterministic evidence. Proposed the returned G6 stage as `PASS` within that limited
+scope and fixed the G7 return boundary. No new test, source change, service/browser,
+actual Day/Go, model, Watcher, credential, spending, G7/G8 or product-acceptance
+action occurred.
+
 ## 2026-10-01 — G6 PR-03 integrated product fixture passed
 
 広瀬剛 issued `AUTH-G6-PR03-WORK-WINDOW-20261001-001`, authorizing the accepted

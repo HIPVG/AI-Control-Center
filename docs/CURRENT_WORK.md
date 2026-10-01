@@ -1,5 +1,20 @@
 # Current Work
 
+## Current checkpoint — G6 PR-03 accepted; returned-stage completion review pending (2026-10-01)
+
+Reviewer accepted `G6-PR03-COMPLETION-20261001-001` at reviewed commit
+`c5eacb1952dea645998bf3a4bfb1089ad864f46c`. PR-00 through PR-03 now each have a
+fixed accepted pack and reviewed commit. Their evidence reconciles all DoD items in
+the accepted product-run-reconciliation plan within implementation/deterministic
+fixture scope, and the proposed returned-stage result is `PASS` with
+`ARTIFACT_QUALITY_CHECK: PASS`.
+
+Prepare and submit the separate G6 returned-stage completion review, then stop. This
+does not authorize G7 or a service/browser, actual Day/Go, model, Watcher, G8 or
+product acceptance. If later G7 exposes another same-class integration gap, return to
+G4/G5 integration design and gate-method review instead of starting another sequence
+of isolated small patches.
+
 ## Current checkpoint — G6 PR-03 integrated fixture passed; completion review pending (2026-10-01)
 
 Under `AUTH-G6-PR03-WORK-WINDOW-20261001-001`, PR-03 used the production
