@@ -15,8 +15,9 @@ is `COMPLETE_ACCEPTED_LIMITATIONS`. A03/A04 remain occurrence-level
 and broader release remain excluded.
 
 No service, Watcher, Day/Go, model, credential or external operation was started.
-Stop after recording and review preparation. Any operational start or broader scope
-requires its applicable explicit authority.
+Review pack `G8-LOCAL-BOUNDED-RELEASE-DECISION-20261001-001` targets fixed decision
+commit `cc9c582acd9031b84c52fcb5fa9021f7a71ff0b9`. Stop after review preparation.
+Any operational start or broader scope requires its applicable explicit authority.
 
 ## Historical checkpoint — G8 RG-04 accepted within its limited boundary (2026-10-01)
 

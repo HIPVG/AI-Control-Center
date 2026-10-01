@@ -19,6 +19,12 @@ review remain occurrence-level `NOT_EVALUABLE`; other Days, continuous operation
 external distribution, real mode and every broader release remain excluded. The
 former `NO_RELEASE` state is superseded only for this exact bounded local identity.
 
+The fixed decision and gate records are committed at
+`cc9c582acd9031b84c52fcb5fa9021f7a71ff0b9`. Review pack
+`G8-LOCAL-BOUNDED-RELEASE-DECISION-20261001-001` requests only consistency review
+of that bounded human decision; it does not request new execution or broader
+release authority.
+
 ## 2026-10-01 — G8 RG-04 revision 002 accepted within its limited boundary
 
 Applied the complete `ACCEPT` response for
