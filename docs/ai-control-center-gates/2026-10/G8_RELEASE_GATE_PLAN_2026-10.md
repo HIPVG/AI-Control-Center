@@ -36,7 +36,7 @@ authority may be requested. A plan is not evidence that a condition is met.
 
 | Gate ID | Required condition | Evidence needed | Current status |
 |---|---|---|---|
-| RG-01 | Exact artifact and version are identified. | Immutable distributable artifact/version, source commit, content hash and provenance. | `INPUT_REQUIRED` — current candidate is source-only. |
+| RG-01 | Exact artifact and version are identified. | Immutable distributable artifact/version, source commit, content hash and provenance. | `COMPLETE_LIMITED` — local-only `AI-Control-Center-Day6-Bounded-RC1`, source commit `656711...`, 288,116 bytes and SHA-256 `6453a213...`; accepted by `G8-RG01-ARTIFACT-COMPLETION-20261001-002`. Not distributed or released. |
 | RG-02 | The accepted operating scope is explicit. | Named environment, bind address, data locations and permitted users. | `PLANNED` — local Windows, `127.0.0.1` only. |
 | RG-03 | Stop and rollback are usable. | Tested or otherwise approved stop/rollback procedure for the named artifact, with evidence preservation. | `INPUT_REQUIRED` — planning model exists; no operation was run. |
 | RG-04 | Review path is current and bounded. | Current Reviewer Bus/Watcher condition or an explicitly approved alternative, correlation and escalation path. | `NOT_EVALUABLE` — current Watcher liveness is not claimed. |

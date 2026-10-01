@@ -1,6 +1,19 @@
 # Current Work
 
-## Current checkpoint — G8 RG-01 byte-reproduction rejection repaired (2026-10-01)
+## Current checkpoint — G8 RG-01 accepted; next gate authority pending (2026-10-01)
+
+Reviewer accepted `G8-RG01-ARTIFACT-COMPLETION-20261001-002` at reviewed commit
+`9321d5299b6a99068d3e40734169013e944ab887`. RG-01 is complete only for the
+local immutable candidate `AI-Control-Center-Day6-Bounded-RC1`, its exact bounded
+inventory and its pinned-toolchain byte reproduction. The archive remains local and
+has not been distributed or released.
+
+Stop under `NO_RELEASE`. No next gate input has been authorized. Wait for a separate
+human authority naming the next RG condition; do not infer RG-03, RG-04, RG-06,
+service/Watcher operation, Day/Go, model execution, credential change, distribution,
+release or spending from the RG-01 acceptance.
+
+## Historical checkpoint — G8 RG-01 byte-reproduction rejection repaired (2026-10-01)
 
 Reviewer rejected `G8-RG01-ARTIFACT-COMPLETION-20261001-001` only because a
 different archive environment reproduced the source tree and 124-file inventory but

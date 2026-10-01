@@ -1,5 +1,20 @@
 # Engineering work history
 
+## 2026-10-01 — G8 RG-01 artifact accepted within local candidate boundary
+
+Applied the complete `ACCEPT` response for
+`G8-RG01-ARTIFACT-COMPLETION-20261001-002` at reviewed commit
+`9321d5299b6a99068d3e40734169013e944ab887`. The Reviewer confirmed the pinned
+Windows/Git/zlib environment, settings and full PowerShell command and accepted the
+two preserved 288,116-byte artifacts with identical SHA-256
+`6453a213b0a48b827bbbc83ec2bdf1036515e6d857451473402cae3fb79f6714`.
+
+Recorded RG-01 complete only for local immutable candidate identity, bounded content
+and toolchain-pinned byte reproduction. Updated the release-gate ledger to
+`COMPLETE_LIMITED`. No additional generation, test, source change, runtime operation,
+next-gate work, distribution or release occurred. `NO_RELEASE` remains in force and
+the next gate input requires separate human authority.
+
 ## 2026-10-01 — G8 RG-01 byte-reproduction rejection repaired
 
 Applied the complete `REJECT` response for
