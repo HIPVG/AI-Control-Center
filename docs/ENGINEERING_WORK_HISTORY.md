@@ -4373,6 +4373,11 @@ closes RG-04's post-stop registration evidence gap. It does not demonstrate
 continuous Watcher operation or authorize RG-06, distribution or release.
 `NO_RELEASE` remains.
 
+The evidence and canonical records were fixed at commit
+`cf54ba85edabe272dabd4c2e06582c65b8614aea`. Completion pack revision 002 targets
+that commit and replaces only revision 001's scheduled-task evidence limitation;
+the prior pack remains preserved.
+
 ## 2026-10-01 — RG-04 revision 002 stopped on response timeout
 
 The import-path-only correction succeeded and the isolated Watcher observed report
