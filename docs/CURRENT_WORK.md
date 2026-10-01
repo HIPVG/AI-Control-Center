@@ -1,5 +1,25 @@
 # Current Work
 
+## Current checkpoint — G8 RG-04 live review-path validation authorized (2026-10-01)
+
+広瀬剛 authorized `AUTH-G8-RG04-REVIEW-PATH-VALIDATION-20261001-001` for one
+no-effect report, one Watcher start/stop and one exactly correlated Codex
+continuation through Review Bridge PR #1. The fixed candidate and current branch use
+identical production Watcher/application blobs. Existing credentials and the managed
+`C:\AI-Control-Center\state\codex-sqlite` are required; cost is 0 JPY.
+
+Use the isolated create-only validation ledger so historical unfinished registry
+entries are not replayed and the existing registry remains byte-identical. The only
+live report ID is `G8-RG04-REVIEW-PATH-PROBE-20261001-001`. On its matching response,
+the fresh continuation must perform no file/product/external action and return
+`NO_REPORT`. The harness must then stop the Watcher and retain machine-readable
+evidence. Any mismatch, duplicate, continuation error or attempted follow-up is a
+validation failure; preserve evidence and do not repair.
+
+After the event-driven round trip, fix the trace and completion pack for review.
+Do not start RG-06, service/API exposure, Day/Go, model, product change, credentials,
+distribution or release. `NO_RELEASE` remains in force.
+
 ## Current checkpoint — G8 RG-03 accepted; next gate authority pending (2026-10-01)
 
 Reviewer accepted `G8-RG03-STOP-ROLLBACK-COMPLETION-20261001-002` at reviewed

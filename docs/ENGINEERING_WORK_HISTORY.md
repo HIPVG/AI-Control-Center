@@ -1,5 +1,20 @@
 # Engineering work history
 
+## 2026-10-01 — G8 RG-04 current review-path validation authorized
+
+広瀬剛 issued `AUTH-G8-RG04-REVIEW-PATH-VALIDATION-20261001-001` for one
+no-effect report, one current Reviewer response, one Watcher continuation and one
+Watcher stop using existing credentials and the managed `CODEX_SQLITE_HOME`. The
+window is 20 active minutes and 0 JPY; product actions and implementation repair are
+forbidden.
+
+The fixed candidate and current branch have identical `reviewer_bus.py` and
+`app.py` blobs. The existing project registry contains historical unfinished
+entries, so the live probe will use a create-only isolated ledger while preserving
+the original registry byte-for-byte. The continuation still runs in the canonical
+project root with the production Watcher-managed SQLite home. The probe blocks any
+unexpected follow-up publication and treats it as failure. `NO_RELEASE` remains.
+
 ## 2026-10-01 — G8 RG-03 revision 002 accepted within its limited boundary
 
 Applied the complete `ACCEPT` response for
