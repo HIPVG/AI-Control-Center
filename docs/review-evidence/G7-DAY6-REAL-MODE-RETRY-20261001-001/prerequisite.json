@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "observation_id": "G7-DAY6-REAL-MODE-RETRY-PREREQUISITE-20261001-001",
+  "project_id": "local_llm_lab",
+  "selected_day": 6,
+  "observed_at": "2026-10-01T00:00:38.400864Z",
+  "local_llm_commit": "e33b0a410fb8647711f02ae4e6e0b66472e6eff0",
+  "git_fingerprint": "c4846dcb97261e309426d80bcfe7be02021a409ea98816dd3e1877233de82f07",
+  "required_paths": [
+    "docs/runbooks/work-plan-day1-14.md",
+    "docs/architecture/decision-reasoning-architecture.md",
+    "schemas/decision-reasoning"
+  ],
+  "ready": true,
+  "reason_codes": []
+}

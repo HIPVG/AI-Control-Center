@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "grant_id": "AUTH-G7-DAY6-REAL-MODE-RETRY-20261001-001",
+  "decision_id": "AUTH-G7-DAY6-REAL-MODE-RETRY-20261001-001",
+  "created_at": "2026-10-01T00:00:38.400864Z",
+  "source_class": "RECORDED_DIRECT_CONVERSATION",
+  "authority_record": "docs/review-records/G7_DAY6_REAL_MODE_RETRY_AUTHORITY_2026-10-01.md",
+  "authority_record_sha256": "ce53c89c79e9a54f4f2f3fa54eade1a12243dffab8a8e0caaf99a8dfb5e71450",
+  "project_id": "local_llm_lab",
+  "selected_day": 6,
+  "allowed_effect": "RUN_DAY_PRODUCT_VALIDATION",
+  "target_commit": "3e82626faebab8e9722939b92267deb51075d93b",
+  "contract_fingerprint": "766eab4ab5fe77a2ee4095713b6010320a0f732343d4c5bab5393f5c7d853f03",
+  "policy_fingerprint": "30d3055450a3c29e0c574d89211df0d55094b07a044457e282e4d4e9096fd096",
+  "config_fingerprint": "85572858e965b182ecfffe19d31bae37119208f815e150586f647e99aac59bc9",
+  "local_llm_commit": "e33b0a410fb8647711f02ae4e6e0b66472e6eff0",
+  "git_fingerprint": "c4846dcb97261e309426d80bcfe7be02021a409ea98816dd3e1877233de82f07",
+  "requested_limits": {
+    "active_work_seconds": 1800,
+    "max_attempts": 2,
+    "max_tokens": null,
+    "max_cost": 0.0,
+    "currency": "JPY"
+  },
+  "expires_at": null,
+  "revoked_by": null
+}
