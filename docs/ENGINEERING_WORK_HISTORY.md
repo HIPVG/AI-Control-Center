@@ -4330,3 +4330,16 @@ violation or credential pattern was found, and its tracked runtime mode is `mock
 The archive and verification copy remain under local managed state and are not staged
 or distributed. No service, Watcher, Day/Go, model, product test, credential, paid,
 RG-03/RG-04/RG-06 or release operation occurred.
+
+## 2026-10-01 — RG-04 revision 002 retry authorized
+
+広瀬剛 authorized `UTH-G8-RG04-REVIEW-PATH-RETRY-20261001-001` exactly as typed.
+The sole permitted harness change prepends the derived canonical project root to
+Python's import path before importing the production Watcher. Revision 002 uses a
+new create-only runtime ledger and no-effect report ID
+`G8-RG04-REVIEW-PATH-PROBE-20261001-002`.
+
+The retry permits one Watcher start/stop, one exact response and one `NO_REPORT`
+continuation. Product source, the historical Watcher registry, Day/Go, model,
+credentials, RG-06, distribution and release remain unchanged and unauthorized.
+Any failure is retained and ends the attempt without repair. `NO_RELEASE` remains.

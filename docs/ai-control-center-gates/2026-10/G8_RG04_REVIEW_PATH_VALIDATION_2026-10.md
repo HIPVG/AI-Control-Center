@@ -8,6 +8,18 @@
 - **State:** `INPUT_BLOCKED_PRE_WATCHER`
 - **Release state:** `NO_RELEASE`
 
+## Attempt 002 authority and correction
+
+広瀬剛 authorized `UTH-G8-RG04-REVIEW-PATH-RETRY-20261001-001` exactly as
+typed. Revision 002 changes only the validation harness import boundary: before
+importing `backend`, it derives the canonical project root from the versioned script
+path and prepends that root to `sys.path`. It uses create-only runtime directory
+`state/rg04-review-path-validation-20261001-002/` and report ID
+`G8-RG04-REVIEW-PATH-PROBE-20261001-002`.
+
+The original pass/fail conditions remain unchanged. This is the sole retry. A
+failure retains evidence and stops without another repair. `NO_RELEASE` remains.
+
 ## Objective
 
 Establish whether the current GitHub Review Bridge PR #1, production

@@ -1,6 +1,20 @@
 # Current Work
 
-## Current checkpoint — G8 RG-04 blocked before Watcher start; retry authority required (2026-10-01)
+## Current checkpoint — G8 RG-04 revision 002 retry authorized (2026-10-01)
+
+広瀬剛 authorized the one-time retry as
+`UTH-G8-RG04-REVIEW-PATH-RETRY-20261001-001` exactly as typed. Correct only the
+validation harness import path, use create-only runtime directory
+`state/rg04-review-path-validation-20261001-002/`, and publish exactly one no-effect
+report `G8-RG04-REVIEW-PATH-PROBE-20261001-002`.
+
+On the one fully matching response, the fresh Codex continuation must make no file,
+product or external change and return only `NO_REPORT`. The harness must stop after
+one application or the first failure. Do not repair a failure. Preserve the existing
+Watcher registry byte-for-byte. RG-06 and release remain unauthorized and
+`NO_RELEASE` remains in force.
+
+## Historical checkpoint — G8 RG-04 blocked before Watcher start; retry authority required (2026-10-01)
 
 The first RG-04 validation process exited before constructing
 `ReviewerBusWatcher`: Python did not include the canonical project root in the
