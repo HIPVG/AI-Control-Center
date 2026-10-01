@@ -1,5 +1,24 @@
 # Engineering work history
 
+## 2026-10-02 — Cross-stage lessons published to the operating standard
+
+広瀬剛 requested that lessons from the G0–G8 development history be separated
+between normative operating-standard requirements and non-normative development
+TIPS, added upstream and pushed. Updated the standard's G4–G8, asynchronous work,
+Git, delivery, testing, authority and cost clauses. Added implementation guidance
+to the existing Operations Handbook and T24, T26, T30, T37, T39, T40, T49 and T50;
+no new template was introduced.
+
+The standard repository change is fixed at
+`18ca6b9207f3d526ead1e8851fae0a2a4f08cecf` on remote branch
+`codex/ai-control-center-lessons-20261002`. Generated selector artifacts were
+rebuilt. Source synchronization, all 50 canonical templates, 320 selector
+combinations, domain boundaries, monotonicity, export behavior, syntax and local
+links passed the repository verifier. An initial local count check incorrectly
+included five example files and reported 55; the corrected canonical-directory
+check reported 50. No service, Watcher, Task, Day/Go, model, credential, spending
+or release action occurred.
+
 ## 2026-10-02 — Local-only data and historical stashes organized
 
 広瀬剛 explicitly approved preservation-first cleanup after inspection found that
