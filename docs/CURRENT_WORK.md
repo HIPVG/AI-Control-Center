@@ -1,5 +1,20 @@
 # Current Work
 
+## Current checkpoint — G6 PR-02 revision 002 accepted; PR-03 authority pending (2026-10-01)
+
+Reviewer accepted `G6-PR02-COMPLETION-20261001-002` at reviewed commit
+`f49cb48f7dff34b02490fb467c3f8589712782b6`. Completed-run exact replay now returns
+`ALREADY_PROJECTED` without rewriting Evidence, telemetry, the Day snapshot or the
+RunRecord; conflicting Evidence or telemetry fails closed. The separately authorized
+additional focused execution passed 118 tests.
+
+PR-00, PR-01 and PR-02 are accepted within their respective deterministic fixture
+boundaries. The original shared G6 work window was approximately 29 of 30 active
+minutes before the PR-02 repair; the separate PR-02 repair window used approximately
+7 of 10 active minutes and does not authorize PR-03. Stop for a separate human
+decision on PR-03 work time. Do not start PR-03 or operate service/browser, Day/Go,
+model, Watcher, G7/G8 or product acceptance.
+
 ## Current checkpoint — G6 PR-02 replay rejection repaired (2026-10-01)
 
 Reviewer rejected `G6-PR02-COMPLETION-20261001-001` because exact replay regenerated

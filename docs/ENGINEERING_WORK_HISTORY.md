@@ -1,5 +1,22 @@
 # Engineering work history
 
+## 2026-10-01 — G6 PR-02 revision 002 accepted; stopped before PR-03
+
+Applied the complete `ACCEPT` response for
+`G6-PR02-COMPLETION-20261001-002` at reviewed commit
+`f49cb48f7dff34b02490fb467c3f8589712782b6`. The Reviewer confirmed that exact
+completed-run replay is resolved before Evidence persistence, candidate telemetry is
+compared without saving, and Evidence or telemetry conflicts fail closed. The
+serialized Day snapshot and RunRecord remain unchanged on exact replay and both
+conflict paths. The separately authorized focused execution passed 118 tests.
+
+PR-02 is complete only within its immutable-replay fixture boundary. The remaining
+minutes of the PR-02 repair authority do not transfer to PR-03, and the original
+shared G6 work window was already approximately 29 of 30 active minutes consumed.
+Stopped for separate human authority covering PR-03 work time. No PR-03,
+service/browser, Day/Go, model, Watcher, credential, spending, G7/G8 or
+product-acceptance action occurred.
+
 ## 2026-10-01 — G6 PR-02 immutable-replay rejection repaired
 
 Applied the complete rejection of `G6-PR02-COMPLETION-20261001-001`. The prior replay
