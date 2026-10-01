@@ -4165,3 +4165,18 @@ remaining scope limits are explicitly unfilled; RG-02/RG-05/RG-07 remain plannin
 statements. `NO_RELEASE` therefore remains in force. No execution, test,
 service/browser, Day/Go, model, Watcher, credential, spending, distribution or
 release operation occurred while recording the result.
+
+## 2026-10-01 — RG-01 local source artifact fixed for review
+
+広瀬剛 approved `AUTH-G8-RG01-ARTIFACT-20261001-001` with the direct message
+「承認します」, confirming the immediately preceding fully specified authority.
+From fixed build `656711367ed837ddbb75e6df65234a955e44900d`, generated local-only
+source artifact `AI-Control-Center-Day6-Bounded-RC1` twice with the same SHA-256
+`6453a213b0a48b827bbbc83ec2bdf1036515e6d857451473402cae3fb79f6714`.
+
+The 288,116-byte ZIP contains 124 selected fixed-commit files. It extracted
+successfully; no forbidden runtime state/log/evidence/grant/test path, prefix
+violation or credential pattern was found, and its tracked runtime mode is `mock`.
+The archive and verification copy remain under local managed state and are not staged
+or distributed. No service, Watcher, Day/Go, model, product test, credential, paid,
+RG-03/RG-04/RG-06 or release operation occurred.

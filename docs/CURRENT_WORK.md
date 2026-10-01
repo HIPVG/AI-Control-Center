@@ -1,19 +1,19 @@
 # Current Work
 
-## Current checkpoint — G8 GA-03 release-gate plan accepted; `NO_RELEASE` (2026-10-01)
+## Current checkpoint — G8 RG-01 local artifact fixed; review pending (2026-10-01)
 
-Reviewer accepted `G8-RELEASE-GATE-PLAN-20261001-001` for reviewed commit
-`2235c4c16d6f2d9650e7a491171d7a2772f7d112`. The accepted plan identifies the
-minimum future inputs for a local release decision without claiming that the Day 6
-demonstration is a release, all-Day acceptance, current Watcher evidence or measured
-cost evidence.
+Under `AUTH-G8-RG01-ARTIFACT-20261001-001`, fixed candidate build
+`656711367ed837ddbb75e6df65234a955e44900d` was packaged as local-only source
+artifact `AI-Control-Center-Day6-Bounded-RC1`. The primary and independent second
+generation match at SHA-256
+`6453a213b0a48b827bbbc83ec2bdf1036515e6d857451473402cae3fb79f6714`.
 
-Stop under `NO_RELEASE`. RG-01 (artifact/version), RG-03 (stop/rollback evidence),
-RG-04 (current review transport) and RG-06 (human disposition of scope limitations)
-remain unfilled; RG-02/RG-05/RG-07 are planning statements, not fixed operating
-evidence. Do not collect an input, start operations, issue a release decision,
-operate a service/Watcher, run Day/Go/model/tests, alter credentials or spend funds
-without a later separate explicit authority naming that boundary.
+The 288,116-byte archive contains 124 fixed-commit files. It extracts successfully;
+forbidden runtime state/log/evidence/grant/test paths and credential patterns were
+not found; tracked runtime mode remains `mock`. Submit the manifest and evidence for
+RG-01 review, then stop under `NO_RELEASE`. Do not distribute or push the archive,
+start a service/Watcher, run Day/Go/model/product tests, alter credentials, spend
+funds, or begin RG-03/RG-04/RG-06.
 
 ## Current checkpoint — G8 acceptance-and-release plan under review (2026-10-01)
 
