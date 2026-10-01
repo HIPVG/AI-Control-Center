@@ -1,6 +1,19 @@
 # Current Work
 
-## Current checkpoint — G8 RG-02/RG-05/RG-07 accepted; RG-03 authority pending (2026-10-01)
+## Current checkpoint — G8 RG-03 stop/rollback validation authorized (2026-10-01)
+
+広瀬剛 approved `AUTH-G8-RG03-STOP-ROLLBACK-20261001-001`. Validate only the fixed
+RG-01 candidate at the RG-02 path: preflight target absence and free port 8000,
+extract once, start once in mock mode on loopback, perform at most two read-only HTTP
+checks, stop the exact process tree once, confirm process/listener absence and retain
+state/log evidence. Fail closed without overwriting, stopping an existing listener,
+retrying or repairing.
+
+Limits: 20 ACTIVE_WORK minutes, one extraction/start/stop, two HTTP reads and 0 JPY.
+After the fixed RG-03 evidence and review pack are pushed, stop under `NO_RELEASE`.
+RG-04, RG-06 and release remain unauthorized.
+
+## Historical checkpoint — G8 RG-02/RG-05/RG-07 accepted; RG-03 authority pending (2026-10-01)
 
 Reviewer accepted `G8-OPERATING-ENVELOPE-COMPLETION-20261001-001` at reviewed
 commit `e5f772c7e2557fc2d9abc360e421df0b554214db`. RG-02, RG-05 and RG-07 are
