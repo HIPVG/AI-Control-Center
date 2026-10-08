@@ -112,8 +112,16 @@ new report to convey the later human instruction and revised plan. Never replay
 the old reply. Reviewers must state the concrete reason for a stop; recording a
 successful card alone is not a reason to terminate authorized stage work.
 
-Unless the human specifies otherwise, an autonomous work window is **30 minutes of
-ACTIVE_WORK**, not 30 minutes of wall-clock time.
+The direct human instruction recorded as AUTH-CONTINUOUS-REVIEW-20261005-001
+supersedes the former default 30-minute engineering work-window stop:
+「以降、人間確認のための30分ごとの停止は不要です。
+プロジェクト内レビュワーとの会話で進めてください。」
+Continue authorized project work through project-local reviewer dialogue,
+bounded corrections and re-review without periodic human reauthorization.
+Elapsed 25/30 minutes alone is not a stop or human-decision boundary.
+This changes the engineering-session stop, not product runtime deadlines,
+token/cost limits, retry limits, scope, or required evidence/review gates.
+Keep cumulative work/usage records; do not reset consumption on continuation.
 
 `ACTIVE_WORK` counts time spent implementing, validating, diagnosing, testing,
 analyzing, or producing the current bounded artifact/evidence. It does **not** count:
@@ -132,9 +140,8 @@ matching reviewer response was applied.
 - Do not exceed **15 minutes of ACTIVE_WORK** without a progress report.
 - Reset the 10-minute progress counter to zero when the matching reviewer response is
   fully read and applied.
-- At about 25 active minutes in a 30-active-minute window, do not start a new large
-  investigation/redesign; finish the current bounded evidence-producing action and
-  move toward a safe checkpoint.
+- Keep individual actions bounded and save at safe checkpoints, but do not end
+  authorized work merely to obtain periodic human confirmation.
 
 A `DECISION_REQUEST` or `COMPLETION_REPORT` is event-driven and is delivered
 immediately when its condition occurs; it never waits for the 10-minute progress timer.
@@ -205,6 +212,20 @@ next boundary.
 Do not ask the human for separate permission merely to send any report.
 
 ## Operational reviewer bus
+
+### Direct Control Tower routing for the active 8879 Day 3-14 operation (2026-10-08)
+
+The human directly instructed: 「では今後、Control Towerを使ってください。処理を進めてください。」 For the active isolated 8879 LocalLLM-Lab Day 3-14 operation, this instruction supersedes the GitHub event-driven Product Run Reviewer route described below.
+
+- Send new `PROGRESS_UPDATE`, `DECISION_REQUEST`, and `COMPLETION_REPORT` review requests to the existing Codex thread titled `[Control Tower]`.
+- Use exact `REPORT_ID` / `IN_REPLY_TO` correlation and read the complete Control Tower response before applying it.
+- The direct human instruction authorizes sending these review requests to `[Control Tower]` and returning its responses to the current 8879 operator task. Do not require the human to copy/paste responses.
+- Do not publish new reports for this operation to the Product Run Reviewer GitHub event task unless the human explicitly restores that route.
+- Preserve all prior PR comments, responses, receipts, and failed transport attempts as history. Do not delete or reinterpret them.
+- A Control Tower acceptance clears only the stated Day/report boundary. It does not create a new run, Day execution, model, budget, credential, Git, or external authority.
+- Use `REVIEWER_DELIVERY_CHANNEL: control_tower_chat` for reports routed under this override.
+
+The remaining GitHub reviewer-bus rules are retained for historical records and other operations that have not received this direct routing override.
 
 The normal machine-to-machine reviewer path is the validated GitHub event-driven bus:
 
@@ -526,7 +547,7 @@ Every reviewer-facing report must include at least:
 - `LOCAL_LLM_INVOCATIONS`
 - `BLOCKER` or `REMAINING_GAPS`
 - `NEXT_ACTION` / `NEXT_ACTION_AFTER_REVIEW`
-- `REVIEWER_DELIVERY_CHANNEL: github_event_pr|none`
+- `REVIEWER_DELIVERY_CHANNEL: control_tower_chat|github_event_pr|none`
 - `REVIEWER_DELIVERY_STATUS: delivered|pending|failed`
 - `MINIMUM_SUFFICIENT_ACTION: <the smallest next action>`
 - `WHY_NOT_BROADER: <why broader actions are unnecessary now>`
@@ -574,6 +595,7 @@ particular:
 - publication to operational PR #1 is successful reviewer-bus delivery because the
   validated GitHub event Task is the active reviewer trigger;
 - normal reviewer transport does not use the ChatGPT composer;
+- the active isolated 8879 Day 3-14 operation uses the direct `[Control Tower]` routing override recorded above;
 - successfully published progress reports pause execution until a matching reviewer
   response; publication failures do not revoke existing ordinary work authority;
 - waiting/reviewer latency is excluded from ACTIVE_WORK;
@@ -583,3 +605,47 @@ particular:
 When ambiguity remains, stop only if the ambiguity materially changes authority,
 scope, safety, evidence validity, or business/product direction. Otherwise choose the
 smallest safe interpretation that preserves forward progress.
+
+## Project-local self-review pilot (disabled 2026-10-05)
+
+The human explicitly disabled the project-local hooks after repeated
+`REVIEW_ACTION_MISMATCH` failures blocked ordinary read-only work and even prevented
+inspection needed to remove the hooks. Project configuration therefore sets
+`[features] hooks = false`. Do not re-enable, re-trust, or reconstruct the
+`UserPromptSubmit` or `PreToolUse` pilot hooks without a new explicit human request.
+The ordinary minimum-sufficient-action, authority, evidence and stop rules in this
+document remain in force; the pilot's per-tool `CONTROL_TOWER_REVIEW` packet is not
+required while the hooks are disabled.
+
+The human authorized a bounded same-chat self-review trial. Before ordinary tool
+actions, classify the action, relate it to the current purpose and next decision,
+check the existing authority, evidence/unknowns, minimum sufficient action and stop
+condition. Do not invoke an external Reviewer or ask the human to relay each action.
+The contract and activation limits are in `docs/CONTROL_TOWER_SELF_REVIEW_PILOT.md`.
+When trusted hooks are active, a local Python gate binds that self-review to the
+current human turn, canonical file hashes and exact tool arguments. A structural
+pass is not proof of semantic correctness, authority, execution or completion.
+This pilot does not alter blocking stage reviews, grant Day/runtime authority,
+enable the Watcher, or supersede sandbox/security approvals. Do not claim enforced
+operation until actual hook execution and positive/negative paths are observed.
+
+## Continuous gate progression (2026-10-04)
+
+The human explicitly instructed Codex not to stop at routine review or gate
+boundaries. Within an already approved product-change objective, Codex must carry
+review findings through correction, re-review and the next dependency-eligible gate
+without asking for a separate human approval merely because the gate number changes.
+
+A positive required review clears its gate. A review requesting bounded corrections
+starts those corrections and re-review inside the existing objective. A rejection is
+repaired when the required change remains within existing scope, authority and safety
+limits. Human interruption is reserved for a genuine `HUMAN_REQUIRED` boundary:
+new product direction, materially broader source/write scope, destructive action,
+credentials, new external effect or spending, unresolved security/compliance judgment,
+or another decision that only the human can make.
+
+This continuity rule does not waive required review, evidence, sandbox approval,
+runtime safety, or exact correlation. It removes routine human gate-transition
+approval and copy/paste relay. Day/Go, service, model, credential and external
+operations still require their applicable recorded authority; a gate transition by
+itself does not create that operational authority.
